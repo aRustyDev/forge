@@ -1,0 +1,51 @@
+# Private/sensitive data
+.mcp.json
+data/resume.sqlite.db
+data/resume.sqlite.db-*
+data/*.backup*
+vectors.db
+
+# Browser/cache data
+.playwright/
+.playwright-mcp/
+
+# Node.js
+node_modules/
+.npm/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.claude/scratch/*
+!.claude/scratch/.gitkeep
+
+# Tool results (large JSON files)
+.claude/projects/*/tool-results/
+
+# Local overrides
+*.local.md
+*.local.json
+CLAUDE.local.md
+
+# Environment files
+.env
+.env.*
+!.env.example

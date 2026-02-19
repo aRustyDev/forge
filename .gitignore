@@ -3,7 +3,27 @@
 data/resume.sqlite.db
 data/resume.sqlite.db-*
 data/*.backup*
+data/seed.sql
+data/resume.json
+data/portfolio.json
+data/resumes/
+data/dumps/
+data/repos/
+data/cv/
 vectors.db
+
+# Session/model files
+.claude_consciousness.m8
+.claude/models/
+
+# Personal directories
+jobs/
+notes/
+models/
+scratch.md
+
+# Separate projects (have own .mcp.json)
+crates/
 
 # Browser/cache data
 .playwright/

@@ -34,8 +34,11 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Scratch - keep SQL schemas, ignore the rest
 .claude/scratch/*
 !.claude/scratch/.gitkeep
+!.claude/scratch/*.sql
 
 # Tool results (large JSON files)
 .claude/projects/*/tool-results/

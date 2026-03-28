@@ -7,6 +7,83 @@ set dotenv-load := false
 default:
     @just --list
 
+# Job tracking paths
+jobs_dir := "/Users/adam/notes/zettelkasten/proj/job-hunting/jobs"
+list_script := "/Users/adam/notes/zettelkasten/proj/job-hunting/scripts/list_jobs.py"
+scripts_dir := "/Users/adam/notes/zettelkasten/proj/job-hunting/scripts"
+apps_dir := "/Users/adam/notes/zettelkasten/proj/job-hunting/applications"
+
+# =====================
+# JOB TRACKING
+# =====================
+
+# List all tracked jobs (filter: all, new, applied, closed, or org name)
+list-jobs filter="all":
+    @python3 {{list_script}} {{filter}}
+
+# Short hash of org/role path for unique filenames (8 chars)
+_hash dir:
+    @echo -n "{{dir}}" | shasum -a 256 | cut -c1-8
+
+# Export resume from MD to PDF via mdq + mustache + pdflatex
+# Output: adam-smith-resume-<hash>.pdf
+# Usage: just export-resume anthropic/forward-deployed-engineer-federal
+export-resume dir:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hash=$(echo -n "{{dir}}" | shasum -a 256 | cut -c1-8)
+    outname="adam-smith-resume-${hash}"
+    echo "Exporting {{dir}}/resume.md → ${outname}.pdf..."
+    cat {{apps_dir}}/{{dir}}/resume.md | mdq --output json '#' | python3 {{scripts_dir}}/md2json.py > /tmp/_resume_export.json
+    mustache /tmp/_resume_export.json {{scripts_dir}}/resume.tex.mustache > {{apps_dir}}/{{dir}}/resume.tex
+    docker run --rm -v "{{apps_dir}}/{{dir}}:/workspace" -w /workspace texlive/texlive:latest pdflatex -interaction=nonstopmode resume.tex > /dev/null 2>&1
+    mv {{apps_dir}}/{{dir}}/resume.pdf {{apps_dir}}/{{dir}}/${outname}.pdf
+    rm -f {{apps_dir}}/{{dir}}/resume.aux {{apps_dir}}/{{dir}}/resume.log {{apps_dir}}/{{dir}}/resume.out /tmp/_resume_export.json
+    echo "Done: {{apps_dir}}/{{dir}}/${outname}.pdf"
+
+# Export cover letter from MD to LaTeX to PDF
+# Output: adam-smith-coverletter-<hash>.pdf
+# Usage: just export-coverletter trm-labs/applied-ai-eng
+export-coverletter dir:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hash=$(echo -n "{{dir}}" | shasum -a 256 | cut -c1-8)
+    outname="adam-smith-coverletter-${hash}"
+    echo "Exporting {{dir}}/cover-letter.md → ${outname}.pdf..."
+    # Cover letter uses hand-crafted .tex (not mustache pipeline)
+    # Ensure .tex exists before compiling
+    if [[ ! -f {{apps_dir}}/{{dir}}/cover-letter.tex ]]; then
+        echo "ERROR: {{apps_dir}}/{{dir}}/cover-letter.tex not found. Create it first."
+        exit 1
+    fi
+    docker run --rm -v "{{apps_dir}}/{{dir}}:/workspace" -w /workspace texlive/texlive:latest pdflatex -interaction=nonstopmode cover-letter.tex > /dev/null 2>&1
+    mv {{apps_dir}}/{{dir}}/cover-letter.pdf {{apps_dir}}/{{dir}}/${outname}.pdf
+    rm -f {{apps_dir}}/{{dir}}/cover-letter.aux {{apps_dir}}/{{dir}}/cover-letter.log {{apps_dir}}/{{dir}}/cover-letter.out
+    echo "Done: {{apps_dir}}/{{dir}}/${outname}.pdf"
+
+# Export both resume and cover letter for a job
+# Usage: just export-all trm-labs/applied-ai-eng
+export-all dir:
+    just export-resume {{dir}}
+    just export-coverletter {{dir}}
+
+# =====================
+# PROSE RHYTHM ANALYSIS
+# =====================
+
+# Analyze prose rhythm for AI signal detection
+# Usage: just prose-rhythm trm-labs/applied-ai-eng/cover-letter.md
+prose-rhythm file:
+    @cat {{apps_dir}}/{{file}} | python3 {{scripts_dir}}/prose_rhythm.py
+
+# Analyze prose rhythm with JSON output
+prose-rhythm-json file:
+    @cat {{apps_dir}}/{{file}} | python3 {{scripts_dir}}/prose_rhythm.py --json
+
+# Compare prose rhythm against the accepted cybersec-rl baseline
+prose-rhythm-baseline file:
+    @cat {{apps_dir}}/{{file}} | python3 {{scripts_dir}}/prose_rhythm.py --baseline {{apps_dir}}/anthropic/cybersec-rl/cover-letter.md
+
 # Database paths
 db := "data/resume.sqlite.db"
 schema := "data/schema.sql"

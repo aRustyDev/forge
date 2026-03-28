@@ -1,38 +1,26 @@
-# Private/sensitive data
-.mcp.json
-data/resume.sqlite.db
-data/resume.sqlite.db-*
+# === Forge Resume Builder ===
+
+# Database
+data/*.db
+data/*.db-*
 data/*.backup*
-data/seed.sql
-data/resume.json
-data/portfolio.json
-data/resumes/
-data/dumps/
-data/repos/
-data/cv/
-vectors.db
 
-# Session/model files
-.claude_consciousness.m8
-.claude/models/
+# Environment
+.env
+.env.*
+!.env.example
 
-# Personal directories
-jobs/
-notes/
-models/
-scratch.md
+# Build output
+dist/
+target/
 
-# Separate projects (have own .mcp.json)
-crates/
-
-# Browser/cache data
-.playwright/
-.playwright-mcp/
-
-# Node.js
+# Dependencies
 node_modules/
 .npm/
 *.log
+
+# Brainstorm sessions
+.superpowers/
 
 # Python
 __pycache__/
@@ -55,20 +43,41 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Scratch - keep SQL schemas, ignore the rest
-.claude/scratch/*
-!.claude/scratch/.gitkeep
-!.claude/scratch/*.sql
-
-# Tool results (large JSON files)
-.claude/projects/*/tool-results/
-
 # Local overrides
 *.local.md
 *.local.json
 CLAUDE.local.md
 
-# Environment files
-.env
-.env.*
-!.env.example
+# Tool results (large JSON files)
+.claude/projects/*/tool-results/
+
+# Browser/cache data
+.playwright/
+.playwright-mcp/
+
+# === V1 Archive (untracked content) ===
+v1/data/resume.sqlite.db
+v1/data/resume.sqlite.db-*
+v1/data/*.backup*
+v1/data/seed.sql
+v1/data/resume.json
+v1/data/portfolio.json
+v1/data/resumes/
+v1/data/dumps/
+v1/data/repos/
+v1/data/cv/
+v1/vectors.db
+v1/crates/
+v1/.playwright/
+v1/.playwright-mcp/
+v1/.mcp.json
+v1/.claude_consciousness.m8
+v1/models/
+v1/jobs/
+v1/notes/
+v1/documents/
+v1/scratch.md
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

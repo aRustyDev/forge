@@ -25,28 +25,106 @@ export type UpdatedBy = 'human' | 'ai'
 /** Valid framing values for a Perspective. */
 export type Framing = 'accomplishment' | 'responsibility' | 'context'
 
-/** Valid section values for resume_perspectives. */
-export type ResumeSection = 'summary' | 'work_history' | 'projects' | 'education' | 'skills' | 'awards'
+/** Valid section values for resume entries. */
+export type ResumeSection =
+  | 'summary'
+  | 'experience'        // replaces work_history
+  | 'work_history'      // kept for backward compatibility
+  | 'projects'
+  | 'education'
+  | 'skills'
+  | 'certifications'
+  | 'clearance'
+  | 'presentations'
+  | 'awards'
+  | 'custom'
+
+/** Valid status values for organization tracking. */
+export type OrganizationStatus = 'interested' | 'review' | 'targeting' | 'excluded'
 
 /** Valid entity types for prompt logs. */
 export type PromptLogEntityType = 'bullet' | 'perspective'
 
+/** Valid source type discriminator values. */
+export type SourceType = 'role' | 'project' | 'education' | 'clearance' | 'general'
+
 // ── Core Entities ─────────────────────────────────────────────────────
 
-/** An employer organization. */
-export interface Employer {
+/** An organization (employer, school, etc.). */
+export interface Organization {
   id: string
   name: string
+  org_type: string
+  industry: string | null
+  size: string | null
+  worked: number
+  employment_type: string | null
+  location: string | null
+  headquarters: string | null
+  website: string | null
+  linkedin_url: string | null
+  glassdoor_url: string | null
+  glassdoor_rating: number | null
+  reputation_notes: string | null
+  notes: string | null
+  status: OrganizationStatus | null
   created_at: string
+  updated_at: string
 }
 
-/** A project, optionally linked to an employer. */
-export interface Project {
+/** Valid statuses for a JobDescription record. */
+export type JobDescriptionStatus =
+  | 'interested'
+  | 'analyzing'
+  | 'applied'
+  | 'interviewing'
+  | 'offered'
+  | 'rejected'
+  | 'withdrawn'
+  | 'closed'
+
+/** A stored job description for a target opportunity (base row). */
+export interface JobDescription {
   id: string
-  name: string
-  employer_id: string | null
-  description: string | null
+  organization_id: string | null
+  title: string
+  url: string | null
+  raw_text: string
+  status: JobDescriptionStatus
+  salary_range: string | null
+  location: string | null
+  notes: string | null
   created_at: string
+  updated_at: string
+}
+
+/** JobDescription with computed organization_name from JOIN. Used in API responses. */
+export interface JobDescriptionWithOrg extends JobDescription {
+  organization_name: string | null
+}
+
+/** Input for creating a new JobDescription. */
+export interface CreateJobDescription {
+  title: string
+  organization_id?: string
+  url?: string
+  raw_text: string
+  status?: JobDescriptionStatus
+  salary_range?: string
+  location?: string
+  notes?: string
+}
+
+/** Input for partially updating a JobDescription. */
+export interface UpdateJobDescription {
+  title?: string
+  organization_id?: string | null
+  url?: string | null
+  raw_text?: string
+  status?: JobDescriptionStatus
+  salary_range?: string | null
+  location?: string | null
+  notes?: string | null
 }
 
 /** A source experience entry — the root of the derivation chain. */
@@ -54,21 +132,70 @@ export interface Source {
   id: string
   title: string
   description: string
-  employer_id: string | null
-  project_id: string | null
+  source_type: SourceType
   start_date: string | null
   end_date: string | null
   status: SourceStatus
   updated_by: UpdatedBy
   last_derived_at: string | null
+  notes: string | null
   created_at: string
   updated_at: string
+}
+
+/** Role-specific details for a source with source_type='role'. */
+export interface SourceRole {
+  source_id: string
+  organization_id: string | null
+  start_date: string | null
+  end_date: string | null
+  is_current: number
+  work_arrangement: string | null
+  base_salary: number | null
+  total_comp_notes: string | null
+}
+
+/** Project-specific details for a source with source_type='project'. */
+export interface SourceProject {
+  source_id: string
+  organization_id: string | null
+  is_personal: number
+  url: string | null
+  start_date: string | null
+  end_date: string | null
+}
+
+/** Education-specific details for a source with source_type='education'. */
+export interface SourceEducation {
+  source_id: string
+  education_type: 'degree' | 'certificate' | 'course' | 'self_taught'
+  institution: string | null
+  field: string | null
+  start_date: string | null
+  end_date: string | null
+  is_in_progress: number
+  credential_id: string | null
+  expiration_date: string | null
+  issuing_body: string | null
+  url: string | null
+}
+
+/** Clearance-specific details for a source with source_type='clearance'. */
+export interface SourceClearance {
+  source_id: string
+  level: string
+  polygraph: string | null
+  status: string | null
+  sponsoring_agency: string | null
+  investigation_date: string | null
+  adjudication_date: string | null
+  reinvestigation_date: string | null
+  read_on: string | null
 }
 
 /** A bullet point derived from a source. */
 export interface Bullet {
   id: string
-  source_id: string
   content: string
   source_content_snapshot: string
   technologies: string[]
@@ -78,7 +205,16 @@ export interface Bullet {
   prompt_log_id: string | null
   approved_at: string | null
   approved_by: string | null
+  notes: string | null
+  domain: string | null
   created_at: string
+}
+
+/** Junction table linking bullets to sources. */
+export interface BulletSource {
+  bullet_id: string
+  source_id: string
+  is_primary: number
 }
 
 /** A perspective reframing of a bullet for a specific archetype/domain. */
@@ -95,6 +231,7 @@ export interface Perspective {
   prompt_log_id: string | null
   approved_at: string | null
   approved_by: string | null
+  notes: string | null
   created_at: string
 }
 
@@ -106,6 +243,78 @@ export interface Resume {
   target_employer: string
   archetype: string
   status: ResumeStatus
+  notes: string | null
+  header: string | null
+  markdown_override: string | null
+  markdown_override_updated_at: string | null
+  latex_override: string | null
+  latex_override_updated_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** A resume section entity — first-class section with user-defined title and enforced entry type. */
+export interface ResumeSectionEntity {
+  id: string
+  resume_id: string
+  title: string
+  entry_type: string
+  position: number
+  created_at: string
+  updated_at: string
+}
+
+/** A skill pinned to a resume section (skills-type sections). */
+export interface ResumeSkill {
+  id: string
+  section_id: string
+  skill_id: string
+  position: number
+  created_at: string
+}
+
+/** A resume template -- defines reusable section layouts without content. */
+export interface ResumeTemplate {
+  id: string
+  name: string
+  description: string | null
+  sections: TemplateSectionDef[]
+  is_builtin: number   // SQLite STRICT INTEGER: 0 | 1. Core keeps as number; SDK converts to boolean.
+  created_at: string
+  updated_at: string
+}
+
+/** A section definition within a template. */
+export interface TemplateSectionDef {
+  title: string
+  entry_type: string
+  position: number
+}
+
+/** Input for creating a resume template. */
+export interface CreateResumeTemplate {
+  name: string
+  description?: string
+  sections: TemplateSectionDef[]
+}
+
+/** Input for updating a resume template. */
+export interface UpdateResumeTemplate {
+  name?: string
+  description?: string | null
+  sections?: TemplateSectionDef[]
+}
+
+/** A resume entry linking a perspective to a resume section. */
+export interface ResumeEntry {
+  id: string
+  resume_id: string
+  section_id: string
+  perspective_id: string | null
+  content: string | null
+  perspective_content_snapshot: string | null
+  position: number
+  notes: string | null
   created_at: string
   updated_at: string
 }
@@ -123,6 +332,7 @@ export interface Skill {
   id: string
   name: string
   category: string | null
+  notes: string | null
 }
 
 /** An append-only log entry for AI prompt/response pairs. */
@@ -136,26 +346,141 @@ export interface PromptLog {
   created_at: string
 }
 
+/** A user-created note. */
+export interface UserNote {
+  id: string
+  title: string | null
+  content: string
+  created_at: string
+  updated_at: string
+}
+
+/** Valid entity types for note_references. Must match the CHECK constraint in the database. */
+export type NoteReferenceEntityType =
+  | 'source'
+  | 'bullet'
+  | 'perspective'
+  | 'resume_entry'
+  | 'resume'
+  | 'skill'
+  | 'organization'
+  | 'job_description'
+
+/** A reference linking a note to an entity. */
+export interface NoteReference {
+  note_id: string
+  entity_type: NoteReferenceEntityType
+  entity_id: string
+}
+
+// ── Domain & Archetype Entities ───────────────────────────────────────
+
+/** An editable experience domain. */
+export interface Domain {
+  id: string
+  name: string
+  description: string | null
+  created_at: string
+}
+
+/** An editable resume archetype. */
+export interface Archetype {
+  id: string
+  name: string
+  description: string | null
+  created_at: string
+}
+
+/** Junction linking an archetype to an expected domain. */
+export interface ArchetypeDomain {
+  archetype_id: string
+  domain_id: string
+  created_at: string
+}
+
+// ── User Profile ──────────────────────────────────────────────────────
+
+/** Global user profile — single source of truth for contact information. */
+export interface UserProfile {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  location: string | null
+  linkedin: string | null
+  github: string | null
+  website: string | null
+  clearance: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Input for partially updating the user profile. */
+export type UpdateProfile = Partial<Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>>
+
 // ── Input Types ───────────────────────────────────────────────────────
 
-/** Input for creating a new Source. */
+/** Input for creating a new Source (with optional extension fields). */
 export interface CreateSource {
   title: string
   description: string
-  employer_id?: string
-  project_id?: string
+  source_type?: SourceType
   start_date?: string
   end_date?: string
+  notes?: string
+  // Role extension fields
+  organization_id?: string
+  is_current?: number
+  work_arrangement?: string
+  base_salary?: number
+  total_comp_notes?: string
+  // Project extension fields
+  is_personal?: number
+  url?: string
+  // Education extension fields
+  education_type?: 'degree' | 'certificate' | 'course' | 'self_taught'
+  institution?: string
+  field?: string
+  is_in_progress?: number
+  credential_id?: string
+  expiration_date?: string
+  issuing_body?: string
+  // Clearance extension fields
+  level?: string
+  polygraph?: string
+  clearance_status?: string
+  sponsoring_agency?: string
 }
 
 /** Input for partially updating a Source. */
 export interface UpdateSource {
   title?: string
   description?: string
-  employer_id?: string | null
-  project_id?: string | null
   start_date?: string | null
   end_date?: string | null
+  notes?: string | null
+  // Role extension fields
+  organization_id?: string | null
+  is_current?: number
+  work_arrangement?: string | null
+  base_salary?: number | null
+  total_comp_notes?: string | null
+  // Project extension fields
+  is_personal?: number
+  url?: string | null
+  // Education extension fields
+  education_type?: 'degree' | 'certificate' | 'course' | 'self_taught'
+  institution?: string | null
+  field?: string | null
+  is_in_progress?: number
+  credential_id?: string | null
+  expiration_date?: string | null
+  issuing_body?: string | null
+  // Clearance extension fields
+  level?: string
+  polygraph?: string | null
+  clearance_status?: string | null
+  sponsoring_agency?: string | null
 }
 
 /** Input for deriving a perspective from a bullet. */
@@ -180,6 +505,9 @@ export interface UpdateResume {
   target_employer?: string
   archetype?: string
   status?: ResumeStatus
+  header?: string | null
+  markdown_override?: string | null
+  latex_override?: string | null
 }
 
 /** Input for adding a perspective to a resume. */
@@ -187,6 +515,15 @@ export interface AddResumePerspective {
   perspective_id: string
   section: string
   position: number
+}
+
+/** Input for adding a resume entry. */
+export interface AddResumeEntry {
+  section_id: string
+  perspective_id?: string
+  position: number
+  content?: string | null
+  notes?: string | null
 }
 
 /** Input for reordering all perspectives in a resume. */
@@ -235,16 +572,114 @@ export interface PaginationParams {
   limit?: number
 }
 
-// ── Rich Response Types ───────────────────────────────────────────────
+// ── Perspective Input Types ───────────────────────────────────────────
 
-/** A source with its bullet count. */
-export interface SourceWithBullets extends Source {
-  bullet_count: number
+/** Input for creating a new Perspective (used by PerspectiveRepository). */
+export interface CreatePerspectiveInput {
+  bullet_id: string
+  content: string
+  bullet_content_snapshot: string
+  target_archetype: string
+  domain: string
+  framing: Framing
+  status?: PerspectiveStatus
+  prompt_log_id?: string
 }
 
-/** A bullet with its parent source and perspective count. */
-export interface BulletWithRelations extends Bullet {
+/** Input for partially updating a Perspective. */
+export interface UpdatePerspectiveInput {
+  content?: string
+  target_archetype?: string
+  domain?: string
+  framing?: Framing
+}
+
+/** Filter options for listing perspectives. */
+export interface PerspectiveFilter {
+  bullet_id?: string
+  target_archetype?: string
+  domain?: string
+  framing?: Framing
+  status?: PerspectiveStatus
+  source_id?: string
+}
+
+// ── Audit Types ──────────────────────────────────────────────────────
+
+/** Full derivation chain trace from perspective back to source. */
+export interface ChainTrace {
+  perspective: Perspective
+  bullet: Bullet
   source: Source
+}
+
+/** Integrity check comparing content snapshots to current values. */
+export interface IntegrityReport {
+  perspective_id: string
+  bullet_snapshot_matches: boolean
+  source_snapshot_matches: boolean
+  bullet_diff?: { snapshot: string; current: string }
+  source_diff?: { snapshot: string; current: string }
+}
+
+// ── Gap Analysis Types ───────────────────────────────────────────────
+
+export interface GapAnalysis {
+  resume_id: string
+  archetype: string
+  target_role: string
+  target_employer: string
+  gaps: Gap[]
+  coverage_summary: CoverageSummary
+}
+
+export type Gap = MissingDomainGap | ThinCoverageGap | UnusedBulletGap
+
+export interface MissingDomainGap {
+  type: 'missing_domain_coverage'
+  domain: string
+  description: string
+  available_bullets: Array<{ id: string; content: string; source_title: string }>
+  recommendation: string
+}
+
+export interface ThinCoverageGap {
+  type: 'thin_coverage'
+  domain: string
+  current_count: number
+  description: string
+  recommendation: string
+}
+
+export interface UnusedBulletGap {
+  type: 'unused_bullet'
+  bullet_id: string
+  bullet_content: string
+  source_title: string
+  description: string
+  recommendation: string
+}
+
+export interface CoverageSummary {
+  perspectives_included: number
+  total_approved_perspectives_for_archetype: number
+  domains_represented: string[]
+  domains_missing: string[]
+}
+
+// ── Rich Response Types ───────────────────────────────────────────────
+
+/** A source with its polymorphic extension data. */
+export interface SourceWithExtension extends Source {
+  extension: SourceRole | SourceProject | SourceEducation | SourceClearance | null
+}
+
+/** A source with its associated bullets. */
+export interface SourceWithBullets extends Source {
+}
+
+/** A bullet with its perspective count. */
+export interface BulletWithRelations extends Bullet {
   perspective_count: number
 }
 
@@ -254,10 +689,172 @@ export interface PerspectiveWithChain extends Perspective {
   source: Source
 }
 
-/** A resume with perspectives grouped by section. */
-export interface ResumeWithPerspectives extends Resume {
-  sections: Record<string, Array<Perspective & { position: number }>>
+/** A resume with entries grouped by section. */
+export interface ResumeWithEntries extends Resume {
+  sections: Array<{
+    id: string
+    title: string
+    entry_type: string
+    position: number
+    entries: Array<ResumeEntry & { perspective_content: string | null }>
+  }>
 }
+
+/** @deprecated Use ResumeWithEntries instead. */
+export type ResumeWithPerspectives = ResumeWithEntries
+
+// ── Resume IR (Intermediate Representation) ───────────────────────────
+
+export interface ResumeDocument {
+  resume_id: string
+  header: ResumeHeader
+  sections: IRSection[]
+}
+
+export interface ResumeHeader {
+  name: string
+  tagline: string | null
+  location: string | null
+  email: string | null
+  phone: string | null
+  linkedin: string | null
+  github: string | null
+  website: string | null
+  clearance: string | null
+}
+
+export interface IRSection {
+  id: string
+  type: IRSectionType
+  title: string
+  display_order: number
+  items: IRSectionItem[]
+}
+
+export type IRSectionType =
+  | 'summary'
+  | 'experience'
+  | 'skills'
+  | 'education'
+  | 'projects'
+  | 'certifications'
+  | 'clearance'
+  | 'presentations'
+  | 'awards'
+  | 'freeform'
+  | 'custom'
+
+export type IRSectionItem =
+  | SummaryItem
+  | ExperienceGroup
+  | SkillGroup
+  | EducationItem
+  | ProjectItem
+  | CertificationGroup
+  | ClearanceItem
+  | PresentationItem
+
+export interface SummaryItem {
+  kind: 'summary'
+  content: string
+  entry_id: string | null
+}
+
+export interface ExperienceGroup {
+  kind: 'experience_group'
+  id: string
+  organization: string
+  subheadings: ExperienceSubheading[]
+}
+
+export interface ExperienceSubheading {
+  id: string
+  title: string
+  date_range: string
+  source_id: string | null
+  bullets: ExperienceBullet[]
+}
+
+export interface ExperienceBullet {
+  content: string
+  entry_id: string | null
+  source_chain?: {
+    source_id: string
+    source_title: string
+    bullet_id: string
+    bullet_preview: string
+    perspective_id: string
+    perspective_preview: string
+  }
+  is_cloned: boolean
+}
+
+export interface SkillGroup {
+  kind: 'skill_group'
+  categories: Array<{
+    label: string
+    skills: string[]
+  }>
+}
+
+export interface EducationItem {
+  kind: 'education'
+  institution: string
+  degree: string
+  date: string
+  entry_id: string | null
+  source_id: string | null
+}
+
+export interface ProjectItem {
+  kind: 'project'
+  name: string
+  date: string | null
+  entry_id: string | null
+  source_id: string | null
+  bullets: ExperienceBullet[]
+}
+
+export interface CertificationGroup {
+  kind: 'certification_group'
+  categories: Array<{
+    label: string
+    certs: Array<{
+      name: string
+      entry_id: string | null
+      source_id: string | null
+    }>
+  }>
+}
+
+export interface ClearanceItem {
+  kind: 'clearance'
+  content: string
+  entry_id: string | null
+  source_id: string | null
+}
+
+export interface PresentationItem {
+  kind: 'presentation'
+  title: string
+  venue: string
+  date: string | null
+  entry_id: string | null
+  source_id: string | null
+  bullets: ExperienceBullet[]
+}
+
+export interface LatexTemplate {
+  preamble: string
+  renderHeader: (header: ResumeHeader) => string
+  renderSection: (section: IRSection) => string
+  renderSectionFallback: (section: IRSection) => string
+  footer: string
+}
+
+export type LintResult =
+  | { ok: true }
+  | { ok: false; errors: string[] }
 
 // ── Review Queue ──────────────────────────────────────────────────────
 

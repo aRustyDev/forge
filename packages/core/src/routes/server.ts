@@ -1,0 +1,145 @@
+/**
+ * Hono app setup with middleware.
+ *
+ * Creates the app instance, adds middleware (CORS, request logging,
+ * X-Request-Id, error handler), and exports the createApp factory.
+ */
+
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import type { Database } from 'bun:sqlite'
+import type { Services } from '../services'
+import { logger } from '../lib/logger'
+import { sourceRoutes } from './sources'
+import { bulletRoutes } from './bullets'
+import { perspectiveRoutes } from './perspectives'
+import { resumeRoutes } from './resumes'
+import { reviewRoutes } from './review'
+import { supportingRoutes } from './supporting'
+import { auditRoutes } from './audit'
+import { organizationRoutes } from './organizations'
+import { noteRoutes } from './notes'
+import { integrityRoutes } from './integrity'
+import { domainRoutes } from './domains'
+import { archetypeRoutes } from './archetypes'
+import { jobDescriptionRoutes } from './job-descriptions'
+import { templateRoutes } from './templates'
+import { profileRoutes } from './profile'
+
+/** Map error codes to HTTP status codes. */
+export function mapStatusCode(code: string): number {
+  switch (code) {
+    case 'VALIDATION_ERROR':
+      return 400
+    case 'NOT_FOUND':
+      return 404
+    case 'CONFLICT':
+      return 409
+    case 'AI_ERROR':
+      return 502
+    case 'GATEWAY_TIMEOUT':
+      return 504
+    default:
+      return 500
+  }
+}
+
+/** Create the Hono app with all middleware and routes mounted. */
+export function createApp(services: Services, db: Database) {
+  const app = new Hono().basePath('/api')
+
+  // ── Middleware ──────────────────────────────────────────────────────
+
+  // CORS
+  app.use(
+    '*',
+    cors({
+      origin: process.env.NODE_ENV === 'production'
+        ? '*'  // same-origin in production (served from same server)
+        : ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    }),
+  )
+
+  // X-Request-Id + structured request logging
+  app.use('*', async (c, next) => {
+    const requestId = crypto.randomUUID()
+    c.set('requestId', requestId)
+    c.header('X-Request-Id', requestId)
+
+    const start = performance.now()
+    await next()
+    const duration_ms = Math.round((performance.now() - start) * 10) / 10
+
+    const fields = {
+      method: c.req.method,
+      path: c.req.path,
+      route: c.req.routePath ?? c.req.path,
+      status: c.res.status,
+      duration_ms,
+      request_id: requestId,
+    }
+
+    // Slow request detection: 200 response >500ms is a warn, not info
+    if (c.res.status >= 500) {
+      logger.error(fields)
+    } else if (c.res.status >= 400 || duration_ms > 500) {
+      logger.warn(fields)
+    } else {
+      logger.info(fields)
+    }
+  })
+
+  // ── Health check ───────────────────────────────────────────────────
+
+  app.get('/health', (c) => c.json({ status: 'ok' }))
+
+  // ── Routes ─────────────────────────────────────────────────────────
+
+  app.route('/', sourceRoutes(services))
+  app.route('/', bulletRoutes(services))
+  app.route('/', perspectiveRoutes(services))
+  app.route('/', resumeRoutes(services))
+  app.route('/', reviewRoutes(services))
+  app.route('/', supportingRoutes(services, db))
+  app.route('/', auditRoutes(services))
+  app.route('/', organizationRoutes(services))
+  app.route('/', noteRoutes(services))
+  app.route('/', integrityRoutes(services))
+  app.route('/', domainRoutes(services))
+  app.route('/', archetypeRoutes(services))
+  app.route('/', jobDescriptionRoutes(services))
+  app.route('/', templateRoutes(services))
+  app.route('/', profileRoutes(services))
+
+  // ── Global error handler ───────────────────────────────────────────
+
+  app.onError((err, c) => {
+    logger.error({
+      msg: 'Unhandled error',
+      error: err.message,
+      stack: process.env.NODE_ENV !== 'production' ? err.stack : undefined,
+    })
+    return c.json(
+      {
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: process.env.NODE_ENV === 'production'
+            ? 'Internal server error'
+            : err.message,
+        },
+      },
+      500,
+    )
+  })
+
+  // ── 404 fallback ───────────────────────────────────────────────────
+
+  app.notFound((c) =>
+    c.json(
+      { error: { code: 'NOT_FOUND', message: `Route not found: ${c.req.method} ${c.req.path}` } },
+      404,
+    ),
+  )
+
+  return app
+}

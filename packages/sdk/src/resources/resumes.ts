@@ -1,0 +1,264 @@
+import type {
+  AddResumeEntry,
+  CreateResume,
+  ForgeError,
+  GapAnalysis,
+  PaginatedResult,
+  PaginationParams,
+  RequestFn,
+  RequestListFn,
+  ResumeDocument,
+  ResumeEntry,
+  ResumeSectionEntity,
+  ResumeSkill,
+  ResumeTemplate,
+  ResumeWithEntries,
+  Result,
+  Resume,
+  UpdateResume,
+  UpdateResumeEntry,
+} from '../types'
+import type { DebugStore } from '../debug'
+
+function toParams(
+  filter?: object,
+): Record<string, string> | undefined {
+  if (!filter) return undefined
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(filter)) {
+    if (v !== undefined && v !== null) out[k] = String(v)
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+export class ResumesResource {
+  constructor(
+    private request: RequestFn,
+    private requestList: RequestListFn,
+    private baseUrl: string = '',
+    private debug?: DebugStore,
+  ) {}
+
+  create(input: CreateResume): Promise<Result<Resume>> {
+    return this.request<Resume>('POST', '/api/resumes', input)
+  }
+
+  list(pagination?: PaginationParams): Promise<PaginatedResult<Resume>> {
+    return this.requestList<Resume>(
+      'GET',
+      '/api/resumes',
+      toParams(pagination),
+    )
+  }
+
+  get(id: string): Promise<Result<ResumeWithEntries>> {
+    return this.request<ResumeWithEntries>('GET', `/api/resumes/${id}`)
+  }
+
+  update(id: string, input: UpdateResume): Promise<Result<Resume>> {
+    return this.request<Resume>('PATCH', `/api/resumes/${id}`, input)
+  }
+
+  delete(id: string): Promise<Result<void>> {
+    return this.request<void>('DELETE', `/api/resumes/${id}`)
+  }
+
+  // -- Entry methods (replace perspective methods) --
+
+  addEntry(
+    resumeId: string,
+    input: AddResumeEntry,
+  ): Promise<Result<ResumeEntry>> {
+    return this.request<ResumeEntry>(
+      'POST',
+      `/api/resumes/${resumeId}/entries`,
+      input,
+    )
+  }
+
+  listEntries(resumeId: string): Promise<Result<ResumeEntry[]>> {
+    return this.request<ResumeEntry[]>(
+      'GET',
+      `/api/resumes/${resumeId}/entries`,
+    )
+  }
+
+  updateEntry(
+    resumeId: string,
+    entryId: string,
+    input: UpdateResumeEntry,
+  ): Promise<Result<ResumeEntry>> {
+    return this.request<ResumeEntry>(
+      'PATCH',
+      `/api/resumes/${resumeId}/entries/${entryId}`,
+      input,
+    )
+  }
+
+  removeEntry(resumeId: string, entryId: string): Promise<Result<void>> {
+    return this.request<void>(
+      'DELETE',
+      `/api/resumes/${resumeId}/entries/${entryId}`,
+    )
+  }
+
+  // -- Section methods --
+
+  createSection(
+    resumeId: string,
+    input: { title: string; entry_type: string; position?: number },
+  ): Promise<Result<ResumeSectionEntity>> {
+    return this.request<ResumeSectionEntity>(
+      'POST',
+      `/api/resumes/${resumeId}/sections`,
+      input,
+    )
+  }
+
+  listSections(resumeId: string): Promise<Result<ResumeSectionEntity[]>> {
+    return this.request<ResumeSectionEntity[]>(
+      'GET',
+      `/api/resumes/${resumeId}/sections`,
+    )
+  }
+
+  updateSection(
+    resumeId: string,
+    sectionId: string,
+    input: { title?: string; position?: number },
+  ): Promise<Result<ResumeSectionEntity>> {
+    return this.request<ResumeSectionEntity>(
+      'PATCH',
+      `/api/resumes/${resumeId}/sections/${sectionId}`,
+      input,
+    )
+  }
+
+  deleteSection(resumeId: string, sectionId: string): Promise<Result<void>> {
+    return this.request<void>(
+      'DELETE',
+      `/api/resumes/${resumeId}/sections/${sectionId}`,
+    )
+  }
+
+  // -- Skills methods --
+
+  addSkill(
+    resumeId: string,
+    sectionId: string,
+    skillId: string,
+  ): Promise<Result<ResumeSkill>> {
+    return this.request<ResumeSkill>(
+      'POST',
+      `/api/resumes/${resumeId}/sections/${sectionId}/skills`,
+      { skill_id: skillId },
+    )
+  }
+
+  listSkills(
+    resumeId: string,
+    sectionId: string,
+  ): Promise<Result<ResumeSkill[]>> {
+    return this.request<ResumeSkill[]>(
+      'GET',
+      `/api/resumes/${resumeId}/sections/${sectionId}/skills`,
+    )
+  }
+
+  removeSkill(
+    resumeId: string,
+    sectionId: string,
+    skillId: string,
+  ): Promise<Result<void>> {
+    return this.request<void>(
+      'DELETE',
+      `/api/resumes/${resumeId}/sections/${sectionId}/skills/${skillId}`,
+    )
+  }
+
+  reorderSkills(
+    resumeId: string,
+    sectionId: string,
+    skills: Array<{ skill_id: string; position: number }>,
+  ): Promise<Result<void>> {
+    return this.request<void>(
+      'PATCH',
+      `/api/resumes/${resumeId}/sections/${sectionId}/skills/reorder`,
+      { skills },
+    )
+  }
+
+  gaps(id: string): Promise<Result<GapAnalysis>> {
+    return this.request<GapAnalysis>('GET', `/api/resumes/${id}/gaps`)
+  }
+
+  export(id: string): Promise<Result<never>> {
+    return this.request<never>('GET', `/api/resumes/${id}/export`)
+  }
+
+  // -- IR & override methods --
+
+  ir(id: string): Promise<Result<ResumeDocument>> {
+    return this.request<ResumeDocument>('GET', `/api/resumes/${id}/ir`)
+  }
+
+  updateHeader(id: string, header: Record<string, unknown>): Promise<Result<Resume>> {
+    return this.request<Resume>('PATCH', `/api/resumes/${id}/header`, header)
+  }
+
+  updateMarkdownOverride(id: string, content: string | null): Promise<Result<Resume>> {
+    return this.request<Resume>('PATCH', `/api/resumes/${id}/markdown-override`, { content })
+  }
+
+  updateLatexOverride(id: string, content: string | null): Promise<Result<Resume>> {
+    return this.request<Resume>('PATCH', `/api/resumes/${id}/latex-override`, { content })
+  }
+
+  async pdf(id: string, latex?: string): Promise<Result<Blob>> {
+    const path = `/api/resumes/${id}/pdf`
+    const method = 'POST'
+    const start = performance.now()
+
+    try {
+      const headers: Record<string, string> = {}
+      const body = latex ? JSON.stringify({ latex }) : undefined
+      if (body) headers['Content-Type'] = 'application/json'
+
+      const response = await fetch(`${this.baseUrl}${path}`, { method, headers, body })
+      const duration = Math.round(performance.now() - start)
+
+      if (response.ok) {
+        // Success — response is binary PDF
+        const blob = await response.blob()
+        if (this.debug?.logToConsole) {
+          console.debug(`[forge:sdk] ← ${method} ${path} ${response.status} ${duration}ms ok (${blob.size} bytes PDF)`)
+        }
+        return { ok: true, data: blob }
+      }
+
+      // Error — response is JSON envelope
+      const json = await response.json() as { error?: ForgeError }
+      const error = json.error ?? { code: 'UNKNOWN_ERROR', message: `HTTP ${response.status}` }
+      if (this.debug?.logToConsole) {
+        console.debug(`[forge:sdk] ← ${method} ${path} ${response.status} ${duration}ms ERROR ${error.code}`)
+      }
+      return { ok: false, error }
+    } catch (err) {
+      if (this.debug?.logToConsole) {
+        console.debug(`[forge:sdk] ✗ ${method} ${path} NETWORK_ERROR`)
+      }
+      return { ok: false, error: { code: 'NETWORK_ERROR', message: String(err) } }
+    }
+  }
+
+  saveAsTemplate(
+    resumeId: string,
+    input: { name: string; description?: string },
+  ): Promise<Result<ResumeTemplate>> {
+    return this.request<ResumeTemplate>(
+      'POST',
+      `/api/resumes/${resumeId}/save-as-template`,
+      input,
+    )
+  }
+}

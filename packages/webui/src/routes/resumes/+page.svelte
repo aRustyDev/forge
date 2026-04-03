@@ -11,6 +11,7 @@
   import PdfView from '$lib/components/resume/PdfView.svelte'
   import SkillsPicker from '$lib/components/resume/SkillsPicker.svelte'
   import SourcePicker from '$lib/components/resume/SourcePicker.svelte'
+  import SummaryPicker from '$lib/components/SummaryPicker.svelte'
 
   type ViewTab = 'dnd' | 'markdown' | 'latex' | 'pdf'
 
@@ -60,6 +61,10 @@
   let selectedTemplateId = $state<string | null>(null)
   let availableTemplates = $state<ResumeTemplate[]>([])
   let templatesLoaded = $state(false)
+
+  // Summary picker (shown after create)
+  let showSummaryPicker = $state(false)
+  let pendingResumeId = $state<string | null>(null)
 
   // Save as template modal
   let showSaveAsTemplate = $state(false)
@@ -236,6 +241,48 @@
     }
   }
 
+  // ---- Download Dropdown ----
+  let openDropdown: string | null = $state(null)
+
+  function toggleDropdown(id: string, event: MouseEvent) {
+    event.stopPropagation()
+    openDropdown = openDropdown === id ? null : id
+  }
+
+  function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  async function downloadResumeAs(id: string, fmt: 'pdf' | 'markdown' | 'latex' | 'json', event: MouseEvent) {
+    event.stopPropagation()
+    openDropdown = null
+
+    if (fmt === 'json') {
+      const result = await forge.export.resumeAsJson(id)
+      if (!result.ok) {
+        addToast({ type: 'error', message: result.error.message })
+        return
+      }
+      const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' })
+      triggerDownload(blob, `resume-${new Date().toISOString().slice(0, 10)}.json`)
+    } else {
+      const result = await forge.export.downloadResume(id, fmt)
+      if (!result.ok) {
+        addToast({ type: 'error', message: result.error.message })
+        return
+      }
+      const ext = fmt === 'pdf' ? 'pdf' : fmt === 'markdown' ? 'md' : 'tex'
+      triggerDownload(result.data, `resume-${new Date().toISOString().slice(0, 10)}.${ext}`)
+    }
+  }
+
   // ---- Actions ----
   function selectResume(id: string) {
     selectedResumeId = id
@@ -276,12 +323,11 @@
       }
       const result = await forge.resumes.create(body as any)
       if (result.ok) {
-        addToast({ message: 'Resume created', type: 'success' })
+        pendingResumeId = result.data.id
+        showSummaryPicker = true
         showCreateForm = false
         createForm = { name: '', target_role: '', target_employer: '', archetype: '' }
         selectedTemplateId = null
-        await loadResumes()
-        selectResume(result.data.id)
       } else {
         addToast({ message: friendlyError(result.error), type: 'error' })
       }
@@ -290,6 +336,35 @@
     } finally {
       creating = false
     }
+  }
+
+  async function handleSummaryPick(summaryId: string | null) {
+    showSummaryPicker = false
+    if (pendingResumeId && summaryId) {
+      // Link the picked/cloned summary to the new resume
+      const result = await forge.resumes.update(pendingResumeId, { summary_id: summaryId })
+      if (!result.ok) {
+        addToast({ message: friendlyError(result.error, 'Failed to link summary'), type: 'error' })
+      }
+    }
+    // Refresh the resume list and navigate to the new resume
+    await loadResumes()
+    if (pendingResumeId) {
+      selectResume(pendingResumeId)
+    }
+    pendingResumeId = null
+    addToast({ message: 'Resume created', type: 'success' })
+  }
+
+  function handleSummaryCancel() {
+    // User cancelled the picker — resume was already created, just close
+    showSummaryPicker = false
+    loadResumes()
+    if (pendingResumeId) {
+      selectResume(pendingResumeId)
+    }
+    pendingResumeId = null
+    addToast({ message: 'Resume created (no summary linked)', type: 'success' })
   }
 
   async function handleSaveAsTemplate() {
@@ -661,7 +736,22 @@
             <button class="resume-card" onclick={() => selectResume(resume.id)}>
               <div class="resume-card-header">
                 <span class="resume-name">{resume.name}</span>
-                <StatusBadge status={resume.status} />
+                <div class="resume-card-actions">
+                  <StatusBadge status={resume.status} />
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-download" onclick={(e) => toggleDropdown(resume.id, e)}>
+                      Download
+                    </button>
+                    {#if openDropdown === resume.id}
+                      <div class="dropdown-menu">
+                        <button onclick={(e) => downloadResumeAs(resume.id, 'pdf', e)}>PDF</button>
+                        <button onclick={(e) => downloadResumeAs(resume.id, 'markdown', e)}>Markdown</button>
+                        <button onclick={(e) => downloadResumeAs(resume.id, 'latex', e)}>LaTeX</button>
+                        <button onclick={(e) => downloadResumeAs(resume.id, 'json', e)}>JSON (IR)</button>
+                      </div>
+                    {/if}
+                  </div>
+                </div>
               </div>
               <div class="resume-card-meta">
                 <span class="meta-item">{resume.target_role}</span>
@@ -1125,6 +1215,13 @@
     </div>
   </div>
 {/if}
+
+<!-- Summary Picker (shown after resume creation) -->
+<SummaryPicker
+  open={showSummaryPicker}
+  onpick={handleSummaryPick}
+  oncancel={handleSummaryCancel}
+/>
 
 <style>
   /* ---- Layout ---- */
@@ -1834,5 +1931,61 @@
     margin-top: 1rem;
     padding-top: 0.75rem;
     border-top: 1px solid #e5e7eb;
+  }
+
+  /* ---- Download Dropdown ---- */
+
+  .resume-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .dropdown {
+    position: relative;
+  }
+
+  .btn-download {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.25rem;
+    background: white;
+    color: #374151;
+    cursor: pointer;
+  }
+
+  .btn-download:hover {
+    background: #f3f4f6;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 20;
+    min-width: 8rem;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    padding: 0.25rem 0;
+    margin-top: 0.25rem;
+  }
+
+  .dropdown-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #374151;
+  }
+
+  .dropdown-menu button:hover {
+    background: #f3f4f6;
   }
 </style>

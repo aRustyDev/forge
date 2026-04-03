@@ -613,22 +613,6 @@ describe('Resource clients', () => {
       expect(result).toEqual({ ok: true, data: gapAnalysis })
     })
 
-    it('export sends GET /api/resumes/:id/export', async () => {
-      const error = { code: 'NOT_IMPLEMENTED', message: 'Export not yet available' }
-      fetchMock.mockImplementation(() =>
-        Promise.resolve(jsonResponse({ error }, { status: 501 })),
-      )
-
-      const result = await client.resumes.export('r1')
-
-      expect(calledUrl(fetchMock)).toBe(
-        'http://localhost:3000/api/resumes/r1/export',
-      )
-      expect(result.ok).toBe(false)
-      if (!result.ok) {
-        expect(result.error.code).toBe('NOT_IMPLEMENTED')
-      }
-    })
   })
 
   // -----------------------------------------------------------------------
@@ -993,6 +977,119 @@ describe('Resource clients', () => {
         email: 'new@test.com',
       })
       expect(result).toEqual({ ok: true, data: updated })
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // summaries
+  // -----------------------------------------------------------------------
+
+  describe('summaries', () => {
+    it('create sends POST /api/summaries with body', async () => {
+      const created = { id: 'sum1', title: 'Test Summary', is_template: false }
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(jsonResponse({ data: created }, { status: 201 })),
+      )
+
+      const result = await client.summaries.create({ title: 'Test Summary' })
+
+      expect(calledUrl(fetchMock)).toBe('http://localhost:3000/api/summaries')
+      expect(calledInit(fetchMock).method).toBe('POST')
+      expect(result).toEqual({ ok: true, data: created })
+    })
+
+    it('list sends GET /api/summaries with no params', async () => {
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(
+          jsonResponse({ data: [], pagination: { total: 0, offset: 0, limit: 50 } }),
+        ),
+      )
+
+      await client.summaries.list()
+
+      expect(calledUrl(fetchMock)).toBe('http://localhost:3000/api/summaries')
+    })
+
+    it('list with is_template filter sends ?is_template=1', async () => {
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(
+          jsonResponse({ data: [], pagination: { total: 0, offset: 0, limit: 50 } }),
+        ),
+      )
+
+      await client.summaries.list({ is_template: true })
+
+      expect(calledUrl(fetchMock)).toContain('is_template=1')
+    })
+
+    it('list with is_template=false sends ?is_template=0', async () => {
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(
+          jsonResponse({ data: [], pagination: { total: 0, offset: 0, limit: 50 } }),
+        ),
+      )
+
+      await client.summaries.list({ is_template: false })
+
+      expect(calledUrl(fetchMock)).toContain('is_template=0')
+    })
+
+    it('list with pagination sends offset and limit', async () => {
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(
+          jsonResponse({ data: [], pagination: { total: 0, offset: 10, limit: 5 } }),
+        ),
+      )
+
+      await client.summaries.list({ offset: 10, limit: 5 })
+
+      expect(calledUrl(fetchMock)).toContain('offset=10')
+      expect(calledUrl(fetchMock)).toContain('limit=5')
+    })
+
+    it('get sends GET /api/summaries/:id', async () => {
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(jsonResponse({ data: { id: 'sum1' } })),
+      )
+
+      await client.summaries.get('sum1')
+
+      expect(calledUrl(fetchMock)).toBe('http://localhost:3000/api/summaries/sum1')
+      expect(calledInit(fetchMock).method).toBe('GET')
+    })
+
+    it('update sends PATCH /api/summaries/:id', async () => {
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(jsonResponse({ data: { id: 'sum1', title: 'Updated' } })),
+      )
+
+      await client.summaries.update('sum1', { title: 'Updated' })
+
+      expect(calledUrl(fetchMock)).toBe('http://localhost:3000/api/summaries/sum1')
+      expect(calledInit(fetchMock).method).toBe('PATCH')
+    })
+
+    it('delete sends DELETE /api/summaries/:id', async () => {
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(noContentResponse()),
+      )
+
+      await client.summaries.delete('sum1')
+
+      expect(calledUrl(fetchMock)).toBe('http://localhost:3000/api/summaries/sum1')
+      expect(calledInit(fetchMock).method).toBe('DELETE')
+    })
+
+    it('clone sends POST /api/summaries/:id/clone', async () => {
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(jsonResponse({ data: { id: 'sum2', title: 'Copy of Test' } }, { status: 201 })),
+      )
+
+      const result = await client.summaries.clone('sum1')
+
+      expect(calledUrl(fetchMock)).toBe('http://localhost:3000/api/summaries/sum1/clone')
+      expect(calledInit(fetchMock).method).toBe('POST')
+      expect(result).toEqual({ ok: true, data: { id: 'sum2', title: 'Copy of Test' } })
     })
   })
 })

@@ -154,6 +154,7 @@ export interface Resume {
   status: 'draft' | 'final'
   notes: string | null
   header: string | null
+  summary_id: string | null
   markdown_override: string | null
   markdown_override_updated_at: string | null
   latex_override: string | null
@@ -400,6 +401,52 @@ export interface UpdateArchetype {
 
 export interface ArchetypeWithDomains extends Archetype {
   domains: Domain[]
+}
+
+// ---------------------------------------------------------------------------
+// Summary entities
+// ---------------------------------------------------------------------------
+
+/** A reusable professional summary. */
+export interface Summary {
+  id: string
+  title: string
+  role: string | null
+  tagline: string | null
+  description: string | null
+  /** SQLite stores as 0|1 integer. JavaScript treats 0 as falsy and 1 as truthy,
+   *  so `if (summary.is_template)` works. Strict `=== true` will fail. */
+  is_template: boolean
+  /** Computed via subquery -- number of resumes with summary_id = this.id. */
+  linked_resume_count: number
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Input for creating a new Summary. */
+export interface CreateSummary {
+  title: string
+  role?: string
+  tagline?: string
+  description?: string
+  is_template?: boolean
+  notes?: string
+}
+
+/** Input for partially updating a Summary. */
+export interface UpdateSummary {
+  title?: string
+  role?: string | null
+  tagline?: string | null
+  description?: string | null
+  is_template?: boolean
+  notes?: string | null
+}
+
+/** Filter for listing summaries. */
+export interface SummaryFilter {
+  is_template?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -777,6 +824,7 @@ export interface CreateResume {
   target_role: string
   target_employer: string
   archetype: string
+  summary_id?: string
 }
 
 export interface UpdateResume {
@@ -787,6 +835,7 @@ export interface UpdateResume {
   status?: 'draft' | 'final'
   notes?: string | null
   header?: string | null
+  summary_id?: string | null
   markdown_override?: string | null
   latex_override?: string | null
 }
@@ -880,6 +929,25 @@ export interface OrganizationFilter {
   org_type?: string
   worked?: string
   status?: string
+}
+
+// ---------------------------------------------------------------------------
+// Export Types
+// ---------------------------------------------------------------------------
+
+export interface DataExportBundle {
+  forge_export: {
+    version: string
+    exported_at: string
+    entities: string[]
+  }
+  sources?: Source[]
+  bullets?: Bullet[]
+  perspectives?: Perspective[]
+  skills?: Skill[]
+  organizations?: Organization[]
+  summaries?: unknown[]
+  job_descriptions?: unknown[]
 }
 
 // ---------------------------------------------------------------------------

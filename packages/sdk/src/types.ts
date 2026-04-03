@@ -63,17 +63,35 @@ export interface SourceProject {
   end_date: string | null
 }
 
+// ── Education Sub-Type Unions ────────────────────────────────────────
+
+export type DegreeLevelType = 'associate' | 'bachelors' | 'masters' | 'doctoral' | 'graduate_certificate'
+export type CertificateSubtype = 'professional' | 'vendor' | 'completion'
+export type EducationType = 'degree' | 'certificate' | 'course' | 'self_taught'
+
 export interface SourceEducation {
-  education_type: 'degree' | 'certificate' | 'course' | 'self_taught'
+  education_type: EducationType
+  // Shared
+  organization_id: string | null
+  /** @deprecated Use organization_id. Kept for legacy reads. */
   institution: string | null
-  field: string | null
+  edu_description: string | null
+  location: string | null
   start_date: string | null
   end_date: string | null
+  url: string | null
+  // Degree-specific
+  degree_level: DegreeLevelType | null
+  degree_type: string | null
+  field: string | null
+  gpa: string | null
   is_in_progress: boolean
+  // Certificate-specific
+  certificate_subtype: CertificateSubtype | null
   credential_id: string | null
   expiration_date: string | null
+  /** @deprecated Use organization_id. Kept for legacy reads. */
   issuing_body: string | null
-  url: string | null
 }
 
 export interface SourceClearance {
@@ -163,10 +181,15 @@ export interface Resume {
   updated_at: string
 }
 
+export type OrgTag = 'company' | 'vendor' | 'platform' | 'university' | 'school'
+  | 'nonprofit' | 'government' | 'military' | 'conference'
+  | 'volunteer' | 'freelance' | 'other'
+
 export interface Organization {
   id: string
   name: string
   org_type: 'company' | 'nonprofit' | 'government' | 'military' | 'education' | 'volunteer' | 'freelance' | 'other'
+  tags: OrgTag[]
   industry: string | null
   size: string | null
   worked: boolean
@@ -179,7 +202,8 @@ export interface Organization {
   glassdoor_rating: number | null
   reputation_notes: string | null
   notes: string | null
-  status: 'interested' | 'review' | 'targeting' | 'excluded' | null
+  /** Pipeline status for org vetting. Backlog->Researching->Targeting (exciting/interested/acceptable)->Excluded. Null means not in the pipeline. */
+  status: 'backlog' | 'researching' | 'exciting' | 'interested' | 'acceptable' | 'excluded' | null
   created_at: string
   updated_at: string
 }
@@ -604,6 +628,17 @@ export interface EducationItem {
   date: string
   entry_id: string | null
   source_id: string | null
+  // New optional fields from education sub-types
+  education_type?: string
+  degree_level?: string | null
+  degree_type?: string | null
+  field?: string | null
+  gpa?: string | null
+  location?: string | null
+  credential_id?: string | null
+  issuing_body?: string | null
+  certificate_subtype?: string | null
+  edu_description?: string | null
 }
 
 export interface ProjectItem {
@@ -870,7 +905,7 @@ export interface CreateOrganization {
   glassdoor_rating?: number
   reputation_notes?: string
   notes?: string
-  status?: string
+  status?: 'backlog' | 'researching' | 'exciting' | 'interested' | 'acceptable' | 'excluded' | null
 }
 
 export interface UpdateOrganization {
@@ -888,7 +923,7 @@ export interface UpdateOrganization {
   glassdoor_rating?: number | null
   reputation_notes?: string | null
   notes?: string | null
-  status?: string | null
+  status?: 'backlog' | 'researching' | 'exciting' | 'interested' | 'acceptable' | 'excluded' | null
 }
 
 export interface CreateNote {
@@ -927,6 +962,7 @@ export interface PerspectiveFilter {
 
 export interface OrganizationFilter {
   org_type?: string
+  tag?: string
   worked?: string
   status?: string
 }

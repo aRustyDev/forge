@@ -1344,8 +1344,8 @@
   }
 
   .page-title {
-    font-size: 1.5rem;
-    font-weight: 700;
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
     color: var(--text-primary);
   }
 
@@ -1358,9 +1358,9 @@
   .btn {
     padding: 0.5rem 1rem;
     border: none;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
+    border-radius: var(--radius-md);
+    font-size: var(--text-base);
+    font-weight: var(--font-medium);
     cursor: pointer;
     transition: background 0.15s, opacity 0.15s;
     white-space: nowrap;
@@ -1375,11 +1375,11 @@
   .btn-ghost:hover { color: var(--text-secondary); background: var(--color-ghost); }
   .btn-danger { background: var(--color-danger-subtle); color: var(--color-danger); }
   .btn-danger:hover:not(:disabled) { background: var(--color-danger-subtle); }
-  .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.75rem; }
-  .btn-xs { padding: 0.2rem 0.4rem; font-size: 0.7rem; }
+  .btn-sm { padding: 0.3rem 0.6rem; font-size: var(--text-sm); }
+  .btn-xs { padding: 0.2rem 0.4rem; font-size: var(--text-xs); }
   .btn-add { background: var(--color-success-subtle); color: var(--color-success-strong); margin-top: 0.5rem; }
   .btn-add:hover { background: var(--color-success-subtle); }
-  .btn-back { font-size: 0.9rem; }
+  .btn-back { font-size: var(--text-base); }
 
   /* ---- Resume List ---- */
   .resume-list {
@@ -1412,7 +1412,7 @@
     margin-bottom: 0.35rem;
   }
 
-  .resume-name { font-weight: 600; font-size: 0.95rem; color: var(--text-primary); }
+  .resume-name { font-weight: var(--font-semibold); font-size: var(--text-base); color: var(--text-primary); }
 
   .resume-card-meta {
     font-size: 0.825rem;

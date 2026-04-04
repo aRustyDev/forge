@@ -69,6 +69,14 @@
   let aliasCountMap = $state<Map<string, number>>(new Map())
   let hqLocationMap = $state<Map<string, string>>(new Map())
 
+  // Grouping state — follows SourcesView education grouping pattern
+  let groupBy = $state<'flat' | 'by_org_type' | 'by_tag'>('flat')
+  let collapsedGroups = $state<Record<string, boolean>>({})
+
+  function toggleGroup(group: string) {
+    collapsedGroups[group] = !collapsedGroups[group]
+  }
+
   let filteredOrgs = $derived.by(() => {
     let result = organizations
     if (tagFilter !== 'all') {
@@ -79,6 +87,25 @@
       result = result.filter(o => o.name.toLowerCase().includes(q))
     }
     return result
+  })
+
+  let groupedOrgs = $derived.by(() => {
+    if (groupBy === 'flat') return null
+    const groups: Record<string, Organization[]> = {}
+
+    for (const org of filteredOrgs) {
+      let key: string
+      if (groupBy === 'by_org_type') {
+        key = org.org_type ?? 'other'
+      } else {
+        // by_tag: use first tag, or "No tags" if untagged
+        key = (org.tags && org.tags.length > 0) ? org.tags[0] : 'No tags'
+      }
+      if (!groups[key]) groups[key] = []
+      groups[key].push(org)
+    }
+
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
   })
 
   let selectedOrg = $derived(organizations.find(o => o.id === selectedId) ?? null)
@@ -424,6 +451,15 @@
       </select>
     </div>
 
+    <div class="group-bar">
+      <label for="org-group-by">Group by:</label>
+      <select id="org-group-by" bind:value={groupBy}>
+        <option value="flat">None</option>
+        <option value="by_org_type">Type</option>
+        <option value="by_tag">Tag</option>
+      </select>
+    </div>
+
     {#if loading}
       <div class="list-loading">
         <LoadingSpinner size="md" message="Loading organizations..." />
@@ -435,6 +471,50 @@
         action="New Organization"
         onaction={startNew}
       />
+    {:else if groupBy !== 'flat' && groupedOrgs}
+      {#each groupedOrgs as [groupName, groupOrgs]}
+        <div class="group-section">
+          <button class="group-header" onclick={() => toggleGroup(groupName)}>
+            <span class="group-chevron" class:collapsed={collapsedGroups[groupName]}>&#9656;</span>
+            <span class="group-label">{groupName.replace(/_/g, ' ')}</span>
+            <span class="group-count">{groupOrgs.length}</span>
+          </button>
+          {#if !collapsedGroups[groupName]}
+            <ul class="org-list">
+              {#each groupOrgs as org (org.id)}
+                <li>
+                  <button
+                    class="org-card"
+                    class:selected={selectedId === org.id}
+                    onclick={() => selectOrg(org.id)}
+                  >
+                    <div class="card-top">
+                      <span class="card-title">{org.name}</span>
+                      {#if aliasCountMap.get(org.id)}
+                        <span class="alias-count">({aliasCountMap.get(org.id)})</span>
+                      {/if}
+                      {#if org.worked}
+                        <span class="worked-badge">Worked</span>
+                      {/if}
+                    </div>
+                    <div class="card-tags">
+                      {#each (org.tags ?? []) as tag}
+                        <span class="tag-pill">{tag}</span>
+                      {/each}
+                    </div>
+                    {#if org.industry || hqLocationMap.get(org.id)}
+                      <div class="card-meta">
+                        {#if org.industry}<span class="meta-item">{org.industry}</span>{/if}
+                        {#if hqLocationMap.get(org.id)}<span class="meta-item">{hqLocationMap.get(org.id)}</span>{/if}
+                      </div>
+                    {/if}
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      {/each}
     {:else}
       <ul class="org-list">
         {#each filteredOrgs as org (org.id)}
@@ -812,42 +892,43 @@
   .orgs-page { display: flex; gap: 0; height: calc(100vh - 4rem); margin: -2rem; }
   .list-panel { width: 340px; flex-shrink: 0; border-right: 1px solid var(--color-border); background: var(--color-surface); display: flex; flex-direction: column; overflow: hidden; }
   .list-header { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1rem; border-bottom: 1px solid var(--color-border); }
-  .list-header h2 { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin: 0; }
-  .btn-new { padding: 0.35rem 0.75rem; background: var(--color-primary); color: var(--text-inverse); border: none; border-radius: 6px; font-size: 0.8rem; font-weight: 500; cursor: pointer; }
+  .list-header h2 { font-size: var(--text-xl); font-weight: var(--font-semibold); color: var(--text-primary); margin: 0; }
+  .btn-new { padding: 0.35rem 0.75rem; background: var(--color-primary); color: var(--text-inverse); border: none; border-radius: var(--radius-md); font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; }
   .btn-new:hover { background: var(--color-primary-hover); }
 
   .filter-bar { display: flex; gap: 0.5rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--color-border); }
-  .search-input { flex: 1; padding: 0.35rem 0.5rem; border: 1px solid var(--color-border-strong); border-radius: 5px; font-size: 0.78rem; }
+  .search-input { flex: 1; padding: 0.35rem 0.5rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-size: var(--text-sm); }
   .search-input:focus { outline: none; border-color: var(--color-border-focus); }
-  .filter-select { padding: 0.35rem 0.5rem; border: 1px solid var(--color-border-strong); border-radius: 5px; font-size: 0.78rem; }
+  .filter-select { padding: 0.35rem 0.5rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-size: var(--text-sm); }
   .filter-select:focus { outline: none; border-color: var(--color-border-focus); }
 
   .list-loading { display: flex; justify-content: center; padding: 3rem 1rem; }
-  .org-list { list-style: none; overflow-y: auto; flex: 1; padding: 0; margin: 0; }
+  .org-list { list-style: none; overflow-y: auto; flex: 1; padding: var(--space-2) 0; margin: 0; }
+  .org-list li { padding: 0 var(--space-3); margin-bottom: var(--space-1); }
 
-  .org-card { display: block; width: 100%; padding: 0.75rem 1rem; background: none; border: none; border-bottom: 1px solid var(--color-ghost); cursor: pointer; text-align: left; transition: background 0.12s; }
+  .org-card { display: block; width: 100%; padding: 0.75rem 1rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); cursor: pointer; text-align: left; transition: background 0.12s; }
   .org-card:hover { background: var(--color-surface-raised); }
   .org-card.selected { background: var(--color-primary-subtle); border-left: 3px solid var(--color-primary); padding-left: calc(1rem - 3px); }
 
   .card-top { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
-  .card-title { font-size: 0.875rem; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-  .worked-badge { display: inline-block; padding: 0.1em 0.4em; background: var(--color-success-subtle); color: var(--color-success-text); border-radius: 3px; font-size: 0.65rem; font-weight: 600; flex-shrink: 0; }
-  .alias-count { font-size: 0.65rem; color: var(--text-faint); font-weight: 400; flex-shrink: 0; }
+  .card-title { font-size: var(--text-base); font-weight: var(--font-medium); color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+  .worked-badge { display: inline-block; padding: 0.1em 0.4em; background: var(--color-success-subtle); color: var(--color-success-text); border-radius: var(--radius-sm); font-size: var(--text-xs); font-weight: var(--font-semibold); flex-shrink: 0; }
+  .alias-count { font-size: var(--text-xs); color: var(--text-faint); font-weight: var(--font-normal); flex-shrink: 0; }
 
   .card-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 0.2rem; }
-  .tag-pill { display: inline-block; padding: 0.1em 0.4em; background: var(--color-tag-bg); color: var(--color-tag-text); border-radius: 3px; font-size: 0.6rem; font-weight: 500; text-transform: capitalize; }
+  .tag-pill { display: inline-block; padding: 0.1em 0.4em; background: var(--color-tag-bg); color: var(--color-tag-text); border-radius: var(--radius-sm); font-size: var(--text-xs); font-weight: var(--font-medium); text-transform: capitalize; }
 
   .card-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .meta-item { font-size: 0.72rem; color: var(--text-muted); }
+  .meta-item { font-size: var(--text-xs); color: var(--text-muted); }
 
   /* Editor */
   .editor-panel { flex: 1; overflow-y: auto; background: var(--color-surface); }
-  .editor-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-faint); font-size: 0.95rem; }
+  .editor-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-faint); font-size: var(--text-base); }
   .editor-content { max-width: 640px; padding: 2rem; }
-  .editor-heading { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1.5rem; }
+  .editor-heading { font-size: var(--text-xl); font-weight: var(--font-semibold); color: var(--text-primary); margin-bottom: 1.5rem; }
 
   .form-group { margin-bottom: 1.25rem; }
-  .form-group label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.35rem; }
+  .form-group label { display: block; font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-secondary); margin-bottom: 0.35rem; }
   .checkbox-group label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
   .required { color: var(--color-danger); }
 
@@ -855,7 +936,7 @@
   .form-group input[type='url'],
   .form-group input[type='number'],
   .form-group textarea,
-  .form-group select { width: 100%; padding: 0.5rem 0.65rem; border: 1px solid var(--color-border-strong); border-radius: 6px; font-size: 0.875rem; color: var(--text-primary); background: var(--color-surface); font-family: inherit; }
+  .form-group select { width: 100%; padding: 0.5rem 0.65rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-size: var(--text-base); color: var(--text-primary); background: var(--color-surface); font-family: inherit; }
 
   .form-group input:focus,
   .form-group textarea:focus,
@@ -866,52 +947,121 @@
   .form-row .form-group { flex: 1; }
 
   .tag-grid { display: flex; flex-wrap: wrap; gap: 0.4rem 0.8rem; }
-  .tag-check { display: flex; align-items: center; gap: 0.25rem; font-size: 0.8rem; color: var(--text-secondary); cursor: pointer; }
+  .tag-check { display: flex; align-items: center; gap: 0.25rem; font-size: var(--text-sm); color: var(--text-secondary); cursor: pointer; }
   .tag-check input[type='checkbox'] { margin: 0; }
 
   .editor-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--color-border); }
-  .btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1.1rem; border: none; border-radius: 6px; font-size: 0.85rem; font-weight: 500; cursor: pointer; }
+  .btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1.1rem; border: none; border-radius: var(--radius-md); font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; }
   .btn:disabled { opacity: 0.6; cursor: not-allowed; }
   .btn-save { background: var(--color-primary); color: var(--text-inverse); }
   .btn-save:hover:not(:disabled) { background: var(--color-primary-hover); }
-  .btn-sm { padding: 0.35rem 0.8rem; font-size: 0.8rem; }
+  .btn-sm { padding: 0.35rem 0.8rem; font-size: var(--text-sm); }
 
   /* Campuses */
   .campuses-section { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--color-border); }
   .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
-  .section-header h4 { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-secondary); }
-  .btn-new-sm { padding: 0.25rem 0.6rem; background: var(--color-primary); color: var(--text-inverse); border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 500; }
+  .section-header h4 { margin: 0; font-size: var(--text-base); font-weight: var(--font-semibold); color: var(--text-secondary); }
+  .btn-new-sm { padding: 0.25rem 0.6rem; background: var(--color-primary); color: var(--text-inverse); border: none; border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-sm); font-weight: var(--font-medium); }
   .btn-new-sm:hover { background: var(--color-primary-hover); }
-  .campus-add-form { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; }
-  .campus-empty { font-size: 0.8rem; color: var(--text-faint); font-style: italic; margin: 0; }
+  .campus-add-form { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 0.75rem; }
+  .campus-empty { font-size: var(--text-sm); color: var(--text-faint); font-style: italic; margin: 0; }
   .campus-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem; }
-  .campus-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: 6px; }
+  .campus-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
   .campus-info { display: flex; flex-wrap: wrap; gap: 0.3rem 0.75rem; align-items: center; flex: 1; min-width: 0; }
-  .campus-name { font-weight: 500; font-size: 0.85rem; color: var(--text-primary); }
-  .campus-modality { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 3px; background: var(--color-tag-bg); color: var(--color-tag-text); }
-  .campus-location { font-size: 0.75rem; color: var(--text-muted); }
-  .campus-address { font-size: 0.7rem; color: var(--text-faint); }
-  .btn-delete-sm { background: none; border: none; color: var(--color-border-strong); cursor: pointer; font-size: 1.1rem; padding: 0.2rem 0.4rem; border-radius: 4px; line-height: 1; }
-  .campus-hq-badge { font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 3px; background: var(--color-warning-bg); color: var(--color-warning-text); font-weight: 600; }
+  .campus-name { font-weight: var(--font-medium); font-size: var(--text-sm); color: var(--text-primary); }
+  .campus-modality { font-size: var(--text-xs); padding: 0.1rem 0.4rem; border-radius: var(--radius-sm); background: var(--color-tag-bg); color: var(--color-tag-text); }
+  .campus-location { font-size: var(--text-sm); color: var(--text-muted); }
+  .campus-address { font-size: var(--text-xs); color: var(--text-faint); }
+  .btn-delete-sm { background: none; border: none; color: var(--color-border-strong); cursor: pointer; font-size: var(--text-xl); padding: 0.2rem 0.4rem; border-radius: var(--radius-sm); line-height: 1; }
+  .campus-hq-badge { font-size: var(--text-xs); padding: 0.1rem 0.35rem; border-radius: var(--radius-sm); background: var(--color-warning-bg); color: var(--color-warning-text); font-weight: var(--font-semibold); }
   .alias-add-row { display: flex; gap: 0.4rem; margin-bottom: 0.5rem; }
-  .alias-add-row input { flex: 1; padding: 0.35rem 0.5rem; border: 1px solid var(--color-border-strong); border-radius: 5px; font-size: 0.8rem; }
+  .alias-add-row input { flex: 1; padding: 0.35rem 0.5rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-size: var(--text-sm); }
   .alias-add-row input:focus { outline: none; border-color: var(--color-border-focus); }
   .alias-pills { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-  .alias-pill { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.15rem 0.5rem; background: var(--color-tag-bg); color: var(--color-tag-text); border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
-  .alias-remove { background: none; border: none; color: var(--color-primary); cursor: pointer; font-size: 0.85rem; padding: 0; line-height: 1; }
+  .alias-pill { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.15rem 0.5rem; background: var(--color-tag-bg); color: var(--color-tag-text); border-radius: var(--radius-full); font-size: var(--text-sm); font-weight: var(--font-medium); }
+  .alias-remove { background: none; border: none; color: var(--color-primary); cursor: pointer; font-size: var(--text-sm); padding: 0; line-height: 1; }
   .alias-remove:hover { color: var(--color-danger); }
   .btn-delete-sm:hover { color: var(--color-danger); background: var(--color-danger-subtle); }
+
+  .campus-edit-form label { display: block; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 0.15rem; }
+  .campus-edit-form input, .campus-edit-form select { width: 100%; padding: 0.3rem 0.5rem; font-size: var(--text-sm); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); }
   .btn-delete { background: var(--color-danger-subtle); color: var(--color-danger-text); margin-left: auto; }
   .btn-delete:hover { background: var(--color-danger-subtle); }
   .campus-editing { padding: 0.75rem; }
   .campus-edit-form { width: 100%; }
   .campus-edit-form .form-row { display: flex; gap: 0.5rem; margin-bottom: 0.4rem; }
   .campus-edit-form .form-group { flex: 1; min-width: 0; }
-  .campus-edit-form label { display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.15rem; }
-  .campus-edit-form input, .campus-edit-form select { width: 100%; padding: 0.3rem 0.5rem; font-size: 0.8rem; border: 1px solid var(--color-border-strong); border-radius: 4px; }
   .campus-edit-actions { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
   .campus-info[role="button"] { cursor: pointer; }
   .campus-info[role="button"]:hover { opacity: 0.8; }
   .btn-cancel { background: var(--color-ghost); color: var(--text-secondary); border: 1px solid var(--color-border-strong); }
   .btn-cancel:hover:not(:disabled) { background: var(--color-ghost-hover); }
+
+  /* Group bar and collapsible sections */
+  .group-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+
+  .group-bar select {
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    background: var(--color-surface);
+    color: var(--text-primary);
+  }
+
+  .group-section {
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-surface-sunken);
+    border: none;
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+  }
+
+  .group-header:hover {
+    background: var(--color-surface-raised);
+  }
+
+  .group-chevron {
+    display: inline-block;
+    transition: transform 0.15s ease;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+
+  .group-chevron.collapsed {
+    transform: rotate(0deg);
+  }
+
+  .group-chevron:not(.collapsed) {
+    transform: rotate(90deg);
+  }
+
+  .group-label {
+    text-transform: capitalize;
+  }
+
+  .group-count {
+    margin-left: auto;
+    font-size: var(--text-xs);
+    color: var(--text-faint);
+    font-weight: var(--font-normal);
+  }
 </style>

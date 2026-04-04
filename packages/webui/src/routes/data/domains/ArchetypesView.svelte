@@ -554,7 +554,7 @@
   }
 
   .btn-danger:hover:not(:disabled) {
-    background: #fecaca;
+    background: var(--color-danger-subtle);
   }
 
   .btn:disabled {

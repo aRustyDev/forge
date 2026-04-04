@@ -61,13 +61,5 @@ export const navigation: NavEntry[] = [
       { href: '/resumes/templates', label: 'Templates' },
     ],
   },
-  {
-    label: 'Config',
-    prefix: '/config',
-    children: [
-      { href: '/config/profile', label: 'Profile' },
-      { href: '/config/export', label: 'Export' },
-      { href: '/config/debug', label: 'Debug (Logs)' },
-    ],
-  },
+  // Config nav group removed — all config access through profile menu
 ]

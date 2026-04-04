@@ -263,50 +263,50 @@
 <style>
   .templates-page { max-width: 900px; }
   .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
-  .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; }
-  .subtitle { font-size: 0.85rem; color: var(--text-muted); }
+  .page-title { font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--text-primary); margin-bottom: var(--space-1); }
+  .subtitle { font-size: var(--text-sm); color: var(--text-muted); }
 
-  .btn { padding: 0.4rem 0.8rem; border: 1px solid var(--color-border-strong); border-radius: 6px; background: var(--color-surface); cursor: pointer; font-size: 0.85rem; }
+  .btn { padding: 0.4rem 0.8rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface); cursor: pointer; font-size: var(--text-sm); }
   .btn:hover { background: var(--color-surface-raised); }
   .btn-primary { background: var(--color-info); color: var(--text-inverse); border-color: var(--color-info); }
   .btn-primary:hover { background: var(--color-info-text); }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-outline { background: transparent; border: 1px dashed var(--text-faint); color: var(--text-muted); margin-top: 0.5rem; }
   .btn-outline:hover { border-color: var(--color-info); color: var(--color-info); }
-  .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+  .btn-sm { padding: 0.25rem 0.5rem; font-size: var(--text-sm); }
   .btn-danger { color: var(--color-danger-hover); border-color: var(--color-danger); }
   .btn-danger:hover { background: var(--color-danger-subtle); }
   .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn-icon { background: none; border: none; cursor: pointer; padding: 0.2rem 0.4rem; font-size: 0.75rem; color: var(--text-muted); }
+  .btn-icon { background: none; border: none; cursor: pointer; padding: 0.2rem 0.4rem; font-size: var(--text-sm); color: var(--text-muted); }
   .btn-icon:hover { color: var(--text-primary); }
   .btn-icon:disabled { opacity: 0.3; cursor: not-allowed; }
   .btn-icon.btn-danger { color: var(--color-danger-hover); }
 
-  .form-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 1.5rem; }
-  .form-card h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }
-  .form-card h3 { font-size: 0.95rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+  .form-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1.5rem; }
+  .form-card h2 { font-size: var(--text-xl); font-weight: var(--font-semibold); margin-bottom: 1rem; }
+  .form-card h3 { font-size: var(--text-base); font-weight: var(--font-semibold); margin: 1rem 0 0.5rem; }
   .form-group { margin-bottom: 0.75rem; }
-  .form-group label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem; color: var(--text-secondary); }
-  .form-group input, .form-group textarea { width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--color-border-strong); border-radius: 6px; font-size: 0.85rem; }
+  .form-group label { display: block; font-size: var(--text-sm); font-weight: var(--font-medium); margin-bottom: 0.25rem; color: var(--text-secondary); }
+  .form-group input, .form-group textarea { width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-size: var(--text-sm); }
   .form-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--color-border); }
 
   .section-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
-  .section-num { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); min-width: 1.5rem; }
-  .section-title-input { flex: 1; padding: 0.35rem 0.5rem; border: 1px solid var(--color-border-strong); border-radius: 6px; font-size: 0.85rem; }
-  .section-type-select { padding: 0.35rem 0.5rem; border: 1px solid var(--color-border-strong); border-radius: 6px; font-size: 0.85rem; background: var(--color-surface); }
+  .section-num { font-size: var(--text-sm); font-weight: var(--font-semibold); color: var(--text-muted); min-width: 1.5rem; }
+  .section-title-input { flex: 1; padding: 0.35rem 0.5rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-size: var(--text-sm); }
+  .section-type-select { padding: 0.35rem 0.5rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-size: var(--text-sm); background: var(--color-surface); }
   .section-actions { display: flex; gap: 0.15rem; }
 
   .template-list { display: flex; flex-direction: column; gap: 0.75rem; }
-  .template-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 1rem; }
+  .template-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1rem; }
   .template-header { display: flex; justify-content: space-between; align-items: flex-start; }
   .template-title { display: flex; align-items: center; gap: 0.5rem; }
-  .template-title h3 { font-size: 1rem; font-weight: 600; margin: 0; }
+  .template-title h3 { font-size: var(--text-lg); font-weight: var(--font-semibold); margin: 0; }
   .template-actions { display: flex; gap: 0.25rem; }
-  .template-desc { font-size: 0.85rem; color: var(--text-muted); margin: 0.25rem 0 0.5rem; }
+  .template-desc { font-size: var(--text-sm); color: var(--text-muted); margin: 0.25rem 0 0.5rem; }
   .template-sections { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
-  .section-tag { font-size: 0.8rem; background: var(--color-ghost); padding: 0.2rem 0.5rem; border-radius: 4px; color: var(--text-secondary); }
+  .section-tag { font-size: var(--text-sm); background: var(--color-ghost); padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); color: var(--text-secondary); }
   .section-tag small { color: var(--text-faint); }
 
-  .badge { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600; }
+  .badge { font-size: var(--text-xs); padding: 0.1rem 0.4rem; border-radius: var(--radius-sm); font-weight: var(--font-semibold); }
   .badge-builtin { background: var(--color-info-subtle); color: var(--color-info-text); }
 </style>

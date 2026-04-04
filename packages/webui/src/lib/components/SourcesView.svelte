@@ -740,7 +740,9 @@
       <StatusBadge status={source.status} />
     </div>
     <div class="card-meta">
-      <span class="type-badge type-{source.source_type}">{source.source_type}</span>
+      {#if !sourceTypeFilter}
+        <span class="type-badge type-{source.source_type}">{source.source_type}</span>
+      {/if}
       {#if source.source_type === 'project' && source.project?.is_personal}
         <span class="personal-badge">Personal</span>
       {/if}

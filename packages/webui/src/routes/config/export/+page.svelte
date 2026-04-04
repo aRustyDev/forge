@@ -271,8 +271,8 @@
   .export-section {
     margin-bottom: 3rem;
     padding: 1.5rem;
-    border: 1px solid var(--border, #e2e8f0);
-    border-radius: 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
   }
 
   .export-section h2 {
@@ -295,17 +295,17 @@
 
   .format-btn {
     padding: 0.375rem 0.75rem;
-    border: 1px solid var(--border, #e2e8f0);
+    border: 1px solid var(--color-border);
     background: transparent;
     cursor: pointer;
-    border-radius: 0.25rem;
-    font-size: 0.875rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-base);
   }
 
   .format-btn.active {
-    background: var(--primary, #3b82f6);
-    color: white;
-    border-color: var(--primary, #3b82f6);
+    background: var(--color-primary);
+    color: var(--text-inverse);
+    border-color: var(--color-primary);
   }
 
   .entity-checkboxes {
@@ -330,17 +330,17 @@
 
   .btn {
     padding: 0.5rem 1rem;
-    border: 1px solid var(--border, #e2e8f0);
-    border-radius: 0.375rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     cursor: pointer;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
     background: transparent;
   }
 
   .btn-primary {
-    background: var(--primary, #3b82f6);
-    color: white;
-    border-color: var(--primary, #3b82f6);
+    background: var(--color-primary);
+    color: var(--text-inverse);
+    border-color: var(--color-primary);
   }
 
   .btn-primary:disabled {
@@ -350,19 +350,19 @@
 
   .btn-sm {
     padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
+    font-size: var(--text-sm);
   }
 
   .error {
-    color: var(--error, #ef4444);
-    font-size: 0.875rem;
+    color: var(--color-danger);
+    font-size: var(--text-base);
     margin-top: 0.5rem;
   }
 
   code {
-    background: var(--code-bg, #f1f5f9);
+    background: var(--color-surface-sunken);
     padding: 0.125rem 0.375rem;
-    border-radius: 0.25rem;
-    font-size: 0.875rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-base);
   }
 </style>

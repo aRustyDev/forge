@@ -16,8 +16,8 @@ describe('nav', () => {
   })
 
   describe('navigation', () => {
-    it('has 6 top-level entries', () => {
-      expect(navigation).toHaveLength(6)
+    it('has 5 top-level entries', () => {
+      expect(navigation).toHaveLength(5)
     })
 
     it('starts with Dashboard as a plain link', () => {
@@ -48,17 +48,17 @@ describe('nav', () => {
     })
 
     it('has Resumes group with 3 children', () => {
-      const resumes = navigation[4]
-      expect(isNavGroup(resumes)).toBe(true)
-      expect((resumes as NavGroup).label).toBe('Resumes')
-      expect((resumes as NavGroup).children).toHaveLength(3)
+      const res = navigation[4]
+      expect(isNavGroup(res)).toBe(true)
+      expect((res as NavGroup).label).toBe('Resumes')
+      expect((res as NavGroup).children).toHaveLength(3)
     })
 
-    it('has Config group with 3 children', () => {
-      const config = navigation[5]
-      expect(isNavGroup(config)).toBe(true)
-      expect((config as NavGroup).label).toBe('Config')
-      expect((config as NavGroup).children).toHaveLength(3)
+    it('does not contain Config group', () => {
+      const labels = navigation
+        .filter(isNavGroup)
+        .map((g: NavGroup) => g.label)
+      expect(labels).not.toContain('Config')
     })
 
     it('all hrefs start with /', () => {

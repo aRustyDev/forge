@@ -1236,7 +1236,7 @@
     display: flex;
     justify-content: flex-end;
     padding: 0.5rem 1rem;
-    border-bottom: 1px solid var(--color-border, #e5e7eb);
+    border-bottom: 1px solid var(--color-border);
   }
 
   .sources-page {

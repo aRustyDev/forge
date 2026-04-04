@@ -351,8 +351,8 @@
   }
 
   .list-header h2 {
-    font-size: 1.1rem;
-    font-weight: 600;
+    font-size: var(--text-xl);
+    font-weight: var(--font-semibold);
     color: var(--text-primary);
   }
 
@@ -361,9 +361,9 @@
     background: var(--color-primary);
     color: var(--color-surface);
     border: none;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 500;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
     cursor: pointer;
     transition: background 0.15s;
     white-space: nowrap;
@@ -380,8 +380,8 @@
     width: 100%;
     padding: 0.4rem 0.65rem;
     border: 1px solid var(--color-border-strong);
-    border-radius: 5px;
-    font-size: 0.8rem;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
     color: var(--text-primary);
   }
 
@@ -401,15 +401,21 @@
     list-style: none;
     overflow-y: auto;
     flex: 1;
+    padding: var(--space-2) 0;
+  }
+
+  .note-list li {
+    padding: 0 var(--space-3);
+    margin-bottom: var(--space-1);
   }
 
   .note-card {
     display: block;
     width: 100%;
     padding: 0.75rem 1rem;
-    background: none;
-    border: none;
-    border-bottom: 1px solid var(--color-ghost);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     cursor: pointer;
     text-align: left;
     transition: background 0.12s;
@@ -432,8 +438,8 @@
   }
 
   .card-title {
-    font-size: 0.875rem;
-    font-weight: 500;
+    font-size: var(--text-base);
+    font-weight: var(--font-medium);
     color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -443,13 +449,13 @@
   }
 
   .card-date {
-    font-size: 0.7rem;
+    font-size: var(--text-xs);
     color: var(--text-faint);
     flex-shrink: 0;
   }
 
   .card-preview {
-    font-size: 0.75rem;
+    font-size: var(--text-sm);
     color: var(--text-muted);
     line-height: 1.4;
     margin-bottom: 0.25rem;
@@ -464,18 +470,18 @@
   .ref-tag {
     display: inline-block;
     padding: 0.1em 0.35em;
-    border-radius: 3px;
-    font-size: 0.6rem;
-    font-weight: 600;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
     text-transform: uppercase;
     letter-spacing: 0.03em;
   }
 
   .ref-source { background: var(--color-info-border); color: var(--color-info-text); }
-  .ref-bullet { background: #ede9fe; color: #5b21b6; }
-  .ref-perspective { background: #d1fae5; color: var(--color-success-text); }
+  .ref-bullet { background: #ede9fe; color: #5b21b6; } /* semantic: no token -- bullet reference type color */
+  .ref-perspective { background: #d1fae5; color: var(--color-success-text); } /* semantic: no token -- perspective reference type color */
   .ref-resume_entry { background: var(--color-warning-bg); color: var(--color-warning-text); }
-  .ref-resume { background: #fce7f3; color: #9d174d; }
+  .ref-resume { background: #fce7f3; color: #9d174d; } /* semantic: no token -- resume reference type color */
   .ref-skill { background: var(--color-tag-bg); color: var(--color-tag-text); }
   .ref-organization { background: var(--color-tag-neutral-bg); color: var(--color-tag-neutral-text); }
 
@@ -492,7 +498,7 @@
     justify-content: center;
     height: 100%;
     color: var(--text-faint);
-    font-size: 0.95rem;
+    font-size: var(--text-base);
   }
 
   .editor-content {
@@ -501,8 +507,8 @@
   }
 
   .editor-heading {
-    font-size: 1.1rem;
-    font-weight: 600;
+    font-size: var(--text-xl);
+    font-weight: var(--font-semibold);
     color: var(--text-primary);
     margin-bottom: 1.5rem;
   }
@@ -513,8 +519,8 @@
 
   .form-group label {
     display: block;
-    font-size: 0.8rem;
-    font-weight: 500;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
     color: var(--text-secondary);
     margin-bottom: 0.35rem;
   }
@@ -526,8 +532,8 @@
     width: 100%;
     padding: 0.5rem 0.65rem;
     border: 1px solid var(--color-border-strong);
-    border-radius: 6px;
-    font-size: 0.875rem;
+    border-radius: var(--radius-md);
+    font-size: var(--text-base);
     color: var(--text-primary);
     background: var(--color-surface);
     transition: border-color 0.15s;
@@ -554,14 +560,14 @@
   }
 
   .references-section h4 {
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
     color: var(--text-secondary);
     margin-bottom: 0.75rem;
   }
 
   .no-refs {
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
     color: var(--text-faint);
     font-style: italic;
     margin-bottom: 0.5rem;
@@ -580,11 +586,11 @@
     gap: 0.5rem;
     padding: 0.35rem 0.5rem;
     background: var(--color-surface-raised);
-    border-radius: 5px;
+    border-radius: var(--radius-md);
   }
 
   .ref-id {
-    font-size: 0.75rem;
+    font-size: var(--text-sm);
     color: var(--text-muted);
     font-family: monospace;
     flex: 1;
@@ -602,8 +608,8 @@
   .ref-picker input {
     padding: 0.35rem 0.5rem;
     border: 1px solid var(--color-border-strong);
-    border-radius: 5px;
-    font-size: 0.78rem;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
     color: var(--text-secondary);
   }
 
@@ -633,9 +639,9 @@
     gap: 0.4rem;
     padding: 0.5rem 1.1rem;
     border: none;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    font-weight: 500;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
     cursor: pointer;
     transition: background 0.15s, opacity 0.15s;
   }
@@ -644,11 +650,11 @@
   .btn-save { background: var(--color-primary); color: var(--color-surface); }
   .btn-save:hover:not(:disabled) { background: var(--color-primary-hover); }
   .btn-delete { background: var(--color-danger-subtle); color: var(--color-danger-text); margin-left: auto; }
-  .btn-delete:hover { background: #fecaca; }
+  .btn-delete:hover { background: var(--color-danger-subtle); }
 
   .btn-sm {
     padding: 0.3rem 0.6rem;
-    font-size: 0.75rem;
+    font-size: var(--text-sm);
   }
 
   .btn-primary { background: var(--color-primary); color: var(--color-surface); }
@@ -656,7 +662,7 @@
   .btn-ghost { background: transparent; color: var(--text-muted); }
   .btn-ghost:hover { color: var(--text-secondary); background: var(--color-ghost); }
   .btn-danger { background: var(--color-danger-subtle); color: var(--color-danger-text); }
-  .btn-danger:hover { background: #fecaca; }
+  .btn-danger:hover { background: var(--color-danger-subtle); }
   .btn-add { background: var(--color-success-subtle); color: var(--color-success-strong); margin-top: 0.5rem; }
-  .btn-add:hover { background: #dcfce7; }
+  .btn-add:hover { background: var(--color-success-subtle); }
 </style>

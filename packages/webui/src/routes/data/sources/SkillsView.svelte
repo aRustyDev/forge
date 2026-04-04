@@ -21,6 +21,14 @@
   let formCategory = $state('general')
   let formNotes = $state('')
 
+  // Grouping state — follows SourcesView education grouping pattern
+  let groupBy = $state<'flat' | 'by_category'>('flat')
+  let collapsedGroups = $state<Record<string, boolean>>({})
+
+  function toggleGroup(group: string) {
+    collapsedGroups[group] = !collapsedGroups[group]
+  }
+
   let filteredSkills = $derived.by(() => {
     let result = skills
     if (categoryFilter !== 'all') {
@@ -31,6 +39,18 @@
       result = result.filter(s => s.name.toLowerCase().includes(q))
     }
     return result
+  })
+
+  let groupedSkills = $derived.by(() => {
+    if (groupBy !== 'by_category') return null
+    const groups: Record<string, Skill[]> = {}
+    for (const skill of filteredSkills) {
+      const cat = skill.category ?? 'general'
+      if (!groups[cat]) groups[cat] = []
+      groups[cat].push(skill)
+    }
+    // Sort groups alphabetically by category name
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
   })
 
   let selectedSkill = $derived(skills.find(s => s.id === selectedId) ?? null)
@@ -176,6 +196,14 @@
       </select>
     </div>
 
+    <div class="group-bar">
+      <label for="skill-group-by">Group by:</label>
+      <select id="skill-group-by" bind:value={groupBy}>
+        <option value="flat">None</option>
+        <option value="by_category">Category</option>
+      </select>
+    </div>
+
     {#if loading}
       <div class="list-loading">
         <LoadingSpinner size="md" message="Loading skills..." />
@@ -187,6 +215,34 @@
         action={!searchQuery ? 'New Skill' : undefined}
         onaction={!searchQuery ? startNew : undefined}
       />
+    {:else if groupBy === 'by_category' && groupedSkills}
+      {#each groupedSkills as [category, categorySkills]}
+        <div class="group-section">
+          <button class="group-header" onclick={() => toggleGroup(category)}>
+            <span class="group-chevron" class:collapsed={collapsedGroups[category]}>&#9656;</span>
+            <span class="group-label">{category.replace(/_/g, ' ')}</span>
+            <span class="group-count">{categorySkills.length}</span>
+          </button>
+          {#if !collapsedGroups[category]}
+            <ul class="skill-list">
+              {#each categorySkills as skill (skill.id)}
+                <li>
+                  <button
+                    class="skill-card"
+                    class:selected={selectedId === skill.id}
+                    onclick={() => selectSkill(skill.id)}
+                  >
+                    <span class="card-title">{skill.name}</span>
+                    {#if skill.category}
+                      <span class="category-badge">{skill.category.replace(/_/g, ' ')}</span>
+                    {/if}
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      {/each}
     {:else}
       <ul class="skill-list">
         {#each filteredSkills as skill (skill.id)}
@@ -292,8 +348,8 @@
   }
 
   .list-header h2 {
-    font-size: 1.1rem;
-    font-weight: 600;
+    font-size: var(--text-xl);
+    font-weight: var(--font-semibold);
     color: var(--text-primary);
   }
 
@@ -302,9 +358,9 @@
     background: var(--color-primary);
     color: var(--text-inverse);
     border: none;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 500;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
     cursor: pointer;
     transition: background 0.15s;
     white-space: nowrap;
@@ -323,8 +379,8 @@
   .search-input {
     padding: 0.4rem 0.65rem;
     border: 1px solid var(--color-border-strong);
-    border-radius: 5px;
-    font-size: 0.8rem;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
     color: var(--text-primary);
   }
 
@@ -337,8 +393,8 @@
   .filter-select {
     padding: 0.35rem 0.5rem;
     border: 1px solid var(--color-border-strong);
-    border-radius: 5px;
-    font-size: 0.78rem;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
     color: var(--text-secondary);
     background: var(--color-surface);
   }
@@ -358,6 +414,12 @@
     list-style: none;
     overflow-y: auto;
     flex: 1;
+    padding: var(--space-2) 0;
+  }
+
+  .skill-list li {
+    padding: 0 var(--space-3);
+    margin-bottom: var(--space-1);
   }
 
   .skill-card {
@@ -366,9 +428,9 @@
     justify-content: space-between;
     width: 100%;
     padding: 0.65rem 1rem;
-    background: none;
-    border: none;
-    border-bottom: 1px solid var(--color-ghost);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     cursor: pointer;
     text-align: left;
     transition: background 0.12s;
@@ -384,8 +446,8 @@
   }
 
   .card-title {
-    font-size: 0.875rem;
-    font-weight: 500;
+    font-size: var(--text-base);
+    font-weight: var(--font-medium);
     color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -399,9 +461,9 @@
     padding: 0.1em 0.4em;
     background: var(--color-tag-bg);
     color: var(--color-tag-text);
-    border-radius: 3px;
-    font-size: 0.65rem;
-    font-weight: 600;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
     text-transform: uppercase;
     letter-spacing: 0.03em;
     flex-shrink: 0;
@@ -420,7 +482,7 @@
     justify-content: center;
     height: 100%;
     color: var(--text-faint);
-    font-size: 0.95rem;
+    font-size: var(--text-base);
   }
 
   .editor-content {
@@ -430,8 +492,8 @@
 
   .editor-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
   .editor-heading {
-    font-size: 1.1rem;
-    font-weight: 600;
+    font-size: var(--text-xl);
+    font-weight: var(--font-semibold);
     color: var(--text-primary);
     margin: 0;
     margin-bottom: 1.5rem;
@@ -443,8 +505,8 @@
 
   .form-group label {
     display: block;
-    font-size: 0.8rem;
-    font-weight: 500;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
     color: var(--text-secondary);
     margin-bottom: 0.35rem;
   }
@@ -457,8 +519,8 @@
     width: 100%;
     padding: 0.5rem 0.65rem;
     border: 1px solid var(--color-border-strong);
-    border-radius: 6px;
-    font-size: 0.875rem;
+    border-radius: var(--radius-md);
+    font-size: var(--text-base);
     color: var(--text-primary);
     background: var(--color-surface);
     transition: border-color 0.15s;
@@ -502,9 +564,9 @@
     gap: 0.4rem;
     padding: 0.5rem 1.1rem;
     border: none;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    font-weight: 500;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
     cursor: pointer;
     transition: background 0.15s, opacity 0.15s;
   }
@@ -514,8 +576,76 @@
   .btn-save:hover:not(:disabled) { background: var(--color-primary-hover); }
   .btn-cancel { background: var(--color-ghost); color: var(--text-muted); }
   .btn-cancel:hover { background: var(--color-ghost-hover); }
-  .btn-edit { padding: 0.3rem 0.7rem; background: var(--color-tag-bg); color: var(--color-tag-text); border: none; border-radius: 5px; font-size: 0.78rem; font-weight: 500; cursor: pointer; }
+  .btn-edit { padding: 0.3rem 0.7rem; background: var(--color-tag-bg); color: var(--color-tag-text); border: none; border-radius: var(--radius-md); font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; }
   .btn-edit:hover { background: var(--color-primary-subtle); }
   .btn-delete { background: var(--color-danger-subtle); color: var(--color-danger-text); margin-left: auto; }
   .btn-delete:hover { background: var(--color-danger-subtle); }
+
+  /* Group bar and collapsible sections */
+  .group-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+
+  .group-bar select {
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    background: var(--color-surface);
+    color: var(--text-primary);
+  }
+
+  .group-section {
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-surface-sunken);
+    border: none;
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+  }
+
+  .group-header:hover {
+    background: var(--color-surface-raised);
+  }
+
+  .group-chevron {
+    display: inline-block;
+    transition: transform 0.15s ease;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+
+  .group-chevron.collapsed {
+    transform: rotate(0deg);
+  }
+
+  .group-chevron:not(.collapsed) {
+    transform: rotate(90deg);
+  }
+
+  .group-label {
+    text-transform: capitalize;
+  }
+
+  .group-count {
+    margin-left: auto;
+    font-size: var(--text-xs);
+    color: var(--text-faint);
+    font-weight: var(--font-normal);
+  }
 </style>

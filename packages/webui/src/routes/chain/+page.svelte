@@ -14,15 +14,15 @@
   }
 
   .page-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #1a1a2e;
-    margin-bottom: 0.25rem;
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
+    margin-bottom: var(--space-1);
   }
 
   .page-description {
-    font-size: 0.85rem;
-    color: #6b7280;
-    margin-bottom: 1.5rem;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin-bottom: var(--space-6);
   }
 </style>

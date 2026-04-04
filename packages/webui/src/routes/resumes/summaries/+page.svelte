@@ -250,13 +250,13 @@
     align-items: flex-start;
     margin-bottom: 1.5rem;
   }
-  .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; }
-  .subtitle { font-size: 0.85rem; color: var(--text-muted); }
+  .page-title { font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--text-primary); margin-bottom: var(--space-1); }
+  .subtitle { font-size: var(--text-sm); color: var(--text-muted); }
 
   .section { margin-bottom: 2rem; }
   .section-title {
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
     color: var(--text-secondary);
     margin-bottom: 0.75rem;
     display: flex;
@@ -264,13 +264,13 @@
     gap: 0.5rem;
   }
   .star { color: var(--color-template-star); }
-  .empty-note { color: var(--text-muted); font-size: 0.85rem; }
+  .empty-note { color: var(--text-muted); font-size: var(--text-sm); }
 
   .summary-list { display: flex; flex-direction: column; gap: 0.5rem; }
 
   .summary-card {
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
     padding: 1rem;
     background: var(--color-surface);
   }
@@ -291,25 +291,25 @@
     gap: 0.5rem;
   }
   .summary-title {
-    font-size: 0.9rem;
-    font-weight: 600;
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
     color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .resume-count {
-    font-size: 0.75rem;
+    font-size: var(--text-sm);
     color: var(--text-muted);
     white-space: nowrap;
   }
   .summary-role {
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
     color: var(--text-secondary);
     margin-top: 0.25rem;
   }
   .summary-tagline {
-    font-size: 0.75rem;
+    font-size: var(--text-sm);
     color: var(--text-muted);
     font-style: italic;
     margin-top: 0.125rem;
@@ -324,12 +324,12 @@
 
   .edit-form { display: flex; flex-direction: column; gap: 0.75rem; }
   .form-field { display: flex; flex-direction: column; gap: 0.25rem; }
-  .field-label { font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); }
+  .field-label { font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-secondary); }
   .field-input {
     padding: 0.375rem 0.625rem;
     border: 1px solid var(--color-border-strong);
-    border-radius: 4px;
-    font-size: 0.85rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
   }
   .field-input:focus {
     outline: none;
@@ -338,9 +338,9 @@
   }
 
   .banner {
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     padding: 0.5rem 0.75rem;
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
     line-height: 1.4;
   }
   .banner-info {

@@ -44,8 +44,8 @@
 
   .tab-bar {
     display: flex;
-    border-bottom: 1px solid #e5e7eb;
-    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: var(--space-6);
   }
 
   .tab-btn {
@@ -53,20 +53,20 @@
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: #6b7280;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--text-muted);
     cursor: pointer;
     transition: color 0.15s, border-color 0.15s;
   }
 
   .tab-btn:hover {
-    color: #374151;
+    color: var(--text-secondary);
   }
 
   .tab-btn.active {
-    color: #6c63ff;
-    border-bottom-color: #6c63ff;
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
   }
 
   .tab-content {

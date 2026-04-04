@@ -136,7 +136,7 @@ describe("runMigrations", () => {
     expect(rows[13].name).toBe("014_campus_zipcode_hq");
     expect(rows[14].name).toBe("015_org_aliases");
     expect(rows[15].name).toBe("016_source_skills");
-    expect(rows[16].name).toBe("018_clearance_structured_data");
+    expect(rows[16].name).toBe("019_clearance_structured_data");
   });
 
   test("already up-to-date: running again is a no-op with no errors", () => {
@@ -165,7 +165,7 @@ describe("runMigrations", () => {
     expect(rows[13].name).toBe("014_campus_zipcode_hq");
     expect(rows[14].name).toBe("015_org_aliases");
     expect(rows[15].name).toBe("016_source_skills");
-    expect(rows[16].name).toBe("018_clearance_structured_data");
+    expect(rows[16].name).toBe("019_clearance_structured_data");
   });
 
   test("failed migration: broken 002 file rolls back; 001 is intact", () => {

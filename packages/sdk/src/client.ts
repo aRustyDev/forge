@@ -14,6 +14,8 @@ import { SkillsResource } from './resources/skills'
 import { SourcesResource } from './resources/sources'
 import { JobDescriptionsResource } from './resources/job-descriptions'
 import { TemplatesResource } from './resources/templates'
+import { ExportResource } from './resources/export'
+import { SummariesResource } from './resources/summaries'
 import type { ForgeError, PaginatedResult, Result } from './types'
 
 // ---------------------------------------------------------------------------
@@ -65,6 +67,10 @@ export class ForgeClient {
   public jobDescriptions: JobDescriptionsResource
   /** Resume template CRUD. */
   public templates: TemplatesResource
+  /** Export: resume downloads, data bundles, database dump. */
+  public export: ExportResource
+  /** Summaries CRUD + clone. */
+  public summaries: SummariesResource
 
   constructor(options: ForgeClientOptions) {
     // Strip trailing slash so callers can pass "http://localhost:3000/" without
@@ -95,6 +101,8 @@ export class ForgeClient {
     this.skills = new SkillsResource(req)
     this.jobDescriptions = new JobDescriptionsResource(req, reqList)
     this.templates = new TemplatesResource(req)
+    this.export = new ExportResource(req, this.baseUrl)
+    this.summaries = new SummariesResource(req, reqList)
   }
 
   // -------------------------------------------------------------------------

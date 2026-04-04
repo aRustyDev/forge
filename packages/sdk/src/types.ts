@@ -69,10 +69,27 @@ export type DegreeLevelType = 'associate' | 'bachelors' | 'masters' | 'doctoral'
 export type CertificateSubtype = 'professional' | 'vendor' | 'completion'
 export type EducationType = 'degree' | 'certificate' | 'course' | 'self_taught'
 
+export type CampusModality = 'in_person' | 'remote' | 'hybrid'
+
+export interface OrgCampus {
+  id: string
+  organization_id: string
+  name: string
+  modality: CampusModality
+  address: string | null
+  city: string | null
+  state: string | null
+  zipcode: string | null
+  country: string | null
+  is_headquarters: boolean
+  created_at: string
+}
+
 export interface SourceEducation {
   education_type: EducationType
   // Shared
   organization_id: string | null
+  campus_id: string | null
   /** @deprecated Use organization_id. Kept for legacy reads. */
   institution: string | null
   edu_description: string | null

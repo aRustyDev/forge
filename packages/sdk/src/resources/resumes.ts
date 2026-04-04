@@ -192,10 +192,6 @@ export class ResumesResource {
     return this.request<GapAnalysis>('GET', `/api/resumes/${id}/gaps`)
   }
 
-  export(id: string): Promise<Result<never>> {
-    return this.request<never>('GET', `/api/resumes/${id}/export`)
-  }
-
   // -- IR & override methods --
 
   ir(id: string): Promise<Result<ResumeDocument>> {

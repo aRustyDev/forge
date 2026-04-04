@@ -29,6 +29,7 @@ export type {
   Skill,
   UserNote,
   UserProfile,
+  Summary,
 } from './types'
 
 // Source type discriminator
@@ -41,6 +42,12 @@ export type {
   SourceEducation,
   SourceClearance,
 } from './types'
+
+// Education sub-type unions
+export type { DegreeLevelType, CertificateSubtype, EducationType } from './types'
+
+// Organization tags, campuses, aliases
+export type { OrgTag, OrgCampus, OrgAlias, CampusModality } from './types'
 
 // Rich response types
 export type {
@@ -168,6 +175,16 @@ export type {
   OrganizationFilter,
 } from './types'
 
+// Summary types
+export type {
+  CreateSummary,
+  UpdateSummary,
+  SummaryFilter,
+} from './types'
+
+// Export types
+export type { DataExportBundle } from './types'
+
 // Resource classes (for advanced use / testing)
 export { SourcesResource } from './resources/sources'
 export { BulletsResource } from './resources/bullets'
@@ -183,3 +200,5 @@ export { SkillsResource } from './resources/skills'
 export { ProfileResource } from './resources/profile'
 export { JobDescriptionsResource } from './resources/job-descriptions'
 export { TemplatesResource } from './resources/templates'
+export { SummariesResource } from './resources/summaries'
+export { ExportResource } from './resources/export'

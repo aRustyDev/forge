@@ -1216,3 +1216,73 @@ export type RequestListFn = <T>(
   path: string,
   params?: Record<string, string>,
 ) => Promise<PaginatedResult<T>>
+
+// ---------------------------------------------------------------------------
+// Alignment Constants
+// ---------------------------------------------------------------------------
+
+export const STRONG_THRESHOLD_DEFAULT = 0.75
+export const ADJACENT_THRESHOLD_DEFAULT = 0.50
+
+// ---------------------------------------------------------------------------
+// Alignment Types
+// ---------------------------------------------------------------------------
+
+export type MatchVerdict = 'strong' | 'adjacent' | 'gap'
+
+export interface RequirementMatch {
+  requirement_text: string
+  requirement_index: number
+  best_match: {
+    entry_id: string
+    perspective_id: string
+    perspective_content: string
+    similarity: number
+  } | null
+  verdict: MatchVerdict
+}
+
+export interface UnmatchedEntry {
+  entry_id: string
+  perspective_content: string
+  best_requirement_similarity: number
+}
+
+export interface AlignmentReport {
+  job_description_id: string
+  resume_id: string
+  overall_score: number
+  requirement_matches: RequirementMatch[]
+  unmatched_entries: UnmatchedEntry[]
+  summary: {
+    strong: number
+    adjacent: number
+    gaps: number
+    total_requirements: number
+    total_entries: number
+  }
+  computed_at: string
+}
+
+export interface RequirementMatchReport {
+  job_description_id: string
+  matches: Array<{
+    requirement_text: string
+    candidates: Array<{
+      entity_id: string
+      content: string
+      similarity: number
+    }>
+  }>
+  computed_at: string
+}
+
+export interface AlignmentScoreOptions {
+  strong_threshold?: number
+  adjacent_threshold?: number
+}
+
+export interface MatchRequirementsOptions {
+  threshold?: number
+  limit?: number
+}

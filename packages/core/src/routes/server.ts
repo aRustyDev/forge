@@ -7,6 +7,8 @@
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { Database } from 'bun:sqlite'
 import type { Services } from '../services'
 import { logger } from '../lib/logger'
@@ -29,23 +31,19 @@ import { exportRoutes } from './export'
 import { summaryRoutes } from './summaries'
 import { campusRoutes } from './campuses'
 import { contactRoutes } from './contacts'
+import { alignmentRoutes } from './alignment'
 
 /** Map error codes to HTTP status codes. */
-export function mapStatusCode(code: string): number {
-  switch (code) {
-    case 'VALIDATION_ERROR':
-      return 400
-    case 'NOT_FOUND':
-    case 'SUMMARY_NOT_FOUND':
-      return 404
-    case 'CONFLICT':
-      return 409
-    case 'AI_ERROR':
-      return 502
-    case 'GATEWAY_TIMEOUT':
-      return 504
-    default:
-      return 500
+// Re-export for backward compatibility — prefer importing from './status-codes' directly
+export { mapStatusCode } from './status-codes'
+
+/** Read server version from package.json. Called during createApp(), not at module scope. */
+function readServerVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(join(import.meta.dir, '../../package.json'), 'utf-8'))
+    return pkg.version ?? 'unknown'
+  } catch {
+    return 'unknown'
   }
 }
 
@@ -96,7 +94,8 @@ export function createApp(services: Services, db: Database) {
 
   // ── Health check ───────────────────────────────────────────────────
 
-  app.get('/health', (c) => c.json({ status: 'ok' }))
+  const serverVersion = readServerVersion()
+  app.get('/health', (c) => c.json({ server: 'ok', version: serverVersion }))
 
   // ── Routes ─────────────────────────────────────────────────────────
 
@@ -119,6 +118,7 @@ export function createApp(services: Services, db: Database) {
   app.route('/', campusRoutes(db))
   app.route('/', exportRoutes(services, db))
   app.route('/', contactRoutes(services, db))
+  app.route('/', alignmentRoutes(services))
 
   // ── Global error handler ───────────────────────────────────────────
 

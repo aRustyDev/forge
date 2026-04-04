@@ -47,6 +47,10 @@ dump:
 shell:
     sqlite3 ${FORGE_DB_PATH:-./data/forge.db}
 
+# Start the MCP server on STDIO
+mcp:
+    bun run packages/mcp/src/index.ts
+
 # Build all TypeScript packages + webui
 build:
     bun run --filter '*' build

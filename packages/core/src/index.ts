@@ -88,6 +88,20 @@ try {
 
 const services = createServices(db, dbPath)
 
+// ── 6b. Initialize embedding service (async, non-blocking) ──────────
+// EmbeddingService loads the ML model asynchronously (~2-5s on first use).
+// It is injected into Services after createServices() completes, and also
+// wired into services that have fire-and-forget hooks.
+import { EmbeddingService } from './services/embedding-service'
+
+const embeddingService = new EmbeddingService(db)
+services.embedding = embeddingService
+
+// Wire fire-and-forget hooks into services that create entities
+services.derivation.setEmbeddingService(embeddingService)
+services.jobDescriptions.setEmbeddingService(embeddingService)
+services.sources.setEmbeddingService(embeddingService)
+
 // ── 7. Mount routes ──────────────────────────────────────────────────
 
 const app = createApp(services, db)

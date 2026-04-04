@@ -33,6 +33,10 @@ import type { Database } from 'bun:sqlite'
 import type {
   Result, Bullet, Perspective, JobDescription, Source,
   EmbeddingEntityType, AlignmentReport, RequirementMatchReport,
+  RequirementMatch, UnmatchedEntry, MatchVerdict,
+} from '../types'
+import {
+  STRONG_THRESHOLD_DEFAULT, ADJACENT_THRESHOLD_DEFAULT,
 } from '../types'
 import {
   EmbeddingRepository,
@@ -344,8 +348,8 @@ export class EmbeddingService {
     opts?: { strongThreshold?: number; adjacentThreshold?: number },
   ): Promise<Result<AlignmentReport>> {
     try {
-      const strongThreshold = opts?.strongThreshold ?? 0.75
-      const adjacentThreshold = opts?.adjacentThreshold ?? 0.50
+      const strongThreshold = opts?.strongThreshold ?? STRONG_THRESHOLD_DEFAULT
+      const adjacentThreshold = opts?.adjacentThreshold ?? ADJACENT_THRESHOLD_DEFAULT
 
       // Fetch JD requirement embeddings
       const jdRows = EmbeddingRepository.findByType(this.db, 'jd_requirement')
@@ -357,13 +361,13 @@ export class EmbeddingService {
         }
       }
 
-      // Fetch resume entry perspective IDs
+      // Fetch resume entry perspective IDs (with entry IDs for unmatched tracking)
       const resumeEntries = this.db.query(
-        `SELECT re.perspective_id
+        `SELECT re.id as entry_id, re.perspective_id
          FROM resume_entries re
          JOIN resume_sections rs ON re.section_id = rs.id
          WHERE rs.resume_id = ?`,
-      ).all(resumeId) as Array<{ perspective_id: string }>
+      ).all(resumeId) as Array<{ entry_id: string; perspective_id: string }>
 
       if (resumeEntries.length === 0) {
         return {
@@ -372,70 +376,108 @@ export class EmbeddingService {
         }
       }
 
-      // Fetch perspective embeddings for resume entries
-      const perspectiveEmbeddings: Array<{ entity_id: string; vector: Float32Array }> = []
+      // Fetch perspective embeddings for resume entries, including content
+      const perspectiveEmbeddings: Array<{
+        entry_id: string
+        perspective_id: string
+        perspective_content: string
+        vector: Float32Array
+      }> = []
       for (const entry of resumeEntries) {
         const embRow = EmbeddingRepository.findByEntity(this.db, 'perspective', entry.perspective_id)
         if (embRow) {
+          // Look up perspective content
+          const pRow = this.db.query('SELECT content FROM perspectives WHERE id = ?').get(entry.perspective_id) as { content: string } | null
           perspectiveEmbeddings.push({
-            entity_id: entry.perspective_id,
+            entry_id: entry.entry_id,
+            perspective_id: entry.perspective_id,
+            perspective_content: pRow?.content ?? '',
             vector: EmbeddingRepository.deserializeVector(embRow.vector),
           })
         }
       }
 
+      // Look up requirement texts once
+      const jdTextRow = this.db.query('SELECT raw_text FROM job_descriptions WHERE id = ?').get(jdId) as { raw_text: string } | null
+      const parsedReqs = jdTextRow ? parseRequirements(jdTextRow.raw_text) : null
+
+      // Track best requirement similarity per entry (for unmatched detection)
+      const entryBestReqSim = new Map<string, number>()
+      for (const pe of perspectiveEmbeddings) {
+        entryBestReqSim.set(pe.entry_id, 0)
+      }
+
       // Compute similarity matrix and classify
-      const matches: AlignmentReport['matches'] = []
+      const requirementMatches: RequirementMatch[] = []
       let similaritySum = 0
 
       for (const jdRow of jdRows) {
         const jdVec = EmbeddingRepository.deserializeVector(jdRow.vector)
-        const reqIdx = jdRow.entity_id.split(':').pop()!
-        // Look up the original requirement text
-        const jdTextRow = this.db.query('SELECT raw_text FROM job_descriptions WHERE id = ?').get(jdId) as { raw_text: string } | null
-        let requirementText = `Requirement ${reqIdx}`
-        if (jdTextRow) {
-          const parsed = parseRequirements(jdTextRow.raw_text)
-          const idx = parseInt(reqIdx, 10)
-          if (idx < parsed.requirements.length) {
-            requirementText = parsed.requirements[idx].text
-          }
-        }
+        const reqIdxStr = jdRow.entity_id.split(':').pop()!
+        const reqIdx = parseInt(reqIdxStr, 10)
+
+        const requirementText = parsedReqs && reqIdx < parsedReqs.requirements.length
+          ? parsedReqs.requirements[reqIdx].text
+          : `Requirement ${reqIdx}`
 
         let bestSimilarity = 0
-        let bestEntityId: string | null = null
+        let bestPerspective: typeof perspectiveEmbeddings[0] | null = null
 
         for (const pe of perspectiveEmbeddings) {
           const sim = cosineSimilarity(jdVec, pe.vector)
+
+          // Track best requirement similarity for this entry
+          const currentBest = entryBestReqSim.get(pe.entry_id) ?? 0
+          if (sim > currentBest) {
+            entryBestReqSim.set(pe.entry_id, sim)
+          }
+
           if (sim > bestSimilarity) {
             bestSimilarity = sim
-            bestEntityId = pe.entity_id
+            bestPerspective = pe
           }
         }
 
-        let classification: 'strong' | 'adjacent' | 'gap'
+        let verdict: MatchVerdict
         if (bestSimilarity >= strongThreshold) {
-          classification = 'strong'
+          verdict = 'strong'
         } else if (bestSimilarity >= adjacentThreshold) {
-          classification = 'adjacent'
+          verdict = 'adjacent'
         } else {
-          classification = 'gap'
+          verdict = 'gap'
         }
 
         // Gaps contribute 0.0 to overall_score
-        similaritySum += classification === 'gap' ? 0.0 : bestSimilarity
+        similaritySum += verdict === 'gap' ? 0.0 : bestSimilarity
 
-        matches.push({
+        requirementMatches.push({
           requirement_text: requirementText,
-          classification,
-          best_match: bestEntityId ? {
-            entity_id: bestEntityId,
+          requirement_index: reqIdx,
+          best_match: bestPerspective ? {
+            entry_id: bestPerspective.entry_id,
+            perspective_id: bestPerspective.perspective_id,
+            perspective_content: bestPerspective.perspective_content,
             similarity: bestSimilarity,
           } : null,
+          verdict,
         })
       }
 
-      const overallScore = matches.length > 0 ? similaritySum / matches.length : 0
+      // Build unmatched entries: resume entries whose best similarity to any requirement
+      // is below the adjacent threshold
+      const unmatchedEntries: UnmatchedEntry[] = []
+      for (const pe of perspectiveEmbeddings) {
+        const bestReqSim = entryBestReqSim.get(pe.entry_id) ?? 0
+        if (bestReqSim < adjacentThreshold) {
+          unmatchedEntries.push({
+            entry_id: pe.entry_id,
+            perspective_content: pe.perspective_content,
+            best_requirement_similarity: bestReqSim,
+          })
+        }
+      }
+
+      const overallScore = requirementMatches.length > 0 ? similaritySum / requirementMatches.length : 0
 
       return {
         ok: true,
@@ -443,10 +485,16 @@ export class EmbeddingService {
           job_description_id: jdId,
           resume_id: resumeId,
           overall_score: overallScore,
-          matches,
-          strong_count: matches.filter(m => m.classification === 'strong').length,
-          adjacent_count: matches.filter(m => m.classification === 'adjacent').length,
-          gap_count: matches.filter(m => m.classification === 'gap').length,
+          requirement_matches: requirementMatches,
+          unmatched_entries: unmatchedEntries,
+          summary: {
+            strong: requirementMatches.filter(m => m.verdict === 'strong').length,
+            adjacent: requirementMatches.filter(m => m.verdict === 'adjacent').length,
+            gaps: requirementMatches.filter(m => m.verdict === 'gap').length,
+            total_requirements: requirementMatches.length,
+            total_entries: perspectiveEmbeddings.length,
+          },
+          computed_at: new Date().toISOString(),
         },
       }
     } catch (err) {
@@ -531,6 +579,7 @@ export class EmbeddingService {
         data: {
           job_description_id: jdId,
           matches,
+          computed_at: new Date().toISOString(),
         },
       }
     } catch (err) {

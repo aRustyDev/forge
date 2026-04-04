@@ -399,7 +399,7 @@ describe('JD-Resume Linkage', () => {
       expect(body.data[0].job_description_id).toBe(jdId)
       expect(body.data[0].title).toBe('Security Engineer')
       expect(body.data[0].organization_name).toBe('Anthropic')
-      expect(body.data[0].status).toBe('interested')
+      expect(body.data[0].status).toBe('discovered')
       expect(body.data[0].location).toBe('Remote')
       expect(body.data[0].salary_range).toBe('$150k-$200k')
       expect(body.data[0].created_at).toBeTruthy()

@@ -124,7 +124,7 @@ describe("runMigrations", () => {
     const rows = db
       .query("SELECT name FROM _migrations ORDER BY name")
       .all() as { name: string }[];
-    expect(rows).toHaveLength(25);
+    expect(rows).toHaveLength(28);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");
@@ -150,6 +150,9 @@ describe("runMigrations", () => {
     expect(rows[22].name).toBe("024_unified_kanban_statuses");
     expect(rows[23].name).toBe("025_embeddings");
     expect(rows[24].name).toBe("026_job_description_resumes");
+    expect(rows[25].name).toBe("027_salary_structured_fields");
+    expect(rows[26].name).toBe("028_jd_pipeline_statuses");
+    expect(rows[27].name).toBe("029_prompt_logs_jd_entity_type");
   });
 
   test("already up-to-date: running again is a no-op with no errors", () => {
@@ -161,7 +164,7 @@ describe("runMigrations", () => {
     const rows = db.query("SELECT name FROM _migrations ORDER BY name").all() as {
       name: string;
     }[];
-    expect(rows).toHaveLength(25);
+    expect(rows).toHaveLength(28);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");

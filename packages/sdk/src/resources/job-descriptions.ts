@@ -9,6 +9,7 @@ import type {
   ResumeLink,
   Result,
   Skill,
+  SkillExtractionResult,
   UpdateJobDescription,
 } from '../types'
 
@@ -125,6 +126,16 @@ export class JobDescriptionsResource {
     return this.request<void>(
       'DELETE',
       `/api/job-descriptions/${jdId}/resumes/${resumeId}`,
+    )
+  }
+
+  // ── AI Skill Extraction ───────────────────────────────────────────
+
+  /** Extract skills from JD text using AI. Returns suggested skills for review. */
+  extractSkills(jdId: string): Promise<Result<SkillExtractionResult>> {
+    return this.request<SkillExtractionResult>(
+      'POST',
+      `/api/job-descriptions/${jdId}/extract-skills`,
     )
   }
 }

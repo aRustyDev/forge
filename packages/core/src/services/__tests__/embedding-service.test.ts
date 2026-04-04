@@ -218,7 +218,7 @@ describe('EmbeddingService', () => {
         title: 'Senior Engineer',
         url: null,
         raw_text: 'full text here',
-        status: 'interested' as const,
+        status: 'discovered' as const,
         salary_range: null,
         location: null,
         notes: null,

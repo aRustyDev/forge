@@ -37,7 +37,7 @@ describe('JobDescriptionRepository', () => {
     expect(jd.id).toHaveLength(36)
     expect(jd.title).toBe('Senior Security Engineer')
     expect(jd.raw_text).toBe('We are looking for a senior security engineer...')
-    expect(jd.status).toBe('interested')
+    expect(jd.status).toBe('discovered')
     expect(jd.organization_id).toBeNull()
     expect(jd.organization_name).toBeNull()
     expect(jd.url).toBeNull()
@@ -119,7 +119,7 @@ describe('JobDescriptionRepository', () => {
   })
 
   test('list filters by status', () => {
-    JDRepo.create(db, { title: 'A', raw_text: 'text', status: 'interested' })
+    JDRepo.create(db, { title: 'A', raw_text: 'text', status: 'discovered' })
     JDRepo.create(db, { title: 'B', raw_text: 'text', status: 'applied' })
     JDRepo.create(db, { title: 'C', raw_text: 'text', status: 'applied' })
 
@@ -164,7 +164,7 @@ describe('JobDescriptionRepository', () => {
       title: 'WrongStatus',
       organization_id: orgId,
       raw_text: 'text',
-      status: 'interested',
+      status: 'discovered',
     })
     JDRepo.create(db, {
       title: 'WrongOrg',

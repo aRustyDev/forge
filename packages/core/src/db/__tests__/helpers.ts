@@ -323,7 +323,7 @@ export function seedJobDescription(
       opts.title ?? 'Senior Security Engineer',
       opts.url ?? null,
       opts.rawText ?? 'We are looking for a senior security engineer to join our team...',
-      opts.status ?? 'interested',
+      opts.status ?? 'discovered',
       opts.salaryRange ?? null,
       opts.location ?? null,
       opts.notes ?? null,

@@ -45,16 +45,18 @@ export function create(
 ): JobDescriptionWithOrg {
   const id = crypto.randomUUID()
   db.query(
-    `INSERT INTO job_descriptions (id, organization_id, title, url, raw_text, status, salary_range, location, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO job_descriptions (id, organization_id, title, url, raw_text, status, salary_range, salary_min, salary_max, location, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     input.organization_id ?? null,
     input.title,
     input.url ?? null,
     input.raw_text,
-    input.status ?? 'interested',
+    input.status ?? 'discovered',
     input.salary_range ?? null,
+    input.salary_min ?? null,
+    input.salary_max ?? null,
     input.location ?? null,
     input.notes ?? null,
   )
@@ -155,6 +157,14 @@ export function update(
   if (input.salary_range !== undefined) {
     sets.push('salary_range = ?')
     params.push(input.salary_range)
+  }
+  if (input.salary_min !== undefined) {
+    sets.push('salary_min = ?')
+    params.push(input.salary_min)
+  }
+  if (input.salary_max !== undefined) {
+    sets.push('salary_max = ?')
+    params.push(input.salary_max)
   }
   if (input.location !== undefined) {
     sets.push('location = ?')

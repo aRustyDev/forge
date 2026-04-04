@@ -27,7 +27,7 @@ describe('Job Description Routes', () => {
     expect(res.status).toBe(201)
     const body = await res.json()
     expect(body.data.title).toBe('Security Engineer')
-    expect(body.data.status).toBe('interested')
+    expect(body.data.status).toBe('discovered')
     expect(body.data.id).toHaveLength(36)
   })
 
@@ -79,7 +79,7 @@ describe('Job Description Routes', () => {
 
   test('GET list filters by status', async () => {
     seedJobDescription(ctx.db, { title: 'A', status: 'applied' })
-    seedJobDescription(ctx.db, { title: 'B', status: 'interested' })
+    seedJobDescription(ctx.db, { title: 'B', status: 'discovered' })
 
     const res = await apiRequest(
       ctx.app,

@@ -183,6 +183,8 @@ export type {
   UpdateJobDescription,
   ResumeLink,
   JDLink,
+  ExtractedSkill,
+  SkillExtractionResult,
 } from './types'
 
 // Resume status type (used in ResumeLink)

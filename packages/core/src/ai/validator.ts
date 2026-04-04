@@ -174,3 +174,121 @@ export function validatePerspectiveDerivation(
     warnings,
   }
 }
+
+// ---------------------------------------------------------------------------
+// Skill extraction validator
+// ---------------------------------------------------------------------------
+
+/**
+ * Validated AI response for JD skill extraction.
+ * An empty skills array is valid (the JD may have no extractable technical skills).
+ */
+export interface SkillExtractionResponse {
+  skills: Array<{
+    name: string
+    category: string
+    confidence: number
+  }>
+}
+
+const SKILL_EXTRACTION_ROOT_FIELDS = new Set(['skills'])
+const SKILL_ITEM_FIELDS = new Set(['name', 'category', 'confidence'])
+const VALID_SKILL_CATEGORIES = new Set([
+  'language', 'framework', 'tool', 'platform',
+  'methodology', 'domain', 'soft_skill', 'certification', 'other',
+])
+
+/**
+ * Validate an AI response for JD skill extraction.
+ *
+ * - Empty skills array is valid (returns ok: true with warning).
+ * - Unknown categories produce a warning, not an error (category is informational).
+ * - Confidence outside [0, 1] is clamped with a warning.
+ * - Extra fields produce warnings, not errors.
+ */
+export function validateSkillExtraction(
+  data: unknown,
+): ValidationResult<SkillExtractionResponse> {
+  const warnings: string[] = []
+
+  if (data === null || data === undefined || typeof data !== 'object') {
+    return { ok: false, error: 'Response is not an object' }
+  }
+
+  const obj = data as Record<string, unknown>
+
+  // Extra fields at root level
+  const rootExtra = extraFields(obj, SKILL_EXTRACTION_ROOT_FIELDS)
+  if (rootExtra.length > 0) {
+    warnings.push(`Unexpected root fields: ${rootExtra.join(', ')}`)
+  }
+
+  // .skills must exist and be an array
+  if (!('skills' in obj)) {
+    return { ok: false, error: 'Missing required field "skills"' }
+  }
+
+  if (!Array.isArray(obj.skills)) {
+    return { ok: false, error: '"skills" must be an array' }
+  }
+
+  // Empty array is valid (JD may have no extractable skills)
+  // but warn about it
+  if (obj.skills.length === 0) {
+    warnings.push('No skills extracted from job description')
+  }
+
+  // Validate each skill item
+  const skills: SkillExtractionResponse['skills'] = []
+  for (let i = 0; i < obj.skills.length; i++) {
+    const item = obj.skills[i]
+    const prefix = `skills[${i}]`
+
+    if (item === null || item === undefined || typeof item !== 'object') {
+      return { ok: false, error: `${prefix} is not an object` }
+    }
+
+    const skill = item as Record<string, unknown>
+
+    // Extra fields on skill items
+    const itemExtra = extraFields(skill, SKILL_ITEM_FIELDS)
+    if (itemExtra.length > 0) {
+      warnings.push(`${prefix}: unexpected fields: ${itemExtra.join(', ')}`)
+    }
+
+    // name -- required, non-empty string
+    if (typeof skill.name !== 'string') {
+      return { ok: false, error: `${prefix}.name must be a string` }
+    }
+    if (skill.name.trim().length === 0) {
+      return { ok: false, error: `${prefix}.name must be non-empty` }
+    }
+
+    // category -- required, must be a string
+    if (typeof skill.category !== 'string') {
+      return { ok: false, error: `${prefix}.category must be a string` }
+    }
+    if (!VALID_SKILL_CATEGORIES.has(skill.category)) {
+      // Warn but don't fail -- category is for display purposes
+      warnings.push(`${prefix}.category "${skill.category}" is not a recognized category`)
+    }
+
+    // confidence -- required, number between 0 and 1
+    if (typeof skill.confidence !== 'number') {
+      return { ok: false, error: `${prefix}.confidence must be a number` }
+    }
+    let confidence = skill.confidence
+    if (confidence < 0 || confidence > 1) {
+      warnings.push(`${prefix}.confidence ${confidence} is outside [0, 1] range, clamping`)
+      confidence = Math.max(0, Math.min(1, confidence))
+    }
+
+    skills.push({
+      name: skill.name.trim(),
+      category: skill.category,
+      confidence,
+    })
+  }
+
+  return { ok: true, data: { skills }, warnings }
+}

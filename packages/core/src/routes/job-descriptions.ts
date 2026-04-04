@@ -6,6 +6,13 @@ import { Hono } from 'hono'
 import type { Database } from 'bun:sqlite'
 import type { Services } from '../services'
 import { mapStatusCode } from './server'
+import {
+  invokeClaude,
+  renderJDSkillExtractionPrompt,
+  JD_SKILL_EXTRACTION_TEMPLATE_VERSION,
+  validateSkillExtraction,
+} from '../ai'
+import * as PromptLogRepo from '../db/repositories/prompt-log-repository'
 
 export function jobDescriptionRoutes(services: Services, db: Database) {
   const app = new Hono()
@@ -210,6 +217,113 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
     if (!result.ok)
       return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
+  })
+
+  // ── JD Skill Extraction (AI) ──────────────────────────────────────
+  // Returns suggested skills for frontend review. No skills are auto-
+  // persisted -- the frontend must call POST /:id/skills for each
+  // accepted skill individually (human review required).
+
+  app.post('/job-descriptions/:id/extract-skills', async (c) => {
+    const { id } = c.req.param()
+
+    // 1. Fetch the JD
+    const jdResult = services.jobDescriptions.get(id)
+    if (!jdResult.ok) {
+      return c.json({ error: jdResult.error }, mapStatusCode(jdResult.error.code))
+    }
+    const jd = jdResult.data
+
+    // 2. Validate raw_text exists and is non-empty
+    if (!jd.raw_text || jd.raw_text.trim().length === 0) {
+      return c.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Job description has no text to extract skills from',
+          },
+        },
+        400,
+      )
+    }
+
+    // 3. Render prompt
+    const prompt = renderJDSkillExtractionPrompt(jd.raw_text)
+
+    // 4. Invoke Claude CLI
+    const result = await invokeClaude({ prompt })
+
+    // 5. Handle AI errors
+    if (!result.ok) {
+      // Log the failed attempt (best-effort -- logging failure must not
+      // break the extraction response)
+      try {
+        PromptLogRepo.create(db, {
+          entity_type: 'job_description',
+          entity_id: id,
+          prompt_template: JD_SKILL_EXTRACTION_TEMPLATE_VERSION,
+          prompt_input: prompt,
+          raw_response: result.rawResponse ?? '',
+        })
+      } catch (logErr) {
+        console.error('[forge] Failed to log prompt error:', logErr)
+      }
+
+      return c.json(
+        { error: { code: 'AI_ERROR', message: result.message } },
+        502,
+      )
+    }
+
+    // 6. Validate response
+    const validated = validateSkillExtraction(result.data)
+    if (!validated.ok) {
+      try {
+        PromptLogRepo.create(db, {
+          entity_type: 'job_description',
+          entity_id: id,
+          prompt_template: JD_SKILL_EXTRACTION_TEMPLATE_VERSION,
+          prompt_input: prompt,
+          raw_response: result.rawResponse,
+        })
+      } catch (logErr) {
+        console.error('[forge] Failed to log prompt validation error:', logErr)
+      }
+
+      return c.json(
+        {
+          error: {
+            code: 'AI_ERROR',
+            message: `Invalid AI response: ${validated.error}`,
+          },
+        },
+        502,
+      )
+    }
+
+    // 7. Log successful extraction (best-effort)
+    // rawResponse may be undefined if the AI driver only returns parsed data.
+    // Fall back to stringified result.data to satisfy the NOT NULL constraint.
+    try {
+      PromptLogRepo.create(db, {
+        entity_type: 'job_description',
+        entity_id: id,
+        prompt_template: JD_SKILL_EXTRACTION_TEMPLATE_VERSION,
+        prompt_input: prompt,
+        raw_response: result.rawResponse ?? JSON.stringify(result.data) ?? '',
+      })
+    } catch (logErr) {
+      console.error('[forge] Failed to log prompt success:', logErr)
+    }
+
+    // 8. Return extracted skills (NOT persisted -- user must accept individually)
+    return c.json({
+      ok: true,
+      data: {
+        skills: validated.data.skills,
+        warnings: validated.warnings,
+      },
+    })
   })
 
   return app

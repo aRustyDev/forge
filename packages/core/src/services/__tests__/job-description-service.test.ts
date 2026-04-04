@@ -62,12 +62,12 @@ describe('JobDescriptionService', () => {
     const result = service.create({
       title: 'Security Engineer',
       raw_text: 'We need someone who can...',
-      status: 'interested',
+      status: 'discovered',
     })
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.data.title).toBe('Security Engineer')
-      expect(result.data.status).toBe('interested')
+      expect(result.data.status).toBe('discovered')
     }
   })
 

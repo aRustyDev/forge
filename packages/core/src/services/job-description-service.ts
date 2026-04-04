@@ -19,8 +19,9 @@ import { parseRequirements } from '../lib/jd-parser'
 import type { EmbeddingService } from './embedding-service'
 
 const VALID_STATUSES = [
-  'interested',
+  'discovered',
   'analyzing',
+  'applying',
   'applied',
   'interviewing',
   'offered',
@@ -71,6 +72,21 @@ export class JobDescriptionService {
         error: {
           code: 'VALIDATION_ERROR',
           message: `Invalid status: ${input.status}. Must be one of: ${VALID_STATUSES.join(', ')}`,
+        },
+      }
+    }
+
+    // Validate salary_min <= salary_max when both are provided
+    if (
+      input.salary_min != null &&
+      input.salary_max != null &&
+      input.salary_min > input.salary_max
+    ) {
+      return {
+        ok: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'salary_min must not exceed salary_max',
         },
       }
     }
@@ -164,6 +180,21 @@ export class JobDescriptionService {
         error: {
           code: 'VALIDATION_ERROR',
           message: `Invalid status: ${input.status}. Must be one of: ${VALID_STATUSES.join(', ')}`,
+        },
+      }
+    }
+
+    // Validate salary_min <= salary_max when both are provided
+    if (
+      input.salary_min != null &&
+      input.salary_max != null &&
+      input.salary_min > input.salary_max
+    ) {
+      return {
+        ok: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'salary_min must not exceed salary_max',
         },
       }
     }

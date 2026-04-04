@@ -12,14 +12,21 @@ export type { ClaudeOptions, ClaudeResult } from './claude-cli'
 export {
   renderSourceToBulletPrompt,
   renderBulletToPerspectivePrompt,
+  renderJDSkillExtractionPrompt,
   SOURCE_TO_BULLET_TEMPLATE_VERSION,
   BULLET_TO_PERSPECTIVE_TEMPLATE_VERSION,
+  JD_SKILL_EXTRACTION_TEMPLATE_VERSION,
 } from './prompts'
 
 // Output validators
-export { validateBulletDerivation, validatePerspectiveDerivation } from './validator'
+export {
+  validateBulletDerivation,
+  validatePerspectiveDerivation,
+  validateSkillExtraction,
+} from './validator'
 export type {
   BulletDerivationResponse,
   PerspectiveDerivationResponse,
+  SkillExtractionResponse,
   ValidationResult,
 } from './validator'

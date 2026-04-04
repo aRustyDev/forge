@@ -95,3 +95,59 @@ Respond with a JSON object:
   "reasoning": "brief explanation of what was emphasized and why"
 }`
 }
+
+// ---------------------------------------------------------------------------
+// JD -> Skill Extraction
+// ---------------------------------------------------------------------------
+
+export const JD_SKILL_EXTRACTION_TEMPLATE_VERSION = 'jd-skill-extraction-v1'
+
+/**
+ * Render the JD skill extraction prompt.
+ *
+ * Confidence ranges:
+ * - >= 0.8: explicitly required skills
+ * - 0.5-0.7: preferred/nice-to-have skills
+ * - 0.3-0.5: implied skills (mentioned in context but not as a requirement)
+ *
+ * Valid categories: language, framework, tool, platform, methodology,
+ * domain, soft_skill, certification, other.
+ *
+ * @param rawText - The full job description text to extract skills from.
+ * @returns The fully rendered prompt string.
+ */
+export function renderJDSkillExtractionPrompt(rawText: string): string {
+  return `You are a technical recruiter assistant. Given a job description, extract the
+technical skills, tools, technologies, and competencies that are required or preferred
+for the role. For each skill, provide:
+- The skill name (normalized: proper casing, common abbreviation)
+- A category (one of: language, framework, tool, platform, methodology, domain, soft_skill, certification, other)
+- A confidence score (0.0 to 1.0) indicating how clearly the JD states this is required
+
+Rules:
+- Extract specific technologies, not vague terms (e.g., "Python" not "programming")
+- Use the most common/recognized name for each skill (e.g., "Kubernetes" not "K8s", "AWS" not "Amazon Web Services")
+- Include both required and preferred/nice-to-have skills
+- Set confidence >= 0.8 for explicitly required skills
+- Set confidence 0.5-0.7 for preferred/nice-to-have skills
+- Set confidence 0.3-0.5 for implied skills (mentioned in context but not as a requirement)
+- Do NOT extract generic job requirements (e.g., "communication skills", "team player") unless they are specifically technical competencies
+- Do NOT extract years of experience as skills
+- Do NOT extract degree requirements as skills
+
+Job description:
+---
+${rawText}
+---
+
+Respond with a JSON object:
+{
+  "skills": [
+    {
+      "name": "skill name",
+      "category": "language | framework | tool | platform | methodology | domain | soft_skill | certification | other",
+      "confidence": 0.9
+    }
+  ]
+}`
+}

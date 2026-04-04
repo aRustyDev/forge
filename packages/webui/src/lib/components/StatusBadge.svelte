@@ -9,8 +9,9 @@
     deriving: 'var(--color-info)',
     archived: 'var(--text-faint)',
     // JD statuses
-    interested: 'var(--text-muted)',
+    discovered: '#7c3aed',
     analyzing: 'var(--color-info)',
+    applying: '#d97706',
     applied: '#6366f1',
     interviewing: '#a855f7',
     offered: 'var(--color-success)',
@@ -26,8 +27,9 @@
     deriving: 'Deriving',
     archived: 'Archived',
     // JD statuses
-    interested: 'Interested',
+    discovered: 'Discovered',
     analyzing: 'Analyzing',
+    applying: 'Applying',
     applied: 'Applied',
     interviewing: 'Interviewing',
     offered: 'Offered',

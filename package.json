@@ -1,0 +1,5 @@
+{
+  "name": "forge",
+  "private": true,
+  "workspaces": ["packages/*"]
+}

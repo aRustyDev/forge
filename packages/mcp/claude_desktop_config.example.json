@@ -1,13 +1,24 @@
 {
-  "_comment": "Add this to your Claude Desktop config (~/Library/Application Support/Claude/claude_desktop_config.json) or Claude Code config (.claude/settings.json)",
-  "_comment_2": "FORGE_API_URL defaults to http://localhost:3000 if not specified",
-  "mcpServers": {
+  "_comment": "Claude Desktop / Claude Code MCP configuration examples",
+  "_comment_2": "Choose ONE of the transport options below",
+
+  "_option_1": "=== STDIO transport (Claude spawns the MCP server as a child process) ===",
+  "_option_1_usage": "Default. Each client gets its own MCP process.",
+  "mcpServers_stdio": {
     "forge": {
       "command": "bun",
       "args": ["run", "/ABSOLUTE/PATH/TO/packages/mcp/src/index.ts"],
       "env": {
         "FORGE_API_URL": "http://localhost:3000"
       }
+    }
+  },
+
+  "_option_2": "=== HTTP transport (MCP server runs independently, clients connect via URL) ===",
+  "_option_2_usage": "Start server first: FORGE_MCP_TRANSPORT=http bun run packages/mcp/src/index.ts. Multiple clients share one server.",
+  "mcpServers": {
+    "forge": {
+      "url": "http://localhost:5174/mcp"
     }
   }
 }

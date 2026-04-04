@@ -6,6 +6,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "bun run src/index.ts",
+    "dev:http": "FORGE_MCP_TRANSPORT=http bun run src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun"
   },
   "dependencies": {

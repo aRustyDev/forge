@@ -18,4 +18,4 @@ CREATE TABLE embeddings (
 CREATE INDEX idx_embeddings_type ON embeddings(entity_type);
 CREATE INDEX idx_embeddings_entity ON embeddings(entity_type, entity_id);
 
-INSERT INTO _migrations (name) VALUES ('025_embeddings');
+-- Migration recording handled by the runner; no manual INSERT needed.

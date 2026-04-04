@@ -13,4 +13,4 @@ CREATE TABLE job_description_resumes (
 CREATE INDEX idx_jd_resumes_jd ON job_description_resumes(job_description_id);
 CREATE INDEX idx_jd_resumes_resume ON job_description_resumes(resume_id);
 
-INSERT INTO _migrations (name) VALUES ('026_job_description_resumes');
+-- Migration recording handled by the runner; no manual INSERT needed.

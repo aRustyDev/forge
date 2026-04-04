@@ -13,11 +13,12 @@ describe('Server', () => {
     ctx.db.close()
   })
 
-  test('GET /health returns 200 with status ok', async () => {
+  test('GET /health returns 200 with server ok and version', async () => {
     const res = await apiRequest(ctx.app, 'GET', '/health')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body).toEqual({ status: 'ok' })
+    expect(body.server).toBe('ok')
+    expect(typeof body.version).toBe('string')
   })
 
   test('unknown route returns 404 with error envelope', async () => {

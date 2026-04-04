@@ -118,6 +118,92 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
     return c.body(null, 204)
   })
 
+  // ── JD-Resume Linkage ─────────────────────────────────────────────
+
+  app.get('/job-descriptions/:id/resumes', (c) => {
+    const jdId = c.req.param('id')
+
+    // Verify JD exists
+    const jd = services.jobDescriptions.get(jdId)
+    if (!jd.ok) return c.json({ error: jd.error }, mapStatusCode(jd.error.code))
+
+    const rows = db
+      .query(`
+        SELECT r.id AS resume_id, r.name AS resume_name, r.target_role,
+               r.target_employer, r.archetype, r.status,
+               jdr.created_at, r.created_at AS resume_created_at
+        FROM job_description_resumes jdr
+        JOIN resumes r ON r.id = jdr.resume_id
+        WHERE jdr.job_description_id = ?
+        ORDER BY jdr.created_at DESC
+      `)
+      .all(jdId)
+
+    return c.json({ data: rows })
+  })
+
+  app.post('/job-descriptions/:id/resumes', async (c) => {
+    const jdId = c.req.param('id')
+    const body = await c.req.json()
+    const resumeId = body.resume_id
+
+    if (!resumeId || typeof resumeId !== 'string') {
+      return c.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'resume_id is required' } },
+        400,
+      )
+    }
+
+    // Verify JD exists
+    const jd = services.jobDescriptions.get(jdId)
+    if (!jd.ok) return c.json({ error: jd.error }, mapStatusCode(jd.error.code))
+
+    // Verify resume exists
+    const resume = services.resumes.getResume(resumeId)
+    if (!resume.ok) {
+      return c.json(
+        { error: { code: 'NOT_FOUND', message: `Resume ${resumeId} not found` } },
+        404,
+      )
+    }
+
+    // INSERT OR IGNORE for idempotent linking.
+    // Use result.changes from db.run() return value -- NOT a separate
+    // SELECT changes() query, which is unreliable under Bun's SQLite driver.
+    const result = db.run(
+      `INSERT OR IGNORE INTO job_description_resumes (job_description_id, resume_id) VALUES (?, ?)`,
+      [jdId, resumeId],
+    )
+
+    // Fetch the link data (whether just created or already existed)
+    const link = db
+      .query(`
+        SELECT r.id AS resume_id, r.name AS resume_name, r.target_role,
+               r.target_employer, r.archetype, r.status,
+               jdr.created_at, r.created_at AS resume_created_at
+        FROM job_description_resumes jdr
+        JOIN resumes r ON r.id = jdr.resume_id
+        WHERE jdr.job_description_id = ? AND jdr.resume_id = ?
+      `)
+      .get(jdId, resumeId)
+
+    // Determine status code: 201 if new, 200 if already existed
+    const status = result.changes > 0 ? 201 : 200
+
+    return c.json({ data: link }, status as any)
+  })
+
+  app.delete('/job-descriptions/:jdId/resumes/:resumeId', (c) => {
+    const { jdId, resumeId } = c.req.param()
+
+    db.run(
+      `DELETE FROM job_description_resumes WHERE job_description_id = ? AND resume_id = ?`,
+      [jdId, resumeId],
+    )
+
+    return c.body(null, 204)
+  })
+
   // ── Contact reverse lookup ──────────────────────────────────────────
   app.get('/job-descriptions/:id/contacts', (c) => {
     const result = services.contacts.listByJobDescription(c.req.param('id'))

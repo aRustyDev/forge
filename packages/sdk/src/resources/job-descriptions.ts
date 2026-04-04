@@ -6,6 +6,7 @@ import type {
   PaginationParams,
   RequestFn,
   RequestListFn,
+  ResumeLink,
   Result,
   Skill,
   UpdateJobDescription,
@@ -97,6 +98,33 @@ export class JobDescriptionsResource {
     return this.request<void>(
       'DELETE',
       `/api/job-descriptions/${jdId}/skills/${skillId}`,
+    )
+  }
+
+  // ── JD-Resume Linkage ─────────────────────────────────────────────
+
+  /** List resumes linked to a JD. */
+  listResumes(jdId: string): Promise<Result<ResumeLink[]>> {
+    return this.request<ResumeLink[]>(
+      'GET',
+      `/api/job-descriptions/${jdId}/resumes`,
+    )
+  }
+
+  /** Link a resume to a JD. Idempotent: re-linking returns 200 with existing data. */
+  linkResume(jdId: string, resumeId: string): Promise<Result<ResumeLink>> {
+    return this.request<ResumeLink>(
+      'POST',
+      `/api/job-descriptions/${jdId}/resumes`,
+      { resume_id: resumeId },
+    )
+  }
+
+  /** Unlink a resume from a JD. Idempotent: unlinking a nonexistent link returns 204. */
+  unlinkResume(jdId: string, resumeId: string): Promise<Result<void>> {
+    return this.request<void>(
+      'DELETE',
+      `/api/job-descriptions/${jdId}/resumes/${resumeId}`,
     )
   }
 }

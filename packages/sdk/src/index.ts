@@ -181,7 +181,12 @@ export type {
   JobDescriptionFilter,
   CreateJobDescription,
   UpdateJobDescription,
+  ResumeLink,
+  JDLink,
 } from './types'
+
+// Resume status type (used in ResumeLink)
+export type { ResumeStatus } from './types'
 
 // Contact types
 export type {

@@ -7,6 +7,7 @@
   import { addToast } from '$lib/stores/toast.svelte'
   import { ConfirmDialog } from '$lib/components'
   import JDSkillPicker from './JDSkillPicker.svelte'
+  import JDLinkedResumes from './JDLinkedResumes.svelte'
   import type { JobDescriptionWithOrg, Organization, Skill } from '@forge/sdk'
 
   let {
@@ -225,6 +226,10 @@
     <div class="field">
       <label>Required Skills</label>
       <JDSkillPicker jdId={jd.id} bind:jdSkills />
+    </div>
+
+    <div class="field">
+      <JDLinkedResumes jdId={jd.id} />
     </div>
   {/if}
 

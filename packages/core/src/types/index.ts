@@ -153,6 +153,39 @@ export interface JobDescriptionWithOrg extends JobDescription {
   organization_name: string | null
 }
 
+/**
+ * A resume linked to a JD, with display fields JOINed from the resumes table.
+ * `created_at` is from the junction table (when the link was created).
+ * `resume_created_at` is from the resumes table (when the resume was created).
+ */
+export interface ResumeLink {
+  resume_id: string
+  resume_name: string
+  target_role: string
+  target_employer: string
+  archetype: string
+  status: ResumeStatus
+  created_at: string
+  resume_created_at: string
+}
+
+/**
+ * A JD linked to a resume, with display fields JOINed from the
+ * job_descriptions and organizations tables.
+ * `created_at` is from the junction table (when the link was created).
+ * `jd_created_at` is from the job_descriptions table.
+ */
+export interface JDLink {
+  job_description_id: string
+  title: string
+  organization_name: string | null
+  status: JobDescriptionStatus
+  location: string | null
+  salary_range: string | null
+  created_at: string
+  jd_created_at: string
+}
+
 /** Input for creating a new JobDescription. */
 export interface CreateJobDescription {
   title: string

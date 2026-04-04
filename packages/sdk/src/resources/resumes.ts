@@ -3,6 +3,7 @@ import type {
   CreateResume,
   ForgeError,
   GapAnalysis,
+  JDLink,
   PaginatedResult,
   PaginationParams,
   RequestFn,
@@ -255,6 +256,16 @@ export class ResumesResource {
       'POST',
       `/api/resumes/${resumeId}/save-as-template`,
       input,
+    )
+  }
+
+  // ── Linked JDs ─────────────────────────────────────────────────────
+
+  /** List JDs linked to a resume. */
+  listJobDescriptions(resumeId: string): Promise<Result<JDLink[]>> {
+    return this.request<JDLink[]>(
+      'GET',
+      `/api/resumes/${resumeId}/job-descriptions`,
     )
   }
 }

@@ -103,7 +103,7 @@ export function createApp(services: Services, db: Database) {
   app.route('/', sourceRoutes(services, db))
   app.route('/', bulletRoutes(services, db))
   app.route('/', perspectiveRoutes(services))
-  app.route('/', resumeRoutes(services))
+  app.route('/', resumeRoutes(services, db))
   app.route('/', reviewRoutes(services))
   app.route('/', supportingRoutes(services, db))
   app.route('/', auditRoutes(services))

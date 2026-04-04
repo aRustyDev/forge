@@ -22,7 +22,9 @@
     HIGHLIGHT_EDGE_SIZE_BUMP,
     Z_FOREGROUND,
     Z_BACKGROUND,
+    edgeSizeFromWeight,
   } from './graph.constants'
+  import { generateSlug } from './graph.labels'
 
   // ---------------------------------------------------------------------------
   // Props
@@ -108,9 +110,12 @@
         // node.type is the entity classification (source/bullet/perspective).
         // Sigma's node program type is stored separately as type: 'circle'.
         // If ...node came after, node.type would overwrite 'circle'.
+        const slug = generateSlug(node.type, node.label)
         g.addNode(node.id, {
           ...node,
-          label: node.label ?? node.id,
+          label: (node as any).displayName ?? slug,  // rendered label (slug or override)
+          fullLabel: node.label,                      // original for tooltips
+          slug,                                       // for search matching (H5)
           x: node.x ?? Math.random() * 100,
           y: node.y ?? Math.random() * 100,
           size: node.size ?? _config.nodeDefaults.size,
@@ -126,7 +131,7 @@
         if (!g.hasNode(edge.source) || !g.hasNode(edge.target)) continue
         g.addEdge(edge.source, edge.target, {
           ...edge,
-          size: edge.weight ?? _config.edgeDefaults.size,
+          size: edgeSizeFromWeight(edge.weight),
           color: edge.color
             ?? (edge.type ? _config.edgeColorMap?.[edge.type] : undefined)
             ?? _config.edgeDefaults.color,
@@ -168,6 +173,14 @@
     async function initSigma() {
       try {
         const { default: Sigma } = await import('sigma')
+        let drawLabelFn: any
+        try {
+          const rendering = await import('sigma/rendering')
+          drawLabelFn = (rendering as any).drawLabel
+        } catch {
+          // Fallback: if sigma/rendering import fails, use inline canvas text
+          drawLabelFn = null
+        }
 
         const instance = new Sigma(graph!, container!, {
           renderEdgeLabels: false,
@@ -177,17 +190,59 @@
           zIndex: resolvedConfig.zIndex,
           labelRenderedSizeThreshold: resolvedConfig.labelThreshold,
 
-          // --- Node reducer: selection highlighting ---
-          nodeReducer: (node: string, data: Record<string, any>) => {
-            if (!selectedNodeId) return data
-            if (
-              node === selectedNodeId
-              || graph!.hasEdge(selectedNodeId, node)
-              || graph!.hasEdge(node, selectedNodeId)
-            ) {
-              return { ...data, zIndex: Z_FOREGROUND }
+          // --- Custom label renderer: only draw labels for hovered/selected nodes ---
+          labelRenderer: (
+            context: CanvasRenderingContext2D,
+            data: Record<string, any>,
+            settings: Record<string, any>
+          ) => {
+            if (data.highlighted || data.forceLabel) {
+              if (drawLabelFn) {
+                drawLabelFn(context, data, settings)
+              } else {
+                // Inline fallback if sigma/rendering import failed
+                const size = settings.labelSize || 14
+                const font = settings.labelFont || 'sans-serif'
+                const weight = settings.labelWeight || 'normal'
+                context.font = `${weight} ${size}px ${font}`
+                context.fillStyle = settings.labelColor?.color || '#000'
+                context.fillText(data.label, data.x + data.size + 3, data.y + size / 3)
+              }
             }
-            return { ...data, color: DIM_NODE_COLOR, label: '', zIndex: Z_BACKGROUND }
+          },
+
+          // --- Node reducer: selection + edge-hover highlighting ---
+          nodeReducer: (node: string, data: Record<string, any>) => {
+            // Selection highlighting takes priority
+            if (selectedNodeId) {
+              if (node === selectedNodeId) {
+                return { ...data, forceLabel: true, zIndex: Z_FOREGROUND }
+              }
+              if (
+                graph!.hasEdge(selectedNodeId, node)
+                || graph!.hasEdge(node, selectedNodeId)
+              ) {
+                // Neighbor of selected node: show label
+                return { ...data, forceLabel: true, zIndex: Z_FOREGROUND }
+              }
+              return { ...data, color: DIM_NODE_COLOR, label: '', zIndex: Z_BACKGROUND }
+            }
+
+            // Edge hover: highlight endpoint nodes
+            if (hoveredEdge && graph) {
+              try {
+                const [src, tgt] = graph.extremities(hoveredEdge)
+                if (node === src || node === tgt) {
+                  return { ...data, zIndex: Z_FOREGROUND }
+                }
+                return { ...data, color: DIM_NODE_COLOR, label: '', zIndex: Z_BACKGROUND }
+              } catch {
+                // Invalid edge ID — return unmodified data
+                return data
+              }
+            }
+
+            return data
           },
 
           // --- Edge reducer: selection + hover highlighting ---

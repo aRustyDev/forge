@@ -28,6 +28,31 @@ export const Z_FOREGROUND = 1
 export const Z_BACKGROUND = 0
 
 /**
+ * Minimum edge rendering size. Prevents invisible edges.
+ */
+export const MIN_EDGE_SIZE = 0.5
+
+/**
+ * Maximum edge rendering size. Prevents oversized edges.
+ */
+export const MAX_EDGE_SIZE = 5
+
+/**
+ * Default edge size when no weight is provided.
+ */
+export const DEFAULT_EDGE_SIZE = 1
+
+/**
+ * Compute edge display size from weight.
+ * Clamps to [MIN_EDGE_SIZE, MAX_EDGE_SIZE] to prevent invisible or oversized edges.
+ * Returns DEFAULT_EDGE_SIZE for undefined or NaN weights.
+ */
+export function edgeSizeFromWeight(weight: number | undefined): number {
+  if (weight === undefined || isNaN(weight)) return DEFAULT_EDGE_SIZE
+  return Math.max(MIN_EDGE_SIZE, Math.min(MAX_EDGE_SIZE, weight))
+}
+
+/**
  * Resolve a CSS custom property value from the document root.
  * Returns the fallback if running in SSR or the property is not set.
  *

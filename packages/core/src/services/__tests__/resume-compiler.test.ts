@@ -185,9 +185,9 @@ describe('compileResumeIR', () => {
     const resumeId = seedResume(db)
     const sourceId = seedSource(db, { title: 'Clearance', sourceType: 'clearance' })
     db.run(
-      `INSERT INTO source_clearances (source_id, level, polygraph, status)
-       VALUES (?, ?, ?, ?)`,
-      [sourceId, 'TS/SCI', 'CI Polygraph', 'Active']
+      `INSERT INTO source_clearances (source_id, level, polygraph, status, type, continuous_investigation)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [sourceId, 'top_secret', 'ci', 'active', 'personnel', 0]
     )
 
     const bulletId = seedBullet(db, [{ id: sourceId, isPrimary: true }], { content: 'Has clearance' })
@@ -200,7 +200,7 @@ describe('compileResumeIR', () => {
     expect(clrSection).toBeDefined()
     const item = clrSection!.items[0]
     if (item.kind === 'clearance') {
-      expect(item.content).toBe('TS/SCI with CI Polygraph - Active')
+      expect(item.content).toBe('top_secret with ci - active')
     }
   })
 

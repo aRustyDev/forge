@@ -46,6 +46,27 @@ export type {
 // Education sub-type unions
 export type { DegreeLevelType, CertificateSubtype, EducationType } from './types'
 
+// Clearance unions
+export type {
+  ClearanceLevel,
+  ClearancePolygraph,
+  ClearanceStatus,
+  ClearanceType,
+  ClearanceAccessProgram,
+} from './types'
+
+// Clearance constants
+export {
+  CLEARANCE_LEVELS,
+  CLEARANCE_POLYGRAPHS,
+  CLEARANCE_STATUSES,
+  CLEARANCE_TYPES,
+  CLEARANCE_ACCESS_PROGRAMS,
+  CLEARANCE_LEVEL_LABELS,
+  CLEARANCE_POLYGRAPH_LABELS,
+  CLEARANCE_ACCESS_PROGRAM_LABELS,
+} from './types'
+
 // Organization tags, campuses, aliases
 export type { OrgTag, OrgCampus, OrgAlias, CampusModality } from './types'
 

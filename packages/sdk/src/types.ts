@@ -41,6 +41,67 @@ export interface PaginationParams {
 
 export type SourceType = 'role' | 'project' | 'education' | 'clearance' | 'general'
 
+// ── Clearance Unions ──────────────────────────────────────────────────
+
+export type ClearanceLevel = 'public' | 'confidential' | 'secret' | 'top_secret' | 'q' | 'l'
+export type ClearancePolygraph = 'none' | 'ci' | 'full_scope'
+export type ClearanceStatus = 'active' | 'inactive'
+export type ClearanceType = 'personnel' | 'facility'
+export type ClearanceAccessProgram = 'sci' | 'sap' | 'nato'
+
+// ── Clearance Constants ───────────────────────────────────────────────
+// These mirror the CHECK constraints in migration 018 and the constants in @forge/core.
+// Duplicated here so the SDK can be consumed without server-side dependencies.
+
+/** All valid clearance levels (ordered: lowest to highest). */
+export const CLEARANCE_LEVELS: readonly ClearanceLevel[] = [
+  'public', 'l', 'confidential', 'secret', 'top_secret', 'q',
+] as const
+
+/** All valid polygraph types. */
+export const CLEARANCE_POLYGRAPHS: readonly ClearancePolygraph[] = [
+  'none', 'ci', 'full_scope',
+] as const
+
+/** All valid clearance statuses. */
+export const CLEARANCE_STATUSES: readonly ClearanceStatus[] = [
+  'active', 'inactive',
+] as const
+
+/** All valid clearance types. */
+export const CLEARANCE_TYPES: readonly ClearanceType[] = [
+  'personnel', 'facility',
+] as const
+
+/** All valid access programs. */
+export const CLEARANCE_ACCESS_PROGRAMS: readonly ClearanceAccessProgram[] = [
+  'sci', 'sap', 'nato',
+] as const
+
+/** Human-readable labels for clearance levels. */
+export const CLEARANCE_LEVEL_LABELS: Record<ClearanceLevel, string> = {
+  public: 'Public Trust',
+  confidential: 'Confidential',
+  secret: 'Secret',
+  top_secret: 'Top Secret (TS)',
+  q: 'DOE Q',
+  l: 'DOE L',
+}
+
+/** Human-readable labels for polygraph types. */
+export const CLEARANCE_POLYGRAPH_LABELS: Record<ClearancePolygraph, string> = {
+  none: 'None',
+  ci: 'CI Polygraph',
+  full_scope: 'Full Scope (Lifestyle)',
+}
+
+/** Human-readable labels for access programs. */
+export const CLEARANCE_ACCESS_PROGRAM_LABELS: Record<ClearanceAccessProgram, string> = {
+  sci: 'SCI',
+  sap: 'SAP',
+  nato: 'NATO',
+}
+
 // ---------------------------------------------------------------------------
 // Source extension types
 // ---------------------------------------------------------------------------
@@ -112,10 +173,13 @@ export interface SourceEducation {
 }
 
 export interface SourceClearance {
-  level: string
-  polygraph: string | null
-  status: string | null
-  sponsoring_agency: string | null
+  level: ClearanceLevel
+  polygraph: ClearancePolygraph | null
+  status: ClearanceStatus
+  type: ClearanceType
+  sponsor_organization_id: string | null
+  continuous_investigation: number
+  access_programs: ClearanceAccessProgram[]
   investigation_date: string | null
   adjudication_date: string | null
   reinvestigation_date: string | null

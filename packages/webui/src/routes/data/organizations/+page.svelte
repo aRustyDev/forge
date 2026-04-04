@@ -2,11 +2,12 @@
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
   import { LoadingSpinner, EmptyState, ConfirmDialog } from '$lib/components'
-  import type { Organization, OrgTag } from '@forge/sdk'
+  import type { Organization, OrgTag, OrgCampus } from '@forge/sdk'
 
   const ORG_TYPES = ['company', 'nonprofit', 'government', 'military', 'education', 'volunteer', 'freelance', 'other']
   const ALL_TAGS: OrgTag[] = ['company', 'vendor', 'platform', 'university', 'school', 'nonprofit', 'government', 'military', 'conference', 'volunteer', 'freelance', 'other']
   const EMPLOYMENT_TYPES = ['civilian', 'contractor', 'military_active', 'military_reserve', 'volunteer', 'intern']
+  const MODALITY_LABELS: Record<string, string> = { in_person: 'In Person', remote: 'Remote', hybrid: 'Hybrid' }
 
   let organizations = $state<Organization[]>([])
   let selectedId = $state<string | null>(null)
@@ -34,6 +35,25 @@
   let formReputationNotes = $state('')
   let formNotes = $state('')
   let formStatus = $state<string | null>(null)
+
+  // Campus management
+  let orgCampuses = $state<OrgCampus[]>([])
+  let showAddCampus = $state(false)
+  let newCampusName = $state('')
+  let newCampusModality = $state('in_person')
+  let newCampusCity = $state('')
+  let newCampusState = $state('')
+  let newCampusAddress = $state('')
+  let newCampusZipcode = $state('')
+  let newCampusCountry = $state('')
+  let newCampusIsHQ = $state(false)
+  let savingCampus = $state(false)
+  let deletingCampusId = $state<string | null>(null)
+
+  // Alias management
+  let orgAliases = $state<{ id: string; alias: string }[]>([])
+  let newAlias = $state('')
+  let savingAlias = $state(false)
 
   let filteredOrgs = $derived.by(() => {
     let result = organizations
@@ -90,6 +110,9 @@
   function startNew() {
     selectedId = null
     editing = true
+    orgCampuses = []
+    orgAliases = []
+    resetCampusForm()
     formName = ''
     formOrgType = 'company'
     formTags = ['company']
@@ -111,6 +134,9 @@
   function selectOrg(id: string) {
     editing = false
     selectedId = id
+    resetCampusForm()
+    loadCampuses(id)
+    loadAliases(id)
   }
 
   function toggleTag(tag: string) {
@@ -182,6 +208,112 @@
       addToast({ message: 'Organization deleted.', type: 'success' })
     } else {
       addToast({ message: `Failed to delete: ${result.error.message}`, type: 'error' })
+    }
+  }
+
+  // ── Campus functions ──────────────────────────────────────────────
+
+  async function loadCampuses(orgId: string) {
+    const res = await fetch(`/api/organizations/${orgId}/campuses`)
+    if (res.ok) {
+      const body = await res.json()
+      orgCampuses = body.data ?? []
+    } else {
+      orgCampuses = []
+    }
+  }
+
+  function resetCampusForm() {
+    newCampusName = ''
+    newCampusModality = 'in_person'
+    newCampusCity = ''
+    newCampusState = ''
+    newCampusAddress = ''
+    newCampusZipcode = ''
+    newCampusCountry = ''
+    newCampusIsHQ = false
+    showAddCampus = false
+  }
+
+  async function addCampus() {
+    if (!newCampusName.trim() || !selectedId) return
+    savingCampus = true
+    const res = await fetch(`/api/organizations/${selectedId}/campuses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: newCampusName.trim(),
+        modality: newCampusModality,
+        city: newCampusCity.trim() || undefined,
+        state: newCampusState.trim() || undefined,
+        zipcode: newCampusZipcode.trim() || undefined,
+        address: newCampusAddress.trim() || undefined,
+        country: newCampusCountry.trim() || undefined,
+        is_headquarters: newCampusIsHQ,
+      }),
+    })
+    if (res.ok) {
+      const body = await res.json()
+      orgCampuses = [...orgCampuses, body.data]
+      resetCampusForm()
+      addToast({ message: `Campus "${body.data.name}" added.`, type: 'success' })
+    } else {
+      addToast({ message: 'Failed to create campus.', type: 'error' })
+    }
+    savingCampus = false
+  }
+
+  async function deleteCampus(campusId: string) {
+    deletingCampusId = campusId
+    const res = await fetch(`/api/campuses/${campusId}`, { method: 'DELETE' })
+    if (res.ok) {
+      orgCampuses = orgCampuses.filter(c => c.id !== campusId)
+      addToast({ message: 'Campus deleted.', type: 'success' })
+    } else {
+      addToast({ message: 'Failed to delete campus.', type: 'error' })
+    }
+    deletingCampusId = null
+  }
+
+  // ── Alias functions ───────────────────────────────────────────────
+
+  async function loadAliases(orgId: string) {
+    const res = await fetch(`/api/organizations/${orgId}/aliases`)
+    if (res.ok) {
+      const body = await res.json()
+      orgAliases = body.data ?? []
+    } else {
+      orgAliases = []
+    }
+  }
+
+  async function addAlias() {
+    if (!newAlias.trim() || !selectedId) return
+    savingAlias = true
+    const res = await fetch(`/api/organizations/${selectedId}/aliases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alias: newAlias.trim() }),
+    })
+    if (res.ok) {
+      const body = await res.json()
+      orgAliases = [...orgAliases, body.data]
+      newAlias = ''
+      addToast({ message: `Alias "${body.data.alias}" added.`, type: 'success' })
+    } else {
+      const body = await res.json().catch(() => ({}))
+      addToast({ message: body.error?.message ?? 'Failed to add alias.', type: 'error' })
+    }
+    savingAlias = false
+  }
+
+  async function deleteAlias(aliasId: string) {
+    const res = await fetch(`/api/aliases/${aliasId}`, { method: 'DELETE' })
+    if (res.ok) {
+      orgAliases = orgAliases.filter(a => a.id !== aliasId)
+      addToast({ message: 'Alias removed.', type: 'success' })
+    } else {
+      addToast({ message: 'Failed to remove alias.', type: 'error' })
     }
   }
 </script>
@@ -272,10 +404,14 @@
               {/each}
             </select>
           </div>
-          <div class="form-group">
-            <label for="org-industry">Industry</label>
-            <input id="org-industry" type="text" bind:value={formIndustry} placeholder="e.g. AI Safety" />
-          </div>
+          {#if formOrgType !== 'education'}
+            <div class="form-group">
+              <label for="org-industry">Industry</label>
+              <input id="org-industry" type="text" bind:value={formIndustry} placeholder="e.g. AI Safety" />
+            </div>
+          {:else}
+            <div class="form-group"><!-- spacer --></div>
+          {/if}
         </div>
 
         <div class="form-group">
@@ -327,16 +463,7 @@
           </div>
         {/if}
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="org-location">Location</label>
-            <input id="org-location" type="text" bind:value={formLocation} />
-          </div>
-          <div class="form-group">
-            <label for="org-hq">Headquarters</label>
-            <input id="org-hq" type="text" bind:value={formHeadquarters} />
-          </div>
-        </div>
+        <!-- Location and Headquarters are now managed via Campuses section below -->
 
         <div class="form-group">
           <label for="org-website">Website</label>
@@ -368,6 +495,135 @@
           <label for="org-notes">Notes</label>
           <textarea id="org-notes" bind:value={formNotes} rows="3"></textarea>
         </div>
+
+        <!-- Campuses section (only for existing orgs, not during create) -->
+        {#if !editing && selectedOrg}
+          <div class="campuses-section">
+            <div class="section-header">
+              <h4>Campuses / Locations</h4>
+              <button class="btn-new-sm" onclick={() => showAddCampus = !showAddCampus}>
+                {showAddCampus ? 'Cancel' : '+ Add'}
+              </button>
+            </div>
+
+            {#if showAddCampus}
+              <div class="campus-add-form">
+                <div class="form-group">
+                  <label for="campus-name">Name *</label>
+                  <input id="campus-name" type="text" bind:value={newCampusName} placeholder="e.g. Main Campus, Online" />
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="campus-modality">Modality</label>
+                    <select id="campus-modality" bind:value={newCampusModality}>
+                      <option value="in_person">In Person</option>
+                      <option value="remote">Remote / Online</option>
+                      <option value="hybrid">Hybrid</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="campus-address">Address</label>
+                    <input id="campus-address" type="text" bind:value={newCampusAddress} placeholder="e.g. 123 Main St" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="campus-city">City</label>
+                    <input id="campus-city" type="text" bind:value={newCampusCity} />
+                  </div>
+                  <div class="form-group">
+                    <label for="campus-state">State</label>
+                    <input id="campus-state" type="text" bind:value={newCampusState} placeholder="e.g. VA" />
+                  </div>
+                  <div class="form-group">
+                    <label for="campus-zip">Zip</label>
+                    <input id="campus-zip" type="text" bind:value={newCampusZipcode} placeholder="e.g. 20148" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="campus-country">Country</label>
+                    <input id="campus-country" type="text" bind:value={newCampusCountry} placeholder="e.g. US" />
+                  </div>
+                  <div class="form-group checkbox-group">
+                    <label>
+                      <input type="checkbox" bind:checked={newCampusIsHQ} /> Headquarters
+                    </label>
+                  </div>
+                </div>
+                <button class="btn btn-save btn-sm" onclick={addCampus} disabled={savingCampus || !newCampusName.trim()}>
+                  {savingCampus ? 'Adding...' : 'Add Campus'}
+                </button>
+              </div>
+            {/if}
+
+            {#if orgCampuses.length === 0 && !showAddCampus}
+              <p class="campus-empty">No campuses defined. Click + Add to create one.</p>
+            {:else}
+              <ul class="campus-list">
+                {#each orgCampuses as campus (campus.id)}
+                  <li class="campus-item">
+                    <div class="campus-info">
+                      <span class="campus-name">{campus.name}</span>
+                      {#if campus.is_headquarters}
+                        <span class="campus-hq-badge">HQ</span>
+                      {/if}
+                      <span class="campus-modality">{MODALITY_LABELS[campus.modality] ?? campus.modality}</span>
+                      {#if campus.city || campus.state || campus.zipcode}
+                        <span class="campus-location">
+                          {[campus.city, campus.state, campus.zipcode].filter(Boolean).join(', ')}
+                        </span>
+                      {/if}
+                      {#if campus.address}
+                        <span class="campus-address">{campus.address}</span>
+                      {/if}
+                    </div>
+                    <button
+                      class="btn-delete-sm"
+                      onclick={() => deleteCampus(campus.id)}
+                      disabled={deletingCampusId === campus.id}
+                      title="Delete campus"
+                    >
+                      {deletingCampusId === campus.id ? '...' : '×'}
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </div>
+        {/if}
+
+        <!-- Aliases section (only for existing orgs) -->
+        {#if !editing && selectedOrg}
+          <div class="campuses-section">
+            <div class="section-header">
+              <h4>Aliases</h4>
+            </div>
+            <div class="alias-add-row">
+              <input
+                type="text"
+                bind:value={newAlias}
+                placeholder="e.g. WGU, USAF"
+                onkeydown={(e) => { if (e.key === 'Enter') addAlias() }}
+              />
+              <button class="btn-new-sm" onclick={addAlias} disabled={savingAlias || !newAlias.trim()}>
+                {savingAlias ? '...' : '+'}
+              </button>
+            </div>
+            {#if orgAliases.length > 0}
+              <div class="alias-pills">
+                {#each orgAliases as a (a.id)}
+                  <span class="alias-pill">
+                    {a.alias}
+                    <button class="alias-remove" onclick={() => deleteAlias(a.id)} title="Remove">×</button>
+                  </span>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/if}
 
         <div class="editor-actions">
           <button class="btn btn-save" onclick={saveOrg} disabled={saving}>
@@ -462,6 +718,33 @@
   .btn:disabled { opacity: 0.6; cursor: not-allowed; }
   .btn-save { background: #6c63ff; color: #fff; }
   .btn-save:hover:not(:disabled) { background: #5a52e0; }
+  .btn-sm { padding: 0.35rem 0.8rem; font-size: 0.8rem; }
+
+  /* Campuses */
+  .campuses-section { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #e5e7eb; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+  .section-header h4 { margin: 0; font-size: 0.95rem; font-weight: 600; color: #374151; }
+  .btn-new-sm { padding: 0.25rem 0.6rem; background: #6c63ff; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 500; }
+  .btn-new-sm:hover { background: #5a52e0; }
+  .campus-add-form { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; }
+  .campus-empty { font-size: 0.8rem; color: #9ca3af; font-style: italic; margin: 0; }
+  .campus-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+  .campus-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; }
+  .campus-info { display: flex; flex-wrap: wrap; gap: 0.3rem 0.75rem; align-items: center; flex: 1; min-width: 0; }
+  .campus-name { font-weight: 500; font-size: 0.85rem; color: #1a1a2e; }
+  .campus-modality { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 3px; background: #e0e7ff; color: #4338ca; }
+  .campus-location { font-size: 0.75rem; color: #6b7280; }
+  .campus-address { font-size: 0.7rem; color: #9ca3af; }
+  .btn-delete-sm { background: none; border: none; color: #d1d5db; cursor: pointer; font-size: 1.1rem; padding: 0.2rem 0.4rem; border-radius: 4px; line-height: 1; }
+  .campus-hq-badge { font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 3px; background: #fef3c7; color: #92400e; font-weight: 600; }
+  .alias-add-row { display: flex; gap: 0.4rem; margin-bottom: 0.5rem; }
+  .alias-add-row input { flex: 1; padding: 0.35rem 0.5rem; border: 1px solid #d1d5db; border-radius: 5px; font-size: 0.8rem; }
+  .alias-add-row input:focus { outline: none; border-color: #6c63ff; }
+  .alias-pills { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  .alias-pill { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.15rem 0.5rem; background: #e0e7ff; color: #4338ca; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
+  .alias-remove { background: none; border: none; color: #6366f1; cursor: pointer; font-size: 0.85rem; padding: 0; line-height: 1; }
+  .alias-remove:hover { color: #ef4444; }
+  .btn-delete-sm:hover { color: #ef4444; background: #fee2e2; }
   .btn-delete { background: #fee2e2; color: #dc2626; margin-left: auto; }
   .btn-delete:hover { background: #fecaca; }
 </style>

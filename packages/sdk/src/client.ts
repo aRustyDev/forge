@@ -16,6 +16,7 @@ import { JobDescriptionsResource } from './resources/job-descriptions'
 import { TemplatesResource } from './resources/templates'
 import { ExportResource } from './resources/export'
 import { SummariesResource } from './resources/summaries'
+import { ContactsResource } from './resources/contacts'
 import type { ForgeError, PaginatedResult, Result } from './types'
 
 // ---------------------------------------------------------------------------
@@ -71,6 +72,8 @@ export class ForgeClient {
   public export: ExportResource
   /** Summaries CRUD + clone. */
   public summaries: SummariesResource
+  /** Contact CRUD + relationship management. */
+  public contacts: ContactsResource
 
   constructor(options: ForgeClientOptions) {
     // Strip trailing slash so callers can pass "http://localhost:3000/" without
@@ -103,6 +106,7 @@ export class ForgeClient {
     this.templates = new TemplatesResource(req)
     this.export = new ExportResource(req, this.baseUrl)
     this.summaries = new SummariesResource(req, reqList)
+    this.contacts = new ContactsResource(req, reqList)
   }
 
   // -------------------------------------------------------------------------

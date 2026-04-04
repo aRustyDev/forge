@@ -1,6 +1,6 @@
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, test, expect, beforeEach, afterEach, spyOn } from 'bun:test'
 import type { Database } from 'bun:sqlite'
-import { compileResumeIR, syntheticUUID, formatDateRange } from '../resume-compiler'
+import { compileResumeIR, syntheticUUID, formatDateRange, buildOrgDisplayString } from '../resume-compiler'
 import type { EducationItem, ExperienceGroup, ProjectItem, PresentationItem } from '../../types'
 import { createTestDb, seedSource, seedBullet, seedPerspective, seedResume, seedResumeEntry, seedResumeSection, seedOrganization, seedResumeSkill, seedProfile, seedSummary } from '../../db/__tests__/helpers'
 
@@ -622,5 +622,375 @@ describe('formatDateRange', () => {
   test('handles end date only', () => {
     const result = formatDateRange(null, '2023-06-01', false)
     expect(result).toContain('2023')
+  })
+})
+
+// ── Phase 44: IR Data Quality Tests ─────────────────────────────────
+
+describe('buildOrgDisplayString', () => {
+  test('returns full format with all fields', () => {
+    expect(buildOrgDisplayString('Raytheon', 'Arlington', 'VA', 'remote'))
+      .toBe('Raytheon - Arlington, VA (Remote)')
+  })
+
+  test('returns org name only when no location or arrangement', () => {
+    expect(buildOrgDisplayString('Acme Corp', null, null, null))
+      .toBe('Acme Corp')
+  })
+
+  test('returns "Other" when org name is null', () => {
+    expect(buildOrgDisplayString(null, null, null, null))
+      .toBe('Other')
+  })
+
+  test('handles city only (no state)', () => {
+    expect(buildOrgDisplayString('USAFR', 'National Capitol Region', null, null))
+      .toBe('USAFR - National Capitol Region')
+  })
+
+  test('handles state only (no city)', () => {
+    expect(buildOrgDisplayString('TestOrg', null, 'VA', null))
+      .toBe('TestOrg - VA')
+  })
+
+  test('handles arrangement only (no location)', () => {
+    expect(buildOrgDisplayString('Cisco', null, null, 'remote'))
+      .toBe('Cisco (Remote)')
+  })
+
+  test('capitalizes work arrangement', () => {
+    expect(buildOrgDisplayString('Corp', null, null, 'contract'))
+      .toBe('Corp (Contract)')
+  })
+
+  test('handles city, state, and arrangement', () => {
+    expect(buildOrgDisplayString('Cisco', 'San Jose', 'CA', 'contract'))
+      .toBe('Cisco - San Jose, CA (Contract)')
+  })
+})
+
+describe('compileResumeIR — Phase 44 data quality', () => {
+  let db: Database
+
+  beforeEach(() => {
+    db = createTestDb()
+  })
+
+  afterEach(() => db.close())
+
+  // ── T44.1: Header warnings ──────────────────────────────────────
+
+  test('warns when profile name is "User" (seed default)', () => {
+    const warnSpy = spyOn(console, 'warn')
+    const resumeId = seedResume(db, { name: 'My Resume' })
+    // Default profile from migration has name "User"
+    compileResumeIR(db, resumeId)
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('user_profile.name is "User"')
+    )
+    warnSpy.mockRestore()
+  })
+
+  test('warns when no profile row exists', () => {
+    const warnSpy = spyOn(console, 'warn')
+    const resumeId = seedResume(db, { name: 'Fallback Resume' })
+    db.run('DELETE FROM user_profile')
+    compileResumeIR(db, resumeId)
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('No user_profile row found'),
+      expect.anything()
+    )
+    warnSpy.mockRestore()
+  })
+
+  test('warns when profile has no contact fields', () => {
+    const warnSpy = spyOn(console, 'warn')
+    const resumeId = seedResume(db)
+    seedProfile(db, { name: 'Adam' })
+    // No email, phone, linkedin, github
+    compileResumeIR(db, resumeId)
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('no contact fields populated')
+    )
+    warnSpy.mockRestore()
+  })
+
+  test('no warnings when profile is fully populated', () => {
+    const warnSpy = spyOn(console, 'warn')
+    const resumeId = seedResume(db)
+    seedProfile(db, { name: 'Adam', email: 'adam@example.com', phone: '+1-555-0123' })
+    compileResumeIR(db, resumeId)
+    expect(warnSpy).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+
+  // ── T44.2: Experience org display ───────────────────────────────
+
+  test('experience org name from organizations table (not "Other")', () => {
+    const resumeId = seedResume(db)
+    const orgId = seedOrganization(db, { name: 'Cisco' })
+    const sourceId = seedSource(db, { title: 'Network Engineer', sourceType: 'role' })
+    db.run(
+      `INSERT INTO source_roles (source_id, organization_id, start_date, is_current)
+       VALUES (?, ?, ?, ?)`,
+      [sourceId, orgId, '2024-01-01', 1]
+    )
+
+    const bulletId = seedBullet(db, [{ id: sourceId, isPrimary: true }], { content: 'Built networks' })
+    const perspId = seedPerspective(db, bulletId, { content: 'Architected network infrastructure' })
+    const secId = seedResumeSection(db, resumeId, 'Experience', 'experience', 0)
+    seedResumeEntry(db, secId, { perspectiveId: perspId, position: 0 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const expSection = result.sections.find(s => s.type === 'experience')!
+    const group = expSection.items[0] as ExperienceGroup
+    expect(group.organization).toContain('Cisco')
+    expect(group.organization).not.toBe('Other')
+  })
+
+  test('experience org with HQ campus location', () => {
+    const resumeId = seedResume(db)
+    const orgId = seedOrganization(db, { name: 'Raytheon Intelligence & Space' })
+
+    // Create HQ campus
+    const campusId = crypto.randomUUID()
+    db.run(
+      `INSERT INTO org_campuses (id, organization_id, name, modality, city, state, is_headquarters)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [campusId, orgId, 'HQ', 'in_person', 'Arlington', 'VA', 1]
+    )
+
+    const sourceId = seedSource(db, { title: 'Engineer', sourceType: 'role' })
+    db.run(
+      `INSERT INTO source_roles (source_id, organization_id, start_date, is_current, work_arrangement)
+       VALUES (?, ?, ?, ?, ?)`,
+      [sourceId, orgId, '2024-01-01', 1, 'remote']
+    )
+
+    const bulletId = seedBullet(db, [{ id: sourceId, isPrimary: true }], { content: 'Did work' })
+    const perspId = seedPerspective(db, bulletId, { content: 'Engineered things' })
+    const secId = seedResumeSection(db, resumeId, 'Experience', 'experience', 0)
+    seedResumeEntry(db, secId, { perspectiveId: perspId, position: 0 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const expSection = result.sections.find(s => s.type === 'experience')!
+    const group = expSection.items[0] as ExperienceGroup
+    expect(group.organization).toBe('Raytheon Intelligence & Space - Arlington, VA (Remote)')
+  })
+
+  test('experience org with work arrangement but no location', () => {
+    const resumeId = seedResume(db)
+    const orgId = seedOrganization(db, { name: 'Cisco' })
+    const sourceId = seedSource(db, { title: 'Engineer', sourceType: 'role' })
+    db.run(
+      `INSERT INTO source_roles (source_id, organization_id, start_date, is_current, work_arrangement)
+       VALUES (?, ?, ?, ?, ?)`,
+      [sourceId, orgId, '2024-01-01', 1, 'remote']
+    )
+
+    const bulletId = seedBullet(db, [{ id: sourceId, isPrimary: true }], { content: 'Did work' })
+    const perspId = seedPerspective(db, bulletId, { content: 'Built platform' })
+    const secId = seedResumeSection(db, resumeId, 'Experience', 'experience', 0)
+    seedResumeEntry(db, secId, { perspectiveId: perspId, position: 0 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const expSection = result.sections.find(s => s.type === 'experience')!
+    const group = expSection.items[0] as ExperienceGroup
+    expect(group.organization).toBe('Cisco (Remote)')
+  })
+
+  test('experience org name-only when no campus and no arrangement', () => {
+    const resumeId = seedResume(db)
+    const orgId = seedOrganization(db, { name: 'Acme Corp' })
+    const sourceId = seedSource(db, { title: 'Developer', sourceType: 'role' })
+    db.run(
+      `INSERT INTO source_roles (source_id, organization_id, start_date, is_current)
+       VALUES (?, ?, ?, ?)`,
+      [sourceId, orgId, '2024-01-01', 1]
+    )
+
+    const bulletId = seedBullet(db, [{ id: sourceId, isPrimary: true }], { content: 'Coded stuff' })
+    const perspId = seedPerspective(db, bulletId, { content: 'Developed features' })
+    const secId = seedResumeSection(db, resumeId, 'Experience', 'experience', 0)
+    seedResumeEntry(db, secId, { perspectiveId: perspId, position: 0 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const expSection = result.sections.find(s => s.type === 'experience')!
+    const group = expSection.items[0] as ExperienceGroup
+    expect(group.organization).toBe('Acme Corp')
+  })
+
+  test('experience groups by org ID, not name (two orgs with same name)', () => {
+    const resumeId = seedResume(db)
+    const orgId1 = seedOrganization(db, { name: 'Acme' })
+    const orgId2 = seedOrganization(db, { name: 'Acme' })
+
+    const sourceId1 = seedSource(db, { title: 'Engineer', sourceType: 'role' })
+    db.run(
+      `INSERT INTO source_roles (source_id, organization_id, start_date, is_current)
+       VALUES (?, ?, ?, ?)`,
+      [sourceId1, orgId1, '2024-01-01', 1]
+    )
+    const bulletId1 = seedBullet(db, [{ id: sourceId1, isPrimary: true }], { content: 'Work 1' })
+    const perspId1 = seedPerspective(db, bulletId1, { content: 'Perspective 1' })
+
+    const sourceId2 = seedSource(db, { title: 'Manager', sourceType: 'role' })
+    db.run(
+      `INSERT INTO source_roles (source_id, organization_id, start_date, is_current)
+       VALUES (?, ?, ?, ?)`,
+      [sourceId2, orgId2, '2023-01-01', 0]
+    )
+    const bulletId2 = seedBullet(db, [{ id: sourceId2, isPrimary: true }], { content: 'Work 2' })
+    const perspId2 = seedPerspective(db, bulletId2, { content: 'Perspective 2' })
+
+    const secId = seedResumeSection(db, resumeId, 'Experience', 'experience', 0)
+    seedResumeEntry(db, secId, { perspectiveId: perspId1, position: 0 })
+    seedResumeEntry(db, secId, { perspectiveId: perspId2, position: 1 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const expSection = result.sections.find(s => s.type === 'experience')!
+    // Two different orgs with same name should produce 2 separate groups
+    expect(expSection.items).toHaveLength(2)
+  })
+
+  test('experience falls back to "Other" when no org', () => {
+    const resumeId = seedResume(db)
+    const sourceId = seedSource(db, { title: 'Freelance', sourceType: 'role' })
+    // No source_roles entry (no org)
+
+    const bulletId = seedBullet(db, [{ id: sourceId, isPrimary: true }], { content: 'Did freelance work' })
+    const perspId = seedPerspective(db, bulletId, { content: 'Consulted on security' })
+    const secId = seedResumeSection(db, resumeId, 'Experience', 'experience', 0)
+    seedResumeEntry(db, secId, { perspectiveId: perspId, position: 0 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const expSection = result.sections.find(s => s.type === 'experience')!
+    const group = expSection.items[0] as ExperienceGroup
+    expect(group.organization).toBe('Other')
+  })
+
+  // ── T44.4: Education location from campus ──────────────────────
+
+  test('education location falls back to campus when se.location is NULL', () => {
+    const resumeId = seedResume(db)
+    const orgId = seedOrganization(db, { name: 'University of Maryland' })
+
+    const campusId = crypto.randomUUID()
+    db.run(
+      `INSERT INTO org_campuses (id, organization_id, name, modality, city, state)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [campusId, orgId, 'College Park', 'in_person', 'College Park', 'MD']
+    )
+
+    const sourceId = seedSource(db, { title: 'UMD Degree', sourceType: 'education' })
+    db.run(
+      `INSERT INTO source_education (source_id, education_type, organization_id, campus_id, field, end_date)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [sourceId, 'degree', orgId, campusId, 'Computer Science', '2023-06-01']
+    )
+
+    const bulletId = seedBullet(db, [{ id: sourceId, isPrimary: true }], { content: 'B.S. CS' })
+    const perspId = seedPerspective(db, bulletId, { content: 'B.S. Computer Science' })
+    const secId = seedResumeSection(db, resumeId, 'Education', 'education', 0)
+    seedResumeEntry(db, secId, { perspectiveId: perspId, position: 0 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const eduSection = result.sections.find(s => s.type === 'education')!
+    const item = eduSection.items[0] as EducationItem
+    expect(item.institution).toBe('University of Maryland')
+    expect(item.location).toBe('College Park, MD')
+  })
+
+  test('education location from se.location takes priority over campus', () => {
+    const resumeId = seedResume(db)
+    const orgId = seedOrganization(db, { name: 'WGU' })
+
+    const campusId = crypto.randomUUID()
+    db.run(
+      `INSERT INTO org_campuses (id, organization_id, name, modality, city, state)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [campusId, orgId, 'Main Campus', 'remote', 'Salt Lake City', 'UT']
+    )
+
+    const sourceId = seedSource(db, { title: 'WGU Degree', sourceType: 'education' })
+    db.run(
+      `INSERT INTO source_education (source_id, education_type, organization_id, campus_id, field, end_date, location)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [sourceId, 'degree', orgId, campusId, 'Cybersecurity', '2023-06-01', 'Online']
+    )
+
+    const bulletId = seedBullet(db, [{ id: sourceId, isPrimary: true }], { content: 'B.S. Cybersecurity' })
+    const perspId = seedPerspective(db, bulletId, { content: 'B.S. Cybersecurity' })
+    const secId = seedResumeSection(db, resumeId, 'Education', 'education', 0)
+    seedResumeEntry(db, secId, { perspectiveId: perspId, position: 0 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const eduSection = result.sections.find(s => s.type === 'education')!
+    const item = eduSection.items[0] as EducationItem
+    expect(item.location).toBe('Online')  // se.location takes priority
+  })
+
+  // ── T44.5: Skills orphan handling ──────────────────────────────
+
+  test('skills with orphaned entries produce warning', () => {
+    const warnSpy = spyOn(console, 'warn')
+    const resumeId = seedResume(db)
+    const secId = seedResumeSection(db, resumeId, 'Skills', 'skills', 0)
+
+    // Create a valid skill
+    const skillId = crypto.randomUUID()
+    db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId, 'Python', 'Languages'])
+    seedResumeSkill(db, secId, skillId, 0)
+
+    // Create an orphaned resume_skills entry (skill_id points to nonexistent skill)
+    // Must disable FK checks temporarily to insert the orphan
+    const orphanSkillId = crypto.randomUUID()
+    db.run('PRAGMA foreign_keys = OFF')
+    seedResumeSkill(db, secId, orphanSkillId, 1)
+    db.run('PRAGMA foreign_keys = ON')
+
+    seedProfile(db, { name: 'Adam', email: 'adam@test.com' })
+    const result = compileResumeIR(db, resumeId)!
+    const skillsSection = result.sections.find(s => s.type === 'skills')!
+
+    // Valid skill still appears
+    const group = skillsSection.items[0]
+    if (group.kind === 'skill_group') {
+      const langs = group.categories.find(c => c.label === 'Languages')
+      expect(langs).toBeDefined()
+      expect(langs!.skills).toContain('Python')
+    }
+
+    // Warning about orphan
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('orphaned resume_skills')
+    )
+    warnSpy.mockRestore()
+  })
+
+  test('skills categories are ordered alphabetically', () => {
+    const resumeId = seedResume(db)
+    seedProfile(db, { name: 'Adam', email: 'adam@test.com' })
+    const secId = seedResumeSection(db, resumeId, 'Skills', 'skills', 0)
+
+    // Insert skills in non-alphabetical order
+    const skillIds = [
+      { name: 'Terraform', category: 'DevOps' },
+      { name: 'Python', category: 'Languages' },
+      { name: 'AWS', category: 'Cloud' },
+    ]
+    skillIds.forEach((s, i) => {
+      const id = crypto.randomUUID()
+      db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [id, s.name, s.category])
+      seedResumeSkill(db, secId, id, i)
+    })
+
+    const result = compileResumeIR(db, resumeId)!
+    const skillsSection = result.sections.find(s => s.type === 'skills')!
+    const group = skillsSection.items[0]
+    if (group.kind === 'skill_group') {
+      const labels = group.categories.map(c => c.label)
+      expect(labels).toEqual(['Cloud', 'DevOps', 'Languages'])
+    }
   })
 })

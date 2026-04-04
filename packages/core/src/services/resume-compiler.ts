@@ -63,6 +63,9 @@ interface ExperienceEntryRow {
   source_title: string
   organization_id: string | null
   org_name: string | null
+  org_city: string | null
+  org_state: string | null
+  work_arrangement: string | null
   start_date: string | null
   end_date: string | null
   is_current: number
@@ -162,9 +165,22 @@ function parseHeader(resume: ResumeRow, profile: UserProfile | null, summary: Su
     tagline = summary.tagline
   }
 
+  // Warn on placeholder profile data
+  const name = profile?.name ?? resume.name
+  if (!profile) {
+    console.warn('[resume-compiler] No user_profile row found. Header name falls back to resume.name:', JSON.stringify(resume.name))
+  } else if (profile.name === 'User') {
+    console.warn('[resume-compiler] user_profile.name is "User" (seed default). Update via Settings > Profile.')
+  }
+
+  // Check for missing contact fields
+  if (profile && !profile.email && !profile.phone && !profile.linkedin && !profile.github) {
+    console.warn('[resume-compiler] user_profile has no contact fields populated. Header will have no contact info.')
+  }
+
   // Contact fields from profile (single source of truth)
   return {
-    name: profile?.name ?? resume.name,
+    name,
     tagline,
     location: profile?.location ?? null,
     email: profile?.email ?? null,
@@ -210,7 +226,10 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
         sr.start_date,
         sr.end_date,
         sr.is_current,
-        o.name AS org_name
+        sr.work_arrangement,
+        o.name AS org_name,
+        oc.city AS org_city,
+        oc.state AS org_state
       FROM resume_entries re
       JOIN perspectives p ON p.id = re.perspective_id
       JOIN bullets b ON b.id = p.bullet_id
@@ -218,16 +237,18 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
       JOIN sources s ON s.id = bs.source_id
       LEFT JOIN source_roles sr ON sr.source_id = s.id
       LEFT JOIN organizations o ON o.id = sr.organization_id
+      LEFT JOIN org_campuses oc ON oc.organization_id = o.id AND oc.is_headquarters = 1
       WHERE re.section_id = ?
       ORDER BY sr.is_current DESC, sr.start_date DESC, re.position ASC`
     )
     .all(sectionId) as ExperienceEntryRow[]
 
-  // Group by org_name, then sub-group by source_title (role)
+  // Group by organization_id (or org_name fallback), then sub-group by source_title (role)
+  // Using organization_id prevents collision when two different orgs have the same name.
   const orgMap = new Map<string, Map<string, ExperienceEntryRow[]>>()
 
   for (const row of rows) {
-    const orgKey = row.org_name ?? 'Other'
+    const orgKey = row.organization_id ?? row.org_name ?? 'Other'
     if (!orgMap.has(orgKey)) orgMap.set(orgKey, new Map())
     const roleMap = orgMap.get(orgKey)!
     const roleKey = row.source_title
@@ -237,8 +258,17 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
 
   const groups: ExperienceGroup[] = []
 
-  for (const [orgName, roleMap] of orgMap) {
+  for (const [orgKey, roleMap] of orgMap) {
     const subheadings: ExperienceSubheading[] = []
+
+    // Use first entry in the group to build the display string
+    const firstEntry = roleMap.values().next().value![0]
+    const orgDisplayName = buildOrgDisplayString(
+      firstEntry.org_name,
+      firstEntry.org_city,
+      firstEntry.org_state,
+      firstEntry.work_arrangement,
+    )
 
     for (const [roleTitle, entries] of roleMap) {
       const first = entries[0]
@@ -259,7 +289,7 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
       }))
 
       subheadings.push({
-        id: syntheticUUID('subheading', `${orgName}-${roleTitle}`),
+        id: syntheticUUID('subheading', `${orgKey}-${roleTitle}`),
         title: roleTitle,
         date_range: dateRange,
         source_id: first.source_id,
@@ -269,8 +299,8 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
 
     groups.push({
       kind: 'experience_group',
-      id: syntheticUUID('org', orgName),
-      organization: orgName,
+      id: syntheticUUID('org', orgKey),
+      organization: orgDisplayName,
       subheadings,
     })
   }
@@ -279,19 +309,33 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
 }
 
 function buildSkillItems(db: Database, sectionId: string): SkillGroup[] {
+  // Check for orphaned resume_skills entries (skill_id points to nonexistent skill)
+  const orphanCount = db
+    .query(
+      `SELECT COUNT(*) AS cnt
+       FROM resume_skills rs
+       LEFT JOIN skills s ON s.id = rs.skill_id
+       WHERE rs.section_id = ? AND s.id IS NULL`
+    )
+    .get(sectionId) as { cnt: number }
+
+  if (orphanCount.cnt > 0) {
+    console.warn(`[resume-compiler] ${orphanCount.cnt} orphaned resume_skills entries in section ${sectionId} (skill_id FK missing). These are skipped.`)
+  }
+
   const rows = db
     .query(
       `SELECT s.name AS skill_name, s.category
        FROM resume_skills rs
        JOIN skills s ON s.id = rs.skill_id
        WHERE rs.section_id = ?
-       ORDER BY rs.position`
+       ORDER BY s.category ASC, rs.position ASC`
     )
     .all(sectionId) as Array<{ skill_name: string; category: string | null }>
 
   if (rows.length === 0) return []
 
-  // Group by category
+  // Group by category (ordered by first appearance due to ORDER BY above)
   const catMap = new Map<string, string[]>()
   for (const row of rows) {
     const cat = row.category ?? 'Other'
@@ -323,7 +367,14 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
         se.degree_level,
         se.degree_type,
         se.gpa,
-        se.location,
+        COALESCE(se.location,
+          CASE
+            WHEN oc.city IS NOT NULL AND oc.state IS NOT NULL THEN oc.city || ', ' || oc.state
+            WHEN oc.city IS NOT NULL THEN oc.city
+            WHEN oc.state IS NOT NULL THEN oc.state
+            ELSE NULL
+          END
+        ) AS location,
         se.credential_id,
         o.name AS issuing_body,
         se.certificate_subtype,
@@ -664,4 +715,52 @@ export function formatDateRange(
   if (startDate && endDate) return `${fmt(startDate)} - ${fmt(endDate)}`
   if (startDate) return fmt(startDate)
   return ''
+}
+
+/**
+ * Build the organization display string for experience sections.
+ *
+ * Format: `{org_name}{ - location}{ (work_arrangement)}`
+ *
+ * Examples:
+ *   - "Cisco - Remote (Contract)"
+ *   - "Raytheon Intelligence & Space - Arlington, VA (Remote)"
+ *   - "United States Air Force Reserve - National Capitol Region"
+ *   - "Acme Corp" (no location, no arrangement)
+ *   - "Other" (null org name)
+ */
+export function buildOrgDisplayString(
+  orgName: string | null,
+  city: string | null,
+  state: string | null,
+  workArrangement: string | null,
+): string {
+  const name = orgName ?? 'Other'
+
+  // Build location string
+  let location: string | null = null
+  if (city && state) {
+    location = `${city}, ${state}`
+  } else if (city) {
+    location = city
+  } else if (state) {
+    location = state
+  }
+
+  // Format work arrangement for display (capitalize first letter)
+  let arrangement: string | null = null
+  if (workArrangement) {
+    arrangement = workArrangement.charAt(0).toUpperCase() + workArrangement.slice(1)
+  }
+
+  // Compose: "{name}{ - location}{ (arrangement)}"
+  let result = name
+  if (location) {
+    result += ` - ${location}`
+  }
+  if (arrangement) {
+    result += ` (${arrangement})`
+  }
+
+  return result
 }

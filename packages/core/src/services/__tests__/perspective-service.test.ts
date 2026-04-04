@@ -164,10 +164,10 @@ describe('PerspectiveService', () => {
 
   // ── Status transitions ────────────────────────────────────────────
 
-  test('approvePerspective transitions from pending_review to approved', () => {
+  test('approvePerspective transitions from in_review to approved', () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
-    const perspId = seedPerspective(db, bulletId, { status: 'pending_review' })
+    const perspId = seedPerspective(db, bulletId, { status: 'in_review' })
 
     const result = service.approvePerspective(perspId)
     expect(result.ok).toBe(true)
@@ -188,10 +188,10 @@ describe('PerspectiveService', () => {
     expect(result.error.code).toBe('VALIDATION_ERROR')
   })
 
-  test('rejectPerspective transitions from pending_review to rejected', () => {
+  test('rejectPerspective transitions from in_review to rejected', () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
-    const perspId = seedPerspective(db, bulletId, { status: 'pending_review' })
+    const perspId = seedPerspective(db, bulletId, { status: 'in_review' })
 
     const result = service.rejectPerspective(perspId, 'Does not match domain')
     expect(result.ok).toBe(true)
@@ -203,7 +203,7 @@ describe('PerspectiveService', () => {
   test('rejectPerspective requires non-empty reason', () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
-    const perspId = seedPerspective(db, bulletId, { status: 'pending_review' })
+    const perspId = seedPerspective(db, bulletId, { status: 'in_review' })
 
     const result = service.rejectPerspective(perspId, '')
     expect(result.ok).toBe(false)
@@ -211,10 +211,10 @@ describe('PerspectiveService', () => {
     expect(result.error.code).toBe('VALIDATION_ERROR')
   })
 
-  test('reopenPerspective transitions from rejected to pending_review', () => {
+  test('reopenPerspective transitions from rejected to in_review', () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
-    const perspId = seedPerspective(db, bulletId, { status: 'pending_review' })
+    const perspId = seedPerspective(db, bulletId, { status: 'in_review' })
 
     // First reject
     service.rejectPerspective(perspId, 'reason')
@@ -223,7 +223,7 @@ describe('PerspectiveService', () => {
     const result = service.reopenPerspective(perspId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.data.status).toBe('pending_review')
+    expect(result.data.status).toBe('in_review')
   })
 
   test('approvePerspective returns NOT_FOUND for missing ID', () => {

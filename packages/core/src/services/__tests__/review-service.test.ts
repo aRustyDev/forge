@@ -28,7 +28,7 @@ describe('ReviewService', () => {
 
   test('getPendingReview returns pending bullets with source title from junction', () => {
     const srcId = seedSource(db, { title: 'Cloud Migration' })
-    seedBullet(db, [{ id: srcId }], { status: 'pending_review' })
+    seedBullet(db, [{ id: srcId }], { status: 'in_review' })
 
     const result = service.getPendingReview()
     expect(result.ok).toBe(true)
@@ -40,7 +40,7 @@ describe('ReviewService', () => {
   test('getPendingReview does not include approved bullets', () => {
     const srcId = seedSource(db)
     seedBullet(db, [{ id: srcId }], { status: 'approved' })
-    seedBullet(db, [{ id: srcId }], { status: 'pending_review' })
+    seedBullet(db, [{ id: srcId }], { status: 'in_review' })
 
     const result = service.getPendingReview()
     expect(result.ok).toBe(true)
@@ -51,7 +51,7 @@ describe('ReviewService', () => {
   test('getPendingReview returns pending perspectives with bullet content and source title', () => {
     const srcId = seedSource(db, { title: 'Security Platform' })
     const bulletId = seedBullet(db, [{ id: srcId }], { content: 'Built security platform' })
-    seedPerspective(db, bulletId, { status: 'pending_review' })
+    seedPerspective(db, bulletId, { status: 'in_review' })
 
     const result = service.getPendingReview()
     expect(result.ok).toBe(true)
@@ -65,7 +65,7 @@ describe('ReviewService', () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     seedPerspective(db, bulletId, { status: 'approved' })
-    seedPerspective(db, bulletId, { status: 'pending_review' })
+    seedPerspective(db, bulletId, { status: 'in_review' })
 
     const result = service.getPendingReview()
     expect(result.ok).toBe(true)
@@ -78,7 +78,7 @@ describe('ReviewService', () => {
     // Create bullet manually to set technologies
     const bulletId = crypto.randomUUID()
     db.run(
-      `INSERT INTO bullets (id, content, source_content_snapshot, status) VALUES (?, 'Test bullet', 'snapshot', 'pending_review')`,
+      `INSERT INTO bullets (id, content, source_content_snapshot, status) VALUES (?, 'Test bullet', 'snapshot', 'in_review')`,
       [bulletId],
     )
     db.run(
@@ -103,11 +103,11 @@ describe('ReviewService', () => {
 
   test('getPendingReview returns combined bullets and perspectives', () => {
     const srcId = seedSource(db)
-    seedBullet(db, [{ id: srcId }], { status: 'pending_review' })
-    seedBullet(db, [{ id: srcId }], { status: 'pending_review', content: 'Second bullet' })
+    seedBullet(db, [{ id: srcId }], { status: 'in_review' })
+    seedBullet(db, [{ id: srcId }], { status: 'in_review', content: 'Second bullet' })
 
     const bulletId = seedBullet(db, [{ id: srcId }])
-    seedPerspective(db, bulletId, { status: 'pending_review' })
+    seedPerspective(db, bulletId, { status: 'in_review' })
 
     const result = service.getPendingReview()
     expect(result.ok).toBe(true)

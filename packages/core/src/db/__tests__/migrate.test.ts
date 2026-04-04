@@ -124,7 +124,7 @@ describe("runMigrations", () => {
     const rows = db
       .query("SELECT name FROM _migrations ORDER BY name")
       .all() as { name: string }[];
-    expect(rows).toHaveLength(22);
+    expect(rows).toHaveLength(23);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");
@@ -147,6 +147,7 @@ describe("runMigrations", () => {
     expect(rows[19].name).toBe("021_drop_legacy_education_columns");
     expect(rows[20].name).toBe("022_drop_legacy_org_location_columns");
     expect(rows[21].name).toBe("023_contacts");
+    expect(rows[22].name).toBe("024_unified_kanban_statuses");
   });
 
   test("already up-to-date: running again is a no-op with no errors", () => {
@@ -158,7 +159,7 @@ describe("runMigrations", () => {
     const rows = db.query("SELECT name FROM _migrations ORDER BY name").all() as {
       name: string;
     }[];
-    expect(rows).toHaveLength(22);
+    expect(rows).toHaveLength(23);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");
@@ -181,6 +182,7 @@ describe("runMigrations", () => {
     expect(rows[19].name).toBe("021_drop_legacy_education_columns");
     expect(rows[20].name).toBe("022_drop_legacy_org_location_columns");
     expect(rows[21].name).toBe("023_contacts");
+    expect(rows[22].name).toBe("024_unified_kanban_statuses");
   });
 
   test("failed migration: broken 002 file rolls back; 001 is intact", () => {

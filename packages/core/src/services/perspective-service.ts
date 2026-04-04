@@ -1,8 +1,10 @@
 /**
  * PerspectiveService — business logic for perspective reframings.
  *
- * Same status transition rules as BulletService: pending_review → approved,
- * pending_review → rejected, rejected → pending_review (reopen).
+ * Same status transition rules as BulletService: in_review → approved,
+ * in_review → rejected, rejected → in_review (reopen).
+ * Any non-archived status can transition to archived.
+ * Archived status can transition back to draft.
  * Delete is blocked if perspective is in a resume.
  */
 
@@ -20,10 +22,11 @@ import { PerspectiveRepository } from '../db/repositories/perspective-repository
 
 /** Valid status transitions for perspectives. */
 const VALID_TRANSITIONS: Record<string, PerspectiveStatus[]> = {
-  draft: ['pending_review'],
-  pending_review: ['approved', 'rejected'],
-  rejected: ['pending_review'],
-  approved: [],
+  draft: ['in_review'],
+  in_review: ['approved', 'rejected'],
+  rejected: ['in_review'],
+  approved: ['archived'],
+  archived: ['draft'],
 }
 
 export class PerspectiveService {
@@ -98,7 +101,7 @@ export class PerspectiveService {
   }
 
   reopenPerspective(id: string): Result<Perspective> {
-    return this.transition(id, 'pending_review')
+    return this.transition(id, 'in_review')
   }
 
   private transition(

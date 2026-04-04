@@ -48,6 +48,11 @@ export class DerivationService {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Source ${sourceId} not found` } }
     }
 
+    // 1b. Reject archived sources
+    if (source.status === 'archived') {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'Cannot derive from archived source. Unarchive it first.' } }
+    }
+
     // 2. Acquire deriving lock
     const locked = SourceRepo.acquireDerivingLock(this.db, sourceId)
     if (!locked) {
@@ -89,7 +94,7 @@ export class DerivationService {
             source_content_snapshot: snapshot,
             technologies: item.technologies,
             metrics: item.metrics,
-            status: 'pending_review',
+            status: 'in_review',
             source_ids: [{ id: sourceId, is_primary: true }],
           })
 
@@ -133,6 +138,14 @@ export class DerivationService {
     const bullet = BulletRepository.get(this.db, bulletId)
     if (!bullet) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Bullet ${bulletId} not found` } }
+    }
+
+    // Reject archived bullets with a specific message
+    if (bullet.status === 'archived') {
+      return {
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Cannot derive from archived bullet. Unarchive it first.' },
+      }
     }
 
     // Only approved bullets
@@ -213,7 +226,7 @@ export class DerivationService {
           target_archetype: params.archetype,
           domain: params.domain,
           framing: params.framing,
-          status: 'pending_review',
+          status: 'in_review',
         })
 
         PromptLogRepo.create(this.db, {

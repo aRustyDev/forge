@@ -144,9 +144,9 @@ describe('BulletService', () => {
 
   // ── Status transitions ────────────────────────────────────────────
 
-  test('approveBullet transitions from pending_review to approved', () => {
+  test('approveBullet transitions from in_review to approved', () => {
     const srcId = seedSource(db)
-    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'pending_review' })
+    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'in_review' })
 
     const result = service.approveBullet(bulletId)
     expect(result.ok).toBe(true)
@@ -167,9 +167,9 @@ describe('BulletService', () => {
     expect(result.error.message).toContain('draft')
   })
 
-  test('rejectBullet transitions from pending_review to rejected', () => {
+  test('rejectBullet transitions from in_review to rejected', () => {
     const srcId = seedSource(db)
-    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'pending_review' })
+    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'in_review' })
 
     const result = service.rejectBullet(bulletId, 'Too vague')
     expect(result.ok).toBe(true)
@@ -180,7 +180,7 @@ describe('BulletService', () => {
 
   test('rejectBullet requires non-empty reason', () => {
     const srcId = seedSource(db)
-    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'pending_review' })
+    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'in_review' })
 
     const result = service.rejectBullet(bulletId, '')
     expect(result.ok).toBe(false)
@@ -188,9 +188,9 @@ describe('BulletService', () => {
     expect(result.error.code).toBe('VALIDATION_ERROR')
   })
 
-  test('reopenBullet transitions from rejected to pending_review', () => {
+  test('reopenBullet transitions from rejected to in_review', () => {
     const srcId = seedSource(db)
-    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'pending_review' })
+    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'in_review' })
 
     // First reject
     service.rejectBullet(bulletId, 'reason')
@@ -199,7 +199,7 @@ describe('BulletService', () => {
     const result = service.reopenBullet(bulletId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.data.status).toBe('pending_review')
+    expect(result.data.status).toBe('in_review')
   })
 
   test('approveBullet returns NOT_FOUND for missing ID', () => {
@@ -211,19 +211,19 @@ describe('BulletService', () => {
 
   // ── submitBullet ───────────────────────────────────────────────────
 
-  test('submitBullet transitions draft to pending_review', () => {
+  test('submitBullet transitions draft to in_review', () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }], { status: 'draft' })
 
     const result = service.submitBullet(bulletId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.data.status).toBe('pending_review')
+    expect(result.data.status).toBe('in_review')
   })
 
-  test('submitBullet rejects non-draft bullet (pending_review)', () => {
+  test('submitBullet rejects non-draft bullet (in_review)', () => {
     const srcId = seedSource(db)
-    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'pending_review' })
+    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'in_review' })
 
     const result = service.submitBullet(bulletId)
     expect(result.ok).toBe(false)

@@ -44,7 +44,7 @@ describe('PerspectiveRepository', () => {
       expect(p.target_archetype).toBe('agentic-ai')
       expect(p.domain).toBe('ai_ml')
       expect(p.framing).toBe('accomplishment')
-      expect(p.status).toBe('pending_review')
+      expect(p.status).toBe('in_review')
       expect(p.rejection_reason).toBeNull()
       expect(p.prompt_log_id).toBeNull()
       expect(p.approved_at).toBeNull()
@@ -230,7 +230,7 @@ describe('PerspectiveRepository', () => {
 
     test('filters by status', () => {
       PerspectiveRepository.create(db, makeInput({ status: 'draft' }))
-      PerspectiveRepository.create(db, makeInput({ status: 'pending_review' }))
+      PerspectiveRepository.create(db, makeInput({ status: 'in_review' }))
 
       const result = PerspectiveRepository.list(db, { status: 'draft' })
       expect(result.data).toHaveLength(1)
@@ -446,11 +446,11 @@ describe('PerspectiveRepository', () => {
         rejection_reason: 'Needs work',
       })
 
-      // Reopen (move to pending_review)
-      const reopened = PerspectiveRepository.updateStatus(db, p.id, 'pending_review')
+      // Reopen (move to in_review)
+      const reopened = PerspectiveRepository.updateStatus(db, p.id, 'in_review')
 
       expect(reopened).not.toBeNull()
-      expect(reopened!.status).toBe('pending_review')
+      expect(reopened!.status).toBe('in_review')
       // rejection_reason is cleared (set to null explicitly)
       expect(reopened!.rejection_reason).toBeNull()
     })
@@ -467,7 +467,7 @@ describe('PerspectiveRepository', () => {
       const firstApprovedAt = first!.approved_at
 
       // Update status to something else, then re-approve
-      PerspectiveRepository.updateStatus(db, p.id, 'pending_review')
+      PerspectiveRepository.updateStatus(db, p.id, 'in_review')
       const second = PerspectiveRepository.updateStatus(db, p.id, 'approved')
 
       // The COALESCE means a new approved_at is set (it does not keep the old one

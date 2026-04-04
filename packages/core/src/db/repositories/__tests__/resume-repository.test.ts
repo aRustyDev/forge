@@ -64,12 +64,12 @@ describe('ResumeRepository', () => {
 
       const updated = ResumeRepository.update(db, resume.id, {
         name: 'Updated Resume',
-        status: 'final',
+        status: 'approved',
       })
 
       expect(updated).not.toBeNull()
       expect(updated!.name).toBe('Updated Resume')
-      expect(updated!.status).toBe('final')
+      expect(updated!.status).toBe('approved')
     })
 
     test('update returns null for nonexistent ID', () => {

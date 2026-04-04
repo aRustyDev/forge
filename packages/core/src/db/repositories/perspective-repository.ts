@@ -112,7 +112,7 @@ export const PerspectiveRepository = {
    */
   create(db: Database, input: CreatePerspectiveInput): Perspective {
     const id = crypto.randomUUID()
-    const status = input.status ?? 'pending_review'
+    const status = input.status ?? 'in_review'
 
     const row = db.query(
       `INSERT INTO perspectives (id, bullet_id, content, bullet_content_snapshot, target_archetype, domain, framing, status, prompt_log_id)

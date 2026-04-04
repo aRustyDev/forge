@@ -5,10 +5,8 @@
     draft: 'var(--text-muted)',
     approved: 'var(--color-success)',
     in_review: 'var(--color-warning)',
-    pending_review: 'var(--color-warning)',
     rejected: 'var(--color-danger)',
     deriving: 'var(--color-info)',
-    final: '#8b5cf6',
     archived: 'var(--text-faint)',
     // JD statuses
     interested: 'var(--text-muted)',
@@ -24,10 +22,8 @@
     draft: 'Draft',
     approved: 'Approved',
     in_review: 'In Review',
-    pending_review: 'Pending Review',
     rejected: 'Rejected',
     deriving: 'Deriving',
-    final: 'Final',
     archived: 'Archived',
     // JD statuses
     interested: 'Interested',

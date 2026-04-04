@@ -183,6 +183,13 @@ export interface SourceClearance {
 }
 
 // ---------------------------------------------------------------------------
+// Status types
+// ---------------------------------------------------------------------------
+
+/** Unified 5-status model for kanban boards. Used by bullets, sources (excluding deriving), resumes, perspectives. */
+export type UnifiedKanbanStatus = 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
+
+// ---------------------------------------------------------------------------
 // Core entities
 // ---------------------------------------------------------------------------
 
@@ -194,7 +201,7 @@ export interface Source {
   notes: string | null
   start_date: string | null
   end_date: string | null
-  status: 'draft' | 'approved' | 'deriving'
+  status: 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived' | 'deriving'
   updated_by: 'human' | 'ai'
   last_derived_at: string | null
   created_at: string
@@ -214,7 +221,7 @@ export interface Bullet {
   metrics: string | null
   domain: string | null
   notes: string | null
-  status: 'draft' | 'pending_review' | 'approved' | 'rejected'
+  status: 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
   rejection_reason: string | null
   prompt_log_id: string | null
   approved_at: string | null
@@ -231,7 +238,7 @@ export interface Perspective {
   target_archetype: string | null
   domain: string | null
   framing: 'accomplishment' | 'responsibility' | 'context'
-  status: 'draft' | 'pending_review' | 'approved' | 'rejected'
+  status: 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
   rejection_reason: string | null
   prompt_log_id: string | null
   approved_at: string | null
@@ -246,7 +253,7 @@ export interface Resume {
   target_role: string
   target_employer: string
   archetype: string
-  status: 'draft' | 'final'
+  status: 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
   notes: string | null
   header: string | null
   summary_id: string | null
@@ -1020,7 +1027,7 @@ export interface UpdateResume {
   target_role?: string
   target_employer?: string
   archetype?: string
-  status?: 'draft' | 'final'
+  status?: 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
   notes?: string | null
   header?: string | null
   summary_id?: string | null

@@ -122,6 +122,12 @@ export class ResumeService {
       if (!perspective) {
         return { ok: false, error: { code: 'NOT_FOUND', message: `Perspective ${input.perspective_id} not found` } }
       }
+      if (perspective.status === 'archived') {
+        return {
+          ok: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Cannot add archived perspective to resume. Unarchive it first.' },
+        }
+      }
       if (perspective.status !== 'approved') {
         return {
           ok: false,

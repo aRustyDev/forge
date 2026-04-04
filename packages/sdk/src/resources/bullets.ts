@@ -62,7 +62,7 @@ export class BulletsResource {
     return this.request<Bullet>('PATCH', `/api/bullets/${id}/reopen`)
   }
 
-  /** Submit a draft bullet for review (draft -> pending_review). */
+  /** Submit a draft bullet for review (draft -> in_review). */
   submit(id: string): Promise<Result<Bullet>> {
     return this.request<Bullet>('PATCH', `/api/bullets/${id}/submit`)
   }

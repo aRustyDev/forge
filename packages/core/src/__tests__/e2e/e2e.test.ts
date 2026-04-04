@@ -77,7 +77,7 @@ describe('E2E-1: Full Derivation Chain', () => {
     expect(derivedBullets).toBeArray()
     expect(derivedBullets.length).toBeGreaterThanOrEqual(1)
     const bulletId = derivedBullets[0].id
-    expect(derivedBullets[0].status).toBe('pending_review')
+    expect(derivedBullets[0].status).toBe('in_review')
 
     // 3. Approve the bullet
     const approveRes = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/approve`)
@@ -93,7 +93,7 @@ describe('E2E-1: Full Derivation Chain', () => {
     expect(perspRes.status).toBe(201)
     const perspective = (await perspRes.json()).data
     expect(perspective.id).toHaveLength(36)
-    expect(perspective.status).toBe('pending_review')
+    expect(perspective.status).toBe('in_review')
 
     // 5. Approve perspective
     const approvePerspRes = await apiRequest(ctx.app, 'PATCH', `/perspectives/${perspective.id}/approve`)
@@ -204,7 +204,7 @@ describe('E2E-3: Rejection and Reopen Flow', () => {
 
   test('reject bullet -> reopen -> approve -> derive perspective', async () => {
     const sourceId = seedSource(ctx.db)
-    const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { status: 'pending_review' })
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { status: 'in_review' })
 
     // 1. Reject the bullet
     const rejectRes = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/reject`, {
@@ -216,7 +216,7 @@ describe('E2E-3: Rejection and Reopen Flow', () => {
     // 2. Reopen the bullet
     const reopenRes = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/reopen`)
     expect(reopenRes.status).toBe(200)
-    expect((await reopenRes.json()).data.status).toBe('pending_review')
+    expect((await reopenRes.json()).data.status).toBe('in_review')
 
     // 3. Approve the bullet
     const approveRes = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/approve`)
@@ -232,7 +232,7 @@ describe('E2E-3: Rejection and Reopen Flow', () => {
     expect(perspRes.status).toBe(201)
     const perspective = (await perspRes.json()).data
     expect(perspective.bullet_id).toBe(bulletId)
-    expect(perspective.status).toBe('pending_review')
+    expect(perspective.status).toBe('in_review')
   })
 })
 

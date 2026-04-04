@@ -312,7 +312,7 @@
           {#if bullet.status === 'draft'}
             <button class="btn btn-submit" onclick={submitForReview}>Submit for Review</button>
           {/if}
-          {#if bullet.status === 'pending_review'}
+          {#if bullet.status === 'in_review'}
             <button class="btn btn-approve" onclick={approve}>Approve</button>
             {#if showRejectInput}
               <div class="reject-inline">

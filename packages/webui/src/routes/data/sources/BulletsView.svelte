@@ -3,6 +3,13 @@
   import { addToast } from '$lib/stores/toast.svelte'
   import { StatusBadge, LoadingSpinner, EmptyState } from '$lib/components'
   import BulletDetailModal from '$lib/components/BulletDetailModal.svelte'
+  import ViewToggle from '$lib/components/ViewToggle.svelte'
+  import GenericKanban from '$lib/components/kanban/GenericKanban.svelte'
+  import BulletKanbanCard from '$lib/components/kanban/BulletKanbanCard.svelte'
+  import PerspectiveKanbanCard from '$lib/components/kanban/PerspectiveKanbanCard.svelte'
+  import BulletFilterBar from '$lib/components/filters/BulletFilterBar.svelte'
+  import PerspectiveFilterBar from '$lib/components/filters/PerspectiveFilterBar.svelte'
+  import { getViewMode, setViewMode } from '$lib/stores/viewMode.svelte'
   import type { Bullet, Perspective } from '@forge/sdk'
 
   type ContentType = 'bullet' | 'perspective'
@@ -12,6 +19,77 @@
   let loading = $state(true)
   let searchQuery = $state('')
   let statusFilter = $state('all')
+
+  // View mode: list or board
+  let viewMode = $state<'list' | 'board'>(getViewMode('bullets'))
+
+  function handleViewChange(mode: 'list' | 'board') {
+    viewMode = mode
+    setViewMode(contentType === 'bullet' ? 'bullets' : 'perspectives', mode)
+  }
+
+  // Column definitions for kanban boards
+  const BULLET_COLUMNS = [
+    { key: 'draft', label: 'Draft', statuses: ['draft'], accent: '#a5b4fc' },
+    { key: 'in_review', label: 'In Review', statuses: ['in_review'], accent: '#fbbf24' },
+    { key: 'approved', label: 'Approved', statuses: ['approved'], accent: '#22c55e' },
+    { key: 'rejected', label: 'Rejected', statuses: ['rejected'], accent: '#ef4444' },
+    { key: 'archived', label: 'Archived', statuses: ['archived'], accent: '#d1d5db' },
+  ]
+
+  const PERSPECTIVE_COLUMNS = [
+    { key: 'draft', label: 'Draft', statuses: ['draft'], accent: '#a5b4fc' },
+    { key: 'in_review', label: 'In Review', statuses: ['in_review'], accent: '#fbbf24' },
+    { key: 'approved', label: 'Approved', statuses: ['approved'], accent: '#22c55e' },
+    { key: 'rejected', label: 'Rejected', statuses: ['rejected'], accent: '#ef4444' },
+    { key: 'archived', label: 'Archived', statuses: ['archived'], accent: '#d1d5db' },
+  ]
+
+  // Board filter state
+  let bulletBoardFilters = $state<{ source?: string; domain?: string; search?: string }>({})
+  let perspectiveBoardFilters = $state<{ archetype?: string; domain?: string; framing?: string; search?: string }>({})
+
+  let boardFilteredItems = $derived.by(() => {
+    if (contentType === 'bullet') {
+      let result = items
+      if (bulletBoardFilters.domain) result = result.filter((b: any) => b.domain === bulletBoardFilters.domain)
+      if (bulletBoardFilters.search) {
+        const q = bulletBoardFilters.search.toLowerCase()
+        result = result.filter((b: any) => b.content.toLowerCase().includes(q))
+      }
+      return result
+    } else {
+      let result = items
+      if (perspectiveBoardFilters.archetype) result = result.filter((p: any) => p.target_archetype === perspectiveBoardFilters.archetype)
+      if (perspectiveBoardFilters.domain) result = result.filter((p: any) => p.domain === perspectiveBoardFilters.domain)
+      if (perspectiveBoardFilters.framing) result = result.filter((p: any) => p.framing === perspectiveBoardFilters.framing)
+      if (perspectiveBoardFilters.search) {
+        const q = perspectiveBoardFilters.search.toLowerCase()
+        result = result.filter((p: any) => p.content.toLowerCase().includes(q))
+      }
+      return result
+    }
+  })
+
+  async function handleBoardDrop(itemId: string, newStatus: string) {
+    if (contentType === 'bullet') {
+      const result = await forge.bullets.update(itemId, { status: newStatus } as any)
+      if (!result.ok) {
+        addToast({ type: 'error', message: friendlyError(result.error, 'Status update failed') })
+        throw new Error('Status update failed')
+      }
+      items = items.map(i => i.id === itemId ? result.data : i)
+      addToast({ type: 'success', message: `Bullet moved to ${newStatus.replace('_', ' ')}` })
+    } else {
+      const result = await forge.perspectives.update(itemId, { status: newStatus } as any)
+      if (!result.ok) {
+        addToast({ type: 'error', message: friendlyError(result.error, 'Status update failed') })
+        throw new Error('Status update failed')
+      }
+      items = items.map(i => i.id === itemId ? result.data : i)
+      addToast({ type: 'success', message: `Perspective moved to ${newStatus.replace('_', ' ')}` })
+    }
+  }
 
   // Bullet detail modal
   let detailBulletId = $state<string | null>(null)
@@ -143,8 +221,13 @@
 </script>
 
 <div class="bullets-page">
-  <h1 class="page-title">Content Atoms</h1>
-  <p class="subtitle">Unified view of bullets and perspectives</p>
+  <div class="page-header-row">
+    <div>
+      <h1 class="page-title">Content Atoms</h1>
+      <p class="subtitle">Unified view of bullets and perspectives</p>
+    </div>
+    <ViewToggle mode={viewMode} onchange={handleViewChange} />
+  </div>
 
   <!-- Controls -->
   <div class="controls">
@@ -172,14 +255,55 @@
 
     <select class="status-select" bind:value={statusFilter}>
       <option value="all">All statuses</option>
-      <option value="pending_review">Pending</option>
+      <option value="in_review">In Review</option>
       <option value="approved">Approved</option>
       <option value="rejected">Rejected</option>
       <option value="draft">Draft</option>
+      <option value="archived">Archived</option>
     </select>
   </div>
 
-  <!-- Item list -->
+  {#if viewMode === 'board'}
+    <!-- Board view -->
+    {#if contentType === 'bullet'}
+      <GenericKanban
+        columns={BULLET_COLUMNS}
+        items={boardFilteredItems}
+        onDrop={handleBoardDrop}
+        {loading}
+        emptyMessage="No bullets yet. Create sources and derive bullets to populate this board."
+        defaultCollapsed="archived"
+        sortItems={(a, b) => a.content.localeCompare(b.content)}
+      >
+        {#snippet filterBar()}
+          <BulletFilterBar bind:filters={bulletBoardFilters} onchange={() => {}} />
+        {/snippet}
+
+        {#snippet cardContent(bullet)}
+          <BulletKanbanCard {bullet} onclick={() => detailBulletId = bullet.id} />
+        {/snippet}
+      </GenericKanban>
+    {:else}
+      <GenericKanban
+        columns={PERSPECTIVE_COLUMNS}
+        items={boardFilteredItems}
+        onDrop={handleBoardDrop}
+        {loading}
+        emptyMessage="No perspectives yet. Derive perspectives from approved bullets."
+        defaultCollapsed="archived"
+        sortItems={(a, b) => a.content.localeCompare(b.content)}
+      >
+        {#snippet filterBar()}
+          <PerspectiveFilterBar bind:filters={perspectiveBoardFilters} onchange={() => {}} />
+        {/snippet}
+
+        {#snippet cardContent(perspective)}
+          <PerspectiveKanbanCard {perspective} onclick={() => detailBulletId = perspective.bullet_id} />
+        {/snippet}
+      </GenericKanban>
+    {/if}
+  {:else}
+  <!-- Item list (list view) -->
   {#if loading}
     <div class="loading-container">
       <LoadingSpinner size="lg" message="Loading {contentType}s..." />
@@ -238,7 +362,7 @@
 
           <!-- Inline actions -->
           <div class="item-actions">
-            {#if item.status === 'pending_review'}
+            {#if item.status === 'in_review'}
               <button class="btn btn-approve" onclick={(e) => { e.stopPropagation(); approveItem(item.id) }}>Approve</button>
               <button class="btn btn-reject" onclick={(e) => { e.stopPropagation(); openReject(item.id) }}>Reject</button>
             {/if}
@@ -249,6 +373,7 @@
         </div>
       {/each}
     </div>
+  {/if}
   {/if}
 </div>
 
@@ -293,6 +418,13 @@
   .bullets-page {
     max-width: 1000px;
     padding: 1.5rem;
+  }
+
+  .page-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
   }
 
   .page-title {

@@ -28,7 +28,7 @@ describe('Review Routes', () => {
   test('GET /review/pending returns 200 with pending items', async () => {
     const sourceId = seedSource(ctx.db, { title: 'Review Source' })
     seedBullet(ctx.db, [{ id: sourceId }], {
-      status: 'pending_review',
+      status: 'in_review',
       content: 'Pending bullet',
     })
 
@@ -37,7 +37,7 @@ describe('Review Routes', () => {
       content: 'Approved bullet (not pending)',
     })
     seedPerspective(ctx.db, bulletId2, {
-      status: 'pending_review',
+      status: 'in_review',
       content: 'Pending perspective',
     })
 

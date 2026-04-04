@@ -1,5 +1,7 @@
 /**
- * SourceRepository — pure data access for the `sources` table.
+ * SourceRepository — pure data access for the `sources` table and
+ * polymorphic extension tables (source_roles, source_projects,
+ * source_education, source_clearances).
  *
  * All functions take a `db: Database` as the first parameter (dependency
  * injection). No business logic lives here; services handle status
@@ -7,12 +9,23 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import type { Source, CreateSource, UpdateSource, SourceStatus } from '../../types'
+import type {
+  Source,
+  CreateSource,
+  UpdateSource,
+  SourceStatus,
+  SourceType,
+  SourceRole,
+  SourceProject,
+  SourceEducation,
+  SourceClearance,
+  SourceWithExtension,
+} from '../../types'
 
 /** Filter options for listing sources. */
 export interface SourceFilter {
-  employer_id?: string
-  project_id?: string
+  source_type?: SourceType
+  organization_id?: string
   status?: SourceStatus
 }
 
@@ -22,46 +35,236 @@ export interface SourceListResult {
   total: number
 }
 
+// ── Extension helpers ─────────────────────────────────────────────────
+
+/** Retrieve the extension row for a source based on its source_type. */
+export function getExtension(
+  db: Database,
+  sourceId: string,
+  sourceType: string,
+): SourceRole | SourceProject | SourceEducation | SourceClearance | null {
+  switch (sourceType) {
+    case 'role':
+      return db.query('SELECT * FROM source_roles WHERE source_id = ?').get(sourceId) as SourceRole | null
+    case 'project':
+      return db.query('SELECT * FROM source_projects WHERE source_id = ?').get(sourceId) as SourceProject | null
+    case 'education':
+      return db.query('SELECT * FROM source_education WHERE source_id = ?').get(sourceId) as SourceEducation | null
+    case 'clearance':
+      return db.query('SELECT * FROM source_clearances WHERE source_id = ?').get(sourceId) as SourceClearance | null
+    default:
+      return null
+  }
+}
+
+/** Update extension table fields for a source. */
+function updateExtension(
+  db: Database,
+  sourceId: string,
+  sourceType: string,
+  input: UpdateSource,
+): void {
+  if (sourceType === 'role') {
+    const sets: string[] = []
+    const params: unknown[] = []
+
+    if ('organization_id' in input) { sets.push('organization_id = ?'); params.push(input.organization_id ?? null) }
+    if ('is_current' in input) { sets.push('is_current = ?'); params.push(input.is_current ?? 0) }
+    if ('work_arrangement' in input) { sets.push('work_arrangement = ?'); params.push(input.work_arrangement ?? null) }
+    if ('base_salary' in input) { sets.push('base_salary = ?'); params.push(input.base_salary ?? null) }
+    if ('total_comp_notes' in input) { sets.push('total_comp_notes = ?'); params.push(input.total_comp_notes ?? null) }
+    if ('start_date' in input) { sets.push('start_date = ?'); params.push(input.start_date ?? null) }
+    if ('end_date' in input) { sets.push('end_date = ?'); params.push(input.end_date ?? null) }
+
+    if (sets.length > 0) {
+      params.push(sourceId)
+      db.run(`UPDATE source_roles SET ${sets.join(', ')} WHERE source_id = ?`, params)
+    }
+  } else if (sourceType === 'project') {
+    const sets: string[] = []
+    const params: unknown[] = []
+
+    if ('organization_id' in input) { sets.push('organization_id = ?'); params.push(input.organization_id ?? null) }
+    if ('is_personal' in input) { sets.push('is_personal = ?'); params.push(input.is_personal ?? 0) }
+    if ('url' in input) { sets.push('url = ?'); params.push(input.url ?? null) }
+    if ('start_date' in input) { sets.push('start_date = ?'); params.push(input.start_date ?? null) }
+    if ('end_date' in input) { sets.push('end_date = ?'); params.push(input.end_date ?? null) }
+
+    if (sets.length > 0) {
+      params.push(sourceId)
+      db.run(`UPDATE source_projects SET ${sets.join(', ')} WHERE source_id = ?`, params)
+    }
+  } else if (sourceType === 'education') {
+    const sets: string[] = []
+    const params: unknown[] = []
+
+    if ('education_type' in input) { sets.push('education_type = ?'); params.push(input.education_type) }
+    if ('education_organization_id' in input) { sets.push('organization_id = ?'); params.push(input.education_organization_id ?? null) }
+    if ('campus_id' in input) { sets.push('campus_id = ?'); params.push(input.campus_id ?? null) }
+    if ('institution' in input) { sets.push('institution = ?'); params.push(input.institution ?? null) }
+    if ('field' in input) { sets.push('field = ?'); params.push(input.field ?? null) }
+    if ('is_in_progress' in input) { sets.push('is_in_progress = ?'); params.push(input.is_in_progress ?? 0) }
+    if ('credential_id' in input) { sets.push('credential_id = ?'); params.push(input.credential_id ?? null) }
+    if ('expiration_date' in input) { sets.push('expiration_date = ?'); params.push(input.expiration_date ?? null) }
+    if ('issuing_body' in input) { sets.push('issuing_body = ?'); params.push(input.issuing_body ?? null) }
+    if ('url' in input) { sets.push('url = ?'); params.push(input.url ?? null) }
+    if ('start_date' in input) { sets.push('start_date = ?'); params.push(input.start_date ?? null) }
+    if ('end_date' in input) { sets.push('end_date = ?'); params.push(input.end_date ?? null) }
+    if ('degree_level' in input) { sets.push('degree_level = ?'); params.push(input.degree_level ?? null) }
+    if ('degree_type' in input) { sets.push('degree_type = ?'); params.push(input.degree_type ?? null) }
+    if ('certificate_subtype' in input) { sets.push('certificate_subtype = ?'); params.push(input.certificate_subtype ?? null) }
+    if ('gpa' in input) { sets.push('gpa = ?'); params.push(input.gpa ?? null) }
+    if ('location' in input) { sets.push('location = ?'); params.push(input.location ?? null) }
+    if ('edu_description' in input) { sets.push('edu_description = ?'); params.push(input.edu_description ?? null) }
+
+    if (sets.length > 0) {
+      params.push(sourceId)
+      db.run(`UPDATE source_education SET ${sets.join(', ')} WHERE source_id = ?`, params)
+    }
+  } else if (sourceType === 'clearance') {
+    const sets: string[] = []
+    const params: unknown[] = []
+
+    if ('level' in input) { sets.push('level = ?'); params.push(input.level) }
+    if ('polygraph' in input) { sets.push('polygraph = ?'); params.push(input.polygraph ?? null) }
+    if ('clearance_status' in input) { sets.push('status = ?'); params.push(input.clearance_status ?? null) }
+    if ('sponsoring_agency' in input) { sets.push('sponsoring_agency = ?'); params.push(input.sponsoring_agency ?? null) }
+
+    if (sets.length > 0) {
+      params.push(sourceId)
+      db.run(`UPDATE source_clearances SET ${sets.join(', ')} WHERE source_id = ?`, params)
+    }
+  }
+}
+
+// ── Repository functions ──────────────────────────────────────────────
+
 /**
- * Insert a new source record.
+ * Insert a new source record with optional extension table row.
  *
  * Generates a UUID via `crypto.randomUUID()`, sets status to `'draft'`
- * and updated_by to `'human'`.
+ * and updated_by to `'human'`. Atomically creates base + extension row
+ * in a transaction.
  */
-export function create(db: Database, input: CreateSource): Source {
+export function create(db: Database, input: CreateSource): SourceWithExtension {
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
+  const sourceType = input.source_type ?? 'general'
 
-  db.run(
-    `INSERT INTO sources (id, title, description, employer_id, project_id, start_date, end_date, status, updated_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', 'human', ?, ?)`,
-    [
-      id,
-      input.title,
-      input.description,
-      input.employer_id ?? null,
-      input.project_id ?? null,
-      input.start_date ?? null,
-      input.end_date ?? null,
-      now,
-      now,
-    ],
-  )
+  const txn = db.transaction(() => {
+    // Insert base source row
+    db.run(
+      `INSERT INTO sources (id, title, description, source_type, start_date, end_date, status, updated_by, notes, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'draft', 'human', ?, ?, ?)`,
+      [
+        id,
+        input.title,
+        input.description,
+        sourceType,
+        input.start_date ?? null,
+        input.end_date ?? null,
+        input.notes ?? null,
+        now,
+        now,
+      ],
+    )
 
+    // Insert extension row based on source_type
+    if (sourceType === 'role') {
+      db.run(
+        `INSERT INTO source_roles (source_id, organization_id, start_date, end_date, is_current, work_arrangement, base_salary, total_comp_notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          input.organization_id ?? null,
+          input.start_date ?? null,
+          input.end_date ?? null,
+          input.is_current ?? 0,
+          input.work_arrangement ?? null,
+          input.base_salary ?? null,
+          input.total_comp_notes ?? null,
+        ],
+      )
+    } else if (sourceType === 'project') {
+      db.run(
+        `INSERT INTO source_projects (source_id, organization_id, is_personal, url, start_date, end_date)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          input.organization_id ?? null,
+          input.is_personal ?? 0,
+          input.url ?? null,
+          input.start_date ?? null,
+          input.end_date ?? null,
+        ],
+      )
+    } else if (sourceType === 'education') {
+      db.run(
+        `INSERT INTO source_education (
+          source_id, education_type, organization_id, campus_id, institution, field, start_date, end_date,
+          is_in_progress, credential_id, expiration_date, issuing_body, url,
+          degree_level, degree_type, certificate_subtype, gpa, location, edu_description
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          input.education_type ?? 'certificate',
+          input.education_organization_id ?? null,
+          input.campus_id ?? null,
+          input.institution ?? null,
+          input.field ?? null,
+          input.start_date ?? null,
+          input.end_date ?? null,
+          input.is_in_progress ?? 0,
+          input.credential_id ?? null,
+          input.expiration_date ?? null,
+          input.issuing_body ?? null,
+          input.url ?? null,
+          input.degree_level ?? null,
+          input.degree_type ?? null,
+          input.certificate_subtype ?? null,
+          input.gpa ?? null,
+          input.location ?? null,
+          input.edu_description ?? null,
+        ],
+      )
+    } else if (sourceType === 'clearance') {
+      db.run(
+        `INSERT INTO source_clearances (source_id, level, polygraph, status, sponsoring_agency, investigation_date, adjudication_date, reinvestigation_date, read_on)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          input.level ?? '',
+          input.polygraph ?? null,
+          input.clearance_status ?? null,
+          input.sponsoring_agency ?? null,
+          null,
+          null,
+          null,
+          null,
+        ],
+      )
+    }
+    // 'general' type has no extension table
+  })
+
+  txn()
   return get(db, id)!
 }
 
 /**
- * Retrieve a single source by ID.
+ * Retrieve a single source by ID, including its extension data.
  *
  * Returns `null` when no row matches.
  */
-export function get(db: Database, id: string): Source | null {
-  const row = db
+export function get(db: Database, id: string): SourceWithExtension | null {
+  const source = db
     .query('SELECT * FROM sources WHERE id = ?')
     .get(id) as Source | null
 
-  return row ?? null
+  if (!source) return null
+
+  const extension = getExtension(db, source.id, source.source_type)
+  return { ...source, extension }
 }
 
 /**
@@ -70,6 +273,9 @@ export function get(db: Database, id: string): Source | null {
  * Executes two queries: a COUNT for the total matching rows and a
  * SELECT with LIMIT/OFFSET for the page. Results are sorted by
  * `created_at DESC`.
+ *
+ * The `organization_id` filter JOINs to both source_roles and
+ * source_projects to match sources belonging to an organization.
  */
 export function list(
   db: Database,
@@ -79,18 +285,21 @@ export function list(
 ): SourceListResult {
   const conditions: string[] = []
   const params: unknown[] = []
+  let joinClause = ''
 
-  if (filter.employer_id !== undefined) {
-    conditions.push('employer_id = ?')
-    params.push(filter.employer_id)
-  }
-  if (filter.project_id !== undefined) {
-    conditions.push('project_id = ?')
-    params.push(filter.project_id)
+  if (filter.source_type !== undefined) {
+    conditions.push('s.source_type = ?')
+    params.push(filter.source_type)
   }
   if (filter.status !== undefined) {
-    conditions.push('status = ?')
+    conditions.push('s.status = ?')
     params.push(filter.status)
+  }
+  if (filter.organization_id !== undefined) {
+    joinClause = `LEFT JOIN source_roles sr ON s.id = sr.source_id
+                  LEFT JOIN source_projects sp ON s.id = sp.source_id`
+    conditions.push('(sr.organization_id = ? OR sp.organization_id = ?)')
+    params.push(filter.organization_id, filter.organization_id)
   }
 
   const where = conditions.length > 0
@@ -98,24 +307,31 @@ export function list(
     : ''
 
   const countRow = db
-    .query(`SELECT COUNT(*) AS total FROM sources ${where}`)
+    .query(`SELECT COUNT(DISTINCT s.id) AS total FROM sources s ${joinClause} ${where}`)
     .get(...params) as { total: number }
 
   const dataParams = [...params, limit, offset]
   const data = db
-    .query(`SELECT * FROM sources ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+    .query(`SELECT DISTINCT s.* FROM sources s ${joinClause} ${where} ORDER BY s.created_at DESC LIMIT ? OFFSET ?`)
     .all(...dataParams) as Source[]
 
   return { data, total: countRow.total }
 }
 
+/** List all sources without pagination (for data export). */
+export function listAll(db: Database): Source[] {
+  return db
+    .query('SELECT * FROM sources ORDER BY created_at DESC')
+    .all() as Source[]
+}
+
 /**
- * Partially update a source.
+ * Partially update a source (base fields and extension fields).
  *
  * Only the fields present in `input` are changed. `updated_at` is
  * always refreshed. Returns `null` if the source does not exist.
  */
-export function update(db: Database, id: string, input: UpdateSource): Source | null {
+export function update(db: Database, id: string, input: UpdateSource): SourceWithExtension | null {
   const existing = get(db, id)
   if (!existing) return null
 
@@ -130,14 +346,6 @@ export function update(db: Database, id: string, input: UpdateSource): Source | 
     sets.push('description = ?')
     params.push(input.description)
   }
-  if ('employer_id' in input) {
-    sets.push('employer_id = ?')
-    params.push(input.employer_id ?? null)
-  }
-  if ('project_id' in input) {
-    sets.push('project_id = ?')
-    params.push(input.project_id ?? null)
-  }
   if ('start_date' in input) {
     sets.push('start_date = ?')
     params.push(input.start_date ?? null)
@@ -145,6 +353,10 @@ export function update(db: Database, id: string, input: UpdateSource): Source | 
   if ('end_date' in input) {
     sets.push('end_date = ?')
     params.push(input.end_date ?? null)
+  }
+  if ('notes' in input) {
+    sets.push('notes = ?')
+    params.push(input.notes ?? null)
   }
 
   const now = new Date().toISOString()
@@ -158,6 +370,9 @@ export function update(db: Database, id: string, input: UpdateSource): Source | 
     params,
   )
 
+  // Update extension table if applicable
+  updateExtension(db, id, existing.source_type, input)
+
   return get(db, id)!
 }
 
@@ -165,13 +380,13 @@ export function update(db: Database, id: string, input: UpdateSource): Source | 
  * Delete a source by ID.
  *
  * Returns `false` if no row was found. Throws if the source still has
- * bullets (FK RESTRICT).
+ * bullets (FK RESTRICT via bullet_sources). Extension rows are
+ * CASCADE-deleted automatically.
  */
 export function del(db: Database, id: string): boolean {
   const existing = get(db, id)
   if (!existing) return false
 
-  // This will throw if bullets reference this source (ON DELETE RESTRICT).
   db.run('DELETE FROM sources WHERE id = ?', [id])
   return true
 }

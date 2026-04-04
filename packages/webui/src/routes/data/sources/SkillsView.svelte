@@ -276,8 +276,8 @@
   .list-panel {
     width: 300px;
     flex-shrink: 0;
-    border-right: 1px solid #e5e7eb;
-    background: #fff;
+    border-right: 1px solid var(--color-border);
+    background: var(--color-surface);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -288,19 +288,19 @@
     align-items: center;
     justify-content: space-between;
     padding: 1.25rem 1rem;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
   }
 
   .list-header h2 {
     font-size: 1.1rem;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--text-primary);
   }
 
   .btn-new {
     padding: 0.35rem 0.75rem;
-    background: #6c63ff;
-    color: #fff;
+    background: var(--color-primary);
+    color: var(--text-inverse);
     border: none;
     border-radius: 6px;
     font-size: 0.8rem;
@@ -310,42 +310,42 @@
     white-space: nowrap;
   }
 
-  .btn-new:hover { background: #5a52e0; }
+  .btn-new:hover { background: var(--color-primary-hover); }
 
   .filter-bar {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
   }
 
   .search-input {
     padding: 0.4rem 0.65rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 5px;
     font-size: 0.8rem;
-    color: #1a1a1a;
+    color: var(--text-primary);
   }
 
   .search-input:focus {
     outline: none;
-    border-color: #6c63ff;
-    box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 2px var(--color-primary-subtle);
   }
 
   .filter-select {
     padding: 0.35rem 0.5rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 5px;
     font-size: 0.78rem;
-    color: #374151;
-    background: #fff;
+    color: var(--text-secondary);
+    background: var(--color-surface);
   }
 
   .filter-select:focus {
     outline: none;
-    border-color: #6c63ff;
+    border-color: var(--color-border-focus);
   }
 
   .list-loading {
@@ -368,25 +368,25 @@
     padding: 0.65rem 1rem;
     background: none;
     border: none;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--color-ghost);
     cursor: pointer;
     text-align: left;
     transition: background 0.12s;
     gap: 0.5rem;
   }
 
-  .skill-card:hover { background: #f9fafb; }
+  .skill-card:hover { background: var(--color-surface-raised); }
 
   .skill-card.selected {
-    background: #eef2ff;
-    border-left: 3px solid #6c63ff;
+    background: var(--color-primary-subtle);
+    border-left: 3px solid var(--color-primary);
     padding-left: calc(1rem - 3px);
   }
 
   .card-title {
     font-size: 0.875rem;
     font-weight: 500;
-    color: #1a1a1a;
+    color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -397,8 +397,8 @@
   .category-badge {
     display: inline-block;
     padding: 0.1em 0.4em;
-    background: #e0e7ff;
-    color: #3730a3;
+    background: var(--color-tag-bg);
+    color: var(--color-tag-text);
     border-radius: 3px;
     font-size: 0.65rem;
     font-weight: 600;
@@ -411,7 +411,7 @@
   .editor-panel {
     flex: 1;
     overflow-y: auto;
-    background: #fff;
+    background: var(--color-surface);
   }
 
   .editor-empty {
@@ -419,7 +419,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: #9ca3af;
+    color: var(--text-faint);
     font-size: 0.95rem;
   }
 
@@ -432,7 +432,7 @@
   .editor-heading {
     font-size: 1.1rem;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--text-primary);
     margin: 0;
     margin-bottom: 1.5rem;
   }
@@ -445,22 +445,22 @@
     display: block;
     font-size: 0.8rem;
     font-weight: 500;
-    color: #374151;
+    color: var(--text-secondary);
     margin-bottom: 0.35rem;
   }
 
-  .required { color: #ef4444; }
+  .required { color: var(--color-danger); }
 
   .form-group input[type='text'],
   .form-group textarea,
   .form-group select {
     width: 100%;
     padding: 0.5rem 0.65rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 6px;
     font-size: 0.875rem;
-    color: #1a1a1a;
-    background: #fff;
+    color: var(--text-primary);
+    background: var(--color-surface);
     transition: border-color 0.15s;
     font-family: inherit;
   }
@@ -469,15 +469,15 @@
   .form-group textarea:focus,
   .form-group select:focus {
     outline: none;
-    border-color: #6c63ff;
-    box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 2px var(--color-primary-subtle);
   }
 
   .form-group input:disabled,
   .form-group textarea:disabled,
   .form-group select:disabled {
-    background: #f9fafb;
-    color: #6b7280;
+    background: var(--color-surface-raised);
+    color: var(--text-muted);
     cursor: default;
   }
 
@@ -493,7 +493,7 @@
     gap: 0.75rem;
     margin-top: 1.5rem;
     padding-top: 1.25rem;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
   }
 
   .btn {
@@ -510,12 +510,12 @@
   }
 
   .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .btn-save { background: #6c63ff; color: #fff; }
-  .btn-save:hover:not(:disabled) { background: #5a52e0; }
-  .btn-cancel { background: #f3f4f6; color: #6b7280; }
-  .btn-cancel:hover { background: #e5e7eb; }
-  .btn-edit { padding: 0.3rem 0.7rem; background: #e0e7ff; color: #4338ca; border: none; border-radius: 5px; font-size: 0.78rem; font-weight: 500; cursor: pointer; }
-  .btn-edit:hover { background: #c7d2fe; }
-  .btn-delete { background: #fee2e2; color: #dc2626; margin-left: auto; }
-  .btn-delete:hover { background: #fecaca; }
+  .btn-save { background: var(--color-primary); color: var(--text-inverse); }
+  .btn-save:hover:not(:disabled) { background: var(--color-primary-hover); }
+  .btn-cancel { background: var(--color-ghost); color: var(--text-muted); }
+  .btn-cancel:hover { background: var(--color-ghost-hover); }
+  .btn-edit { padding: 0.3rem 0.7rem; background: var(--color-tag-bg); color: var(--color-tag-text); border: none; border-radius: 5px; font-size: 0.78rem; font-weight: 500; cursor: pointer; }
+  .btn-edit:hover { background: var(--color-primary-subtle); }
+  .btn-delete { background: var(--color-danger-subtle); color: var(--color-danger-text); margin-left: auto; }
+  .btn-delete:hover { background: var(--color-danger-subtle); }
 </style>

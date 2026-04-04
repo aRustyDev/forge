@@ -86,7 +86,7 @@
   }
 
   .dialog {
-    background: #fff;
+    background: var(--color-surface);
     border-radius: 0.5rem;
     width: 420px;
     max-width: 90vw;
@@ -98,14 +98,14 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem 1.25rem;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
   }
 
   .dialog-header h3 {
     margin: 0;
     font-size: 1rem;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--text-primary);
   }
 
   .close-btn {
@@ -113,7 +113,7 @@
     border: none;
     font-size: 1.5rem;
     cursor: pointer;
-    color: #6b7280;
+    color: var(--text-muted);
     line-height: 1;
   }
 
@@ -133,19 +133,19 @@
   .field label {
     font-size: 0.8rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--text-secondary);
   }
 
   .field select {
     padding: 0.5rem 0.6rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 0.375rem;
     font-size: 0.9rem;
     outline: none;
   }
 
   .field select:focus {
-    border-color: #3b82f6;
+    border-color: var(--color-info);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
   }
 
@@ -154,23 +154,23 @@
     justify-content: flex-end;
     gap: 0.5rem;
     padding: 0.75rem 1.25rem;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
   }
 
   .btn-cancel {
     padding: 0.4rem 1rem;
     background: none;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 0.375rem;
     font-size: 0.85rem;
     cursor: pointer;
-    color: #374151;
+    color: var(--text-secondary);
   }
 
   .btn-link {
     padding: 0.4rem 1rem;
-    background: #3b82f6;
-    color: #fff;
+    background: var(--color-info);
+    color: var(--color-surface);
     border: none;
     border-radius: 0.375rem;
     font-size: 0.85rem;
@@ -184,6 +184,6 @@
   }
 
   .btn-link:hover:not(:disabled) {
-    background: #2563eb;
+    background: var(--color-info-text);
   }
 </style>

@@ -288,11 +288,11 @@
   label {
     font-size: 0.8rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--text-secondary);
   }
 
   .required {
-    color: #ef4444;
+    color: var(--color-danger);
   }
 
   input[type="text"],
@@ -300,7 +300,7 @@
   select,
   textarea {
     padding: 0.5rem 0.6rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 0.375rem;
     font-size: 0.9rem;
     outline: none;
@@ -310,7 +310,7 @@
   input:focus,
   select:focus,
   textarea:focus {
-    border-color: #3b82f6;
+    border-color: var(--color-info);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
   }
 
@@ -333,7 +333,7 @@
 
   .url-link {
     font-size: 0.8rem;
-    color: #3b82f6;
+    color: var(--color-info);
     text-decoration: none;
     white-space: nowrap;
   }
@@ -347,13 +347,13 @@
     justify-content: space-between;
     align-items: center;
     padding-top: 0.5rem;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
   }
 
   .btn-primary {
     padding: 0.5rem 1.25rem;
-    background: #3b82f6;
-    color: #fff;
+    background: var(--color-info);
+    color: var(--color-surface);
     border: none;
     border-radius: 0.375rem;
     font-weight: 600;
@@ -362,7 +362,7 @@
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: #2563eb;
+    background: var(--color-info-text);
   }
 
   .btn-primary:disabled {
@@ -373,8 +373,8 @@
   .btn-danger {
     padding: 0.5rem 1.25rem;
     background: none;
-    color: #ef4444;
-    border: 1px solid #ef4444;
+    color: var(--color-danger);
+    border: 1px solid var(--color-danger);
     border-radius: 0.375rem;
     font-weight: 600;
     cursor: pointer;
@@ -382,6 +382,6 @@
   }
 
   .btn-danger:hover {
-    background: #fef2f2;
+    background: var(--color-danger-subtle);
   }
 </style>

@@ -335,8 +335,8 @@
   .list-panel {
     width: 320px;
     flex-shrink: 0;
-    border-right: 1px solid #e5e7eb;
-    background: #fff;
+    border-right: 1px solid var(--color-border);
+    background: var(--color-surface);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -347,19 +347,19 @@
     align-items: center;
     justify-content: space-between;
     padding: 1.25rem 1rem;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
   }
 
   .list-header h2 {
     font-size: 1.1rem;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--text-primary);
   }
 
   .btn-new {
     padding: 0.35rem 0.75rem;
-    background: #6c63ff;
-    color: #fff;
+    background: var(--color-primary);
+    color: var(--color-surface);
     border: none;
     border-radius: 6px;
     font-size: 0.8rem;
@@ -369,26 +369,26 @@
     white-space: nowrap;
   }
 
-  .btn-new:hover { background: #5a52e0; }
+  .btn-new:hover { background: var(--color-primary-hover); }
 
   .filter-bar {
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
   }
 
   .search-input {
     width: 100%;
     padding: 0.4rem 0.65rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 5px;
     font-size: 0.8rem;
-    color: #1a1a1a;
+    color: var(--text-primary);
   }
 
   .search-input:focus {
     outline: none;
-    border-color: #6c63ff;
-    box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-primary-subtle);
   }
 
   .list-loading {
@@ -409,17 +409,17 @@
     padding: 0.75rem 1rem;
     background: none;
     border: none;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--color-ghost);
     cursor: pointer;
     text-align: left;
     transition: background 0.12s;
   }
 
-  .note-card:hover { background: #f9fafb; }
+  .note-card:hover { background: var(--color-surface-raised); }
 
   .note-card.selected {
-    background: #eef2ff;
-    border-left: 3px solid #6c63ff;
+    background: var(--color-primary-subtle);
+    border-left: 3px solid var(--color-primary);
     padding-left: calc(1rem - 3px);
   }
 
@@ -434,7 +434,7 @@
   .card-title {
     font-size: 0.875rem;
     font-weight: 500;
-    color: #1a1a1a;
+    color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -444,13 +444,13 @@
 
   .card-date {
     font-size: 0.7rem;
-    color: #9ca3af;
+    color: var(--text-faint);
     flex-shrink: 0;
   }
 
   .card-preview {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--text-muted);
     line-height: 1.4;
     margin-bottom: 0.25rem;
   }
@@ -471,19 +471,19 @@
     letter-spacing: 0.03em;
   }
 
-  .ref-source { background: #dbeafe; color: #1e40af; }
+  .ref-source { background: var(--color-info-border); color: var(--color-info-text); }
   .ref-bullet { background: #ede9fe; color: #5b21b6; }
-  .ref-perspective { background: #d1fae5; color: #065f46; }
-  .ref-resume_entry { background: #fef3c7; color: #92400e; }
+  .ref-perspective { background: #d1fae5; color: var(--color-success-text); }
+  .ref-resume_entry { background: var(--color-warning-bg); color: var(--color-warning-text); }
   .ref-resume { background: #fce7f3; color: #9d174d; }
-  .ref-skill { background: #e0e7ff; color: #3730a3; }
-  .ref-organization { background: #f3f4f6; color: #374151; }
+  .ref-skill { background: var(--color-tag-bg); color: var(--color-tag-text); }
+  .ref-organization { background: var(--color-tag-neutral-bg); color: var(--color-tag-neutral-text); }
 
   /* Editor */
   .editor-panel {
     flex: 1;
     overflow-y: auto;
-    background: #fff;
+    background: var(--color-surface);
   }
 
   .editor-empty {
@@ -491,7 +491,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: #9ca3af;
+    color: var(--text-faint);
     font-size: 0.95rem;
   }
 
@@ -503,7 +503,7 @@
   .editor-heading {
     font-size: 1.1rem;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--text-primary);
     margin-bottom: 1.5rem;
   }
 
@@ -515,21 +515,21 @@
     display: block;
     font-size: 0.8rem;
     font-weight: 500;
-    color: #374151;
+    color: var(--text-secondary);
     margin-bottom: 0.35rem;
   }
 
-  .required { color: #ef4444; }
+  .required { color: var(--color-danger); }
 
   .form-group input[type='text'],
   .form-group textarea {
     width: 100%;
     padding: 0.5rem 0.65rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 6px;
     font-size: 0.875rem;
-    color: #1a1a1a;
-    background: #fff;
+    color: var(--text-primary);
+    background: var(--color-surface);
     transition: border-color 0.15s;
     font-family: inherit;
   }
@@ -537,8 +537,8 @@
   .form-group input:focus,
   .form-group textarea:focus {
     outline: none;
-    border-color: #6c63ff;
-    box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-primary-subtle);
   }
 
   .form-group textarea {
@@ -550,19 +550,19 @@
   .references-section {
     margin-top: 1.5rem;
     padding-top: 1.25rem;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
   }
 
   .references-section h4 {
     font-size: 0.85rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--text-secondary);
     margin-bottom: 0.75rem;
   }
 
   .no-refs {
     font-size: 0.8rem;
-    color: #9ca3af;
+    color: var(--text-faint);
     font-style: italic;
     margin-bottom: 0.5rem;
   }
@@ -579,13 +579,13 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.35rem 0.5rem;
-    background: #f9fafb;
+    background: var(--color-surface-raised);
     border-radius: 5px;
   }
 
   .ref-id {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--text-muted);
     font-family: monospace;
     flex: 1;
   }
@@ -601,16 +601,16 @@
   .ref-picker select,
   .ref-picker input {
     padding: 0.35rem 0.5rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 5px;
     font-size: 0.78rem;
-    color: #374151;
+    color: var(--text-secondary);
   }
 
   .ref-picker select:focus,
   .ref-picker input:focus {
     outline: none;
-    border-color: #6c63ff;
+    border-color: var(--color-primary);
   }
 
   .ref-picker input {
@@ -624,7 +624,7 @@
     gap: 0.75rem;
     margin-top: 1.5rem;
     padding-top: 1.25rem;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
   }
 
   .btn {
@@ -641,9 +641,9 @@
   }
 
   .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .btn-save { background: #6c63ff; color: #fff; }
-  .btn-save:hover:not(:disabled) { background: #5a52e0; }
-  .btn-delete { background: #fee2e2; color: #dc2626; margin-left: auto; }
+  .btn-save { background: var(--color-primary); color: var(--color-surface); }
+  .btn-save:hover:not(:disabled) { background: var(--color-primary-hover); }
+  .btn-delete { background: var(--color-danger-subtle); color: var(--color-danger-text); margin-left: auto; }
   .btn-delete:hover { background: #fecaca; }
 
   .btn-sm {
@@ -651,12 +651,12 @@
     font-size: 0.75rem;
   }
 
-  .btn-primary { background: #6c63ff; color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: #5a52e0; }
-  .btn-ghost { background: transparent; color: #6b7280; }
-  .btn-ghost:hover { color: #374151; background: #f3f4f6; }
-  .btn-danger { background: #fee2e2; color: #dc2626; }
+  .btn-primary { background: var(--color-primary); color: var(--color-surface); }
+  .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
+  .btn-ghost { background: transparent; color: var(--text-muted); }
+  .btn-ghost:hover { color: var(--text-secondary); background: var(--color-ghost); }
+  .btn-danger { background: var(--color-danger-subtle); color: var(--color-danger-text); }
   .btn-danger:hover { background: #fecaca; }
-  .btn-add { background: #f0fdf4; color: #16a34a; margin-top: 0.5rem; }
+  .btn-add { background: var(--color-success-subtle); color: var(--color-success-strong); margin-top: 0.5rem; }
   .btn-add:hover { background: #dcfce7; }
 </style>

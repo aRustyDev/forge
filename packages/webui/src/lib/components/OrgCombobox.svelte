@@ -191,18 +191,18 @@
   .combobox-input {
     width: 100%;
     padding: 0.4rem 1.6rem 0.4rem 0.6rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 5px;
     font-size: 0.82rem;
-    color: #374151;
-    background: #fff;
+    color: var(--text-secondary);
+    background: var(--color-surface);
     font-family: inherit;
   }
 
   .combobox-input:focus {
     outline: none;
-    border-color: #6c63ff;
-    box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-primary-subtle);
   }
 
   .combobox-clear {
@@ -211,14 +211,14 @@
     background: none;
     border: none;
     font-size: 1rem;
-    color: #9ca3af;
+    color: var(--text-faint);
     cursor: pointer;
     padding: 0.1rem 0.3rem;
     line-height: 1;
   }
 
   .combobox-clear:hover {
-    color: #374151;
+    color: var(--text-secondary);
   }
 
   .combobox-list {
@@ -229,8 +229,8 @@
     right: 0;
     max-height: 200px;
     overflow-y: auto;
-    background: #fff;
-    border: 1px solid #d1d5db;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
     border-top: none;
     border-radius: 0 0 5px 5px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -250,31 +250,31 @@
 
   .combobox-option:hover,
   .combobox-option.highlighted {
-    background: #f0f0ff;
+    background: var(--color-primary-subtle);
   }
 
   .combobox-option.selected {
-    background: #e0e7ff;
+    background: var(--color-tag-bg);
     font-weight: 500;
   }
 
   .combobox-empty {
     padding: 0.6rem;
     font-size: 0.78rem;
-    color: #9ca3af;
+    color: var(--text-faint);
     font-style: italic;
     text-align: center;
   }
 
   .combobox-create {
-    border-top: 1px solid #e5e7eb;
-    color: #6c63ff;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-primary);
     font-weight: 500;
   }
 
   .combobox-create:hover,
   .combobox-create.highlighted {
-    background: #f0f0ff;
+    background: var(--color-primary-subtle);
   }
 
   .option-name {
@@ -293,8 +293,8 @@
 
   .option-tag {
     padding: 0.05em 0.25em;
-    background: #e0e7ff;
-    color: #3730a3;
+    background: var(--color-tag-bg);
+    color: var(--color-tag-text);
     border-radius: 3px;
     font-size: 0.55rem;
     font-weight: 500;

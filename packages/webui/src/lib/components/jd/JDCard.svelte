@@ -46,21 +46,21 @@
     width: 100%;
     text-align: left;
     padding: 0.75rem;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 0.5rem;
-    background: #fff;
+    background: var(--color-surface);
     cursor: pointer;
     transition: border-color 0.15s, background-color 0.15s;
   }
 
   .jd-card:hover {
-    border-color: #93c5fd;
-    background: #f0f9ff;
+    border-color: var(--color-info-border);
+    background: var(--color-info-subtle);
   }
 
   .jd-card.selected {
-    border-color: #3b82f6;
-    background: #eff6ff;
+    border-color: var(--color-info);
+    background: var(--color-info-subtle);
   }
 
   .card-header {
@@ -74,14 +74,14 @@
   .title {
     font-weight: 600;
     font-size: 0.9rem;
-    color: #1a1a2e;
+    color: var(--text-primary);
     line-height: 1.3;
   }
 
   .org-name {
     display: block;
     font-size: 0.8rem;
-    color: #6b7280;
+    color: var(--text-muted);
     margin-bottom: 0.25rem;
   }
 
@@ -93,6 +93,6 @@
 
   .meta-item {
     font-size: 0.75rem;
-    color: #9ca3af;
+    color: var(--text-faint);
   }
 </style>

@@ -250,33 +250,33 @@
     align-items: flex-start;
     margin-bottom: 1.5rem;
   }
-  .page-title { font-size: 1.5rem; font-weight: 700; color: #1a1a2e; margin-bottom: 0.25rem; }
-  .subtitle { font-size: 0.85rem; color: #6b7280; }
+  .page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; }
+  .subtitle { font-size: 0.85rem; color: var(--text-muted); }
 
   .section { margin-bottom: 2rem; }
   .section-title {
     font-size: 1rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--text-secondary);
     margin-bottom: 0.75rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
   }
-  .star { color: #f59e0b; }
-  .empty-note { color: #6b7280; font-size: 0.85rem; }
+  .star { color: var(--color-template-star); }
+  .empty-note { color: var(--text-muted); font-size: 0.85rem; }
 
   .summary-list { display: flex; flex-direction: column; gap: 0.5rem; }
 
   .summary-card {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 1rem;
-    background: #fff;
+    background: var(--color-surface);
   }
   .summary-card.template {
-    border-color: #fcd34d;
-    background: #fffbeb;
+    border-color: var(--color-template-border);
+    background: var(--color-template-bg);
   }
 
   .summary-display {
@@ -293,24 +293,24 @@
   .summary-title {
     font-size: 0.9rem;
     font-weight: 600;
-    color: #1a1a2e;
+    color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .resume-count {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--text-muted);
     white-space: nowrap;
   }
   .summary-role {
     font-size: 0.8rem;
-    color: #4b5563;
+    color: var(--text-secondary);
     margin-top: 0.25rem;
   }
   .summary-tagline {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--text-muted);
     font-style: italic;
     margin-top: 0.125rem;
   }
@@ -324,17 +324,17 @@
 
   .edit-form { display: flex; flex-direction: column; gap: 0.75rem; }
   .form-field { display: flex; flex-direction: column; gap: 0.25rem; }
-  .field-label { font-size: 0.8rem; font-weight: 500; color: #374151; }
+  .field-label { font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); }
   .field-input {
     padding: 0.375rem 0.625rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 4px;
     font-size: 0.85rem;
   }
   .field-input:focus {
     outline: none;
-    border-color: #6c63ff;
-    box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 2px var(--color-primary-subtle);
   }
 
   .banner {
@@ -344,14 +344,14 @@
     line-height: 1.4;
   }
   .banner-info {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    color: #1e40af;
+    background: var(--color-info-subtle);
+    border: 1px solid var(--color-info-border);
+    color: var(--color-info-text);
   }
   .banner-warn {
-    background: #fffbeb;
-    border: 1px solid #fcd34d;
-    color: #92400e;
+    background: var(--color-warning-subtle);
+    border: 1px solid var(--color-warning-border);
+    color: var(--color-warning-text);
   }
 
   .edit-actions { display: flex; gap: 0.5rem; }
@@ -365,27 +365,27 @@
     transition: background 0.15s;
   }
   .btn-primary {
-    background: #6c63ff;
-    color: #fff;
+    background: var(--color-primary);
+    color: var(--text-inverse);
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
   }
-  .btn-primary:hover { background: #5a52e0; }
+  .btn-primary:hover { background: var(--color-primary-hover); }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-ghost {
-    background: #f3f4f6;
-    color: #374151;
+    background: var(--color-ghost);
+    color: var(--text-secondary);
     padding: 0.375rem 0.75rem;
     font-size: 0.8rem;
   }
-  .btn-ghost:hover { background: #e5e7eb; }
+  .btn-ghost:hover { background: var(--color-ghost-hover); }
   .btn-danger-ghost {
-    background: #fef2f2;
-    color: #dc2626;
+    background: var(--color-danger-subtle);
+    color: var(--color-danger-hover);
     padding: 0.375rem 0.75rem;
     font-size: 0.8rem;
   }
-  .btn-danger-ghost:hover { background: #fee2e2; }
+  .btn-danger-ghost:hover { background: var(--color-danger-subtle); }
   .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.8rem; }
   .btn-xs { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
 </style>

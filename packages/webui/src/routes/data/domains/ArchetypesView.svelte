@@ -338,18 +338,18 @@
   .page-title {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--text-primary);
     margin-bottom: 0.25rem;
   }
 
   .subtitle {
     font-size: 0.85rem;
-    color: #6b7280;
+    color: var(--text-muted);
   }
 
   .create-form {
-    background: #fff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 1.25rem;
     margin-bottom: 1.5rem;
@@ -369,21 +369,21 @@
     display: block;
     font-size: 0.8rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--text-secondary);
     margin-bottom: 0.25rem;
   }
 
   .form-hint {
     display: block;
     font-size: 0.7rem;
-    color: #9ca3af;
+    color: var(--text-faint);
     margin-top: 0.15rem;
   }
 
   .form-input {
     width: 100%;
     padding: 0.5rem 0.75rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 6px;
     font-size: 0.85rem;
   }
@@ -395,29 +395,29 @@
 
   .archetypes-table {
     width: 100%;
-    background: #fff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 8px;
     border-collapse: collapse;
     overflow: hidden;
   }
 
   .archetypes-table th {
-    background: #f9fafb;
+    background: var(--color-surface-raised);
     padding: 0.75rem 1rem;
     text-align: left;
     font-size: 0.75rem;
     font-weight: 600;
-    color: #6b7280;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
   }
 
   .archetypes-table td {
     padding: 0.75rem 1rem;
     font-size: 0.85rem;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--color-ghost);
   }
 
   .archetypes-table tbody tr:last-child td {
@@ -426,29 +426,29 @@
 
   .arch-name {
     font-weight: 600;
-    color: #1a1a2e;
+    color: var(--text-primary);
     font-family: monospace;
     cursor: pointer;
     user-select: none;
   }
 
   .arch-name:hover {
-    color: #6c63ff;
+    color: var(--color-primary);
   }
 
   .expand-arrow {
     font-size: 0.65rem;
     margin-right: 0.35rem;
-    color: #9ca3af;
+    color: var(--text-faint);
   }
 
   .arch-desc {
-    color: #6b7280;
+    color: var(--text-muted);
   }
 
   .count {
     text-align: center;
-    color: #374151;
+    color: var(--text-secondary);
   }
 
   .actions {
@@ -457,7 +457,7 @@
   }
 
   .editing-row {
-    background: #f0f9ff;
+    background: var(--color-info-subtle);
   }
 
   tr.expanded td {
@@ -466,27 +466,27 @@
 
   .domain-panel-row td {
     padding: 0 1rem 1rem;
-    background: #f9fafb;
-    border-bottom: 1px solid #e5e7eb;
+    background: var(--color-surface-raised);
+    border-bottom: 1px solid var(--color-border);
   }
 
   .domain-panel {
     padding: 0.75rem 1rem;
-    background: #fff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 6px;
   }
 
   .domain-panel h4 {
     font-size: 0.8rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--text-secondary);
     margin-bottom: 0.5rem;
   }
 
   .loading-text {
     font-size: 0.8rem;
-    color: #9ca3af;
+    color: var(--text-faint);
   }
 
   .domain-checkboxes {
@@ -503,12 +503,12 @@
   }
 
   .domain-checkbox input[type="checkbox"] {
-    accent-color: #6c63ff;
+    accent-color: var(--color-primary);
   }
 
   .domain-checkbox-label {
     font-size: 0.8rem;
-    color: #374151;
+    color: var(--text-secondary);
     text-transform: capitalize;
   }
 
@@ -530,27 +530,27 @@
   }
 
   .btn-primary {
-    background: #6c63ff;
-    color: #fff;
+    background: var(--color-primary);
+    color: var(--color-surface);
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: #5b54e0;
+    background: var(--color-primary-hover);
   }
 
   .btn-ghost {
     background: transparent;
-    color: #6b7280;
-    border: 1px solid #d1d5db;
+    color: var(--text-muted);
+    border: 1px solid var(--color-border-strong);
   }
 
   .btn-ghost:hover {
-    background: #f3f4f6;
+    background: var(--color-ghost);
   }
 
   .btn-danger {
-    background: #fee2e2;
-    color: #dc2626;
+    background: var(--color-danger-subtle);
+    color: var(--color-danger-text);
   }
 
   .btn-danger:hover:not(:disabled) {

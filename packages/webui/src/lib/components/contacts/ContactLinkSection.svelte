@@ -137,7 +137,7 @@
 
 <style>
   .link-section {
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
     padding-top: 0.75rem;
     margin-top: 0.5rem;
   }
@@ -152,7 +152,7 @@
   .section-title {
     font-size: 0.8rem;
     font-weight: 700;
-    color: #374151;
+    color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -160,22 +160,22 @@
   .btn-add {
     padding: 0.25rem 0.5rem;
     background: none;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 0.375rem;
     font-size: 0.75rem;
-    color: #3b82f6;
+    color: var(--color-info);
     cursor: pointer;
     font-weight: 500;
   }
 
   .btn-add:hover {
-    background: #f0f9ff;
-    border-color: #93c5fd;
+    background: var(--color-info-subtle);
+    border-color: var(--color-info-border);
   }
 
   .empty-text {
     font-size: 0.8rem;
-    color: #9ca3af;
+    color: var(--text-faint);
     font-style: italic;
   }
 
@@ -190,27 +190,27 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.35rem 0.5rem;
-    background: #f9fafb;
+    background: var(--color-surface-raised);
     border-radius: 0.375rem;
     font-size: 0.85rem;
   }
 
   .contact-info {
     flex: 1;
-    color: #1a1a2e;
+    color: var(--text-primary);
     font-weight: 500;
   }
 
   .contact-role {
     font-weight: 400;
-    color: #6b7280;
+    color: var(--text-muted);
   }
 
   .relationship-badge {
     font-size: 0.7rem;
     padding: 0.15em 0.5em;
-    background: #e0e7ff;
-    color: #3730a3;
+    background: var(--color-tag-bg);
+    color: var(--color-tag-text);
     border-radius: 999px;
     font-weight: 500;
     white-space: nowrap;
@@ -219,7 +219,7 @@
   .unlink-btn {
     background: none;
     border: none;
-    color: #9ca3af;
+    color: var(--text-faint);
     cursor: pointer;
     font-size: 1.1rem;
     line-height: 1;
@@ -227,6 +227,6 @@
   }
 
   .unlink-btn:hover {
-    color: #ef4444;
+    color: var(--color-danger);
   }
 </style>

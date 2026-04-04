@@ -163,7 +163,7 @@
   }
 
   .dialog {
-    background: #fff;
+    background: var(--color-surface);
     border-radius: 8px;
     width: 90%;
     max-width: 420px;
@@ -175,13 +175,13 @@
     align-items: center;
     justify-content: space-between;
     padding: 1rem 1.25rem;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
   }
 
   .dialog-header h3 {
     font-size: 1rem;
     font-weight: 600;
-    color: #1a1a2e;
+    color: var(--text-primary);
     margin: 0;
   }
 
@@ -189,13 +189,13 @@
     background: none;
     border: none;
     font-size: 1.2rem;
-    color: #9ca3af;
+    color: var(--text-faint);
     cursor: pointer;
     padding: 0.2rem;
     line-height: 1;
   }
 
-  .close-btn:hover { color: #374151; }
+  .close-btn:hover { color: var(--text-secondary); }
 
   .dialog-body {
     padding: 1.25rem;
@@ -215,30 +215,30 @@
     display: block;
     font-size: 0.8rem;
     font-weight: 500;
-    color: #374151;
+    color: var(--text-secondary);
     margin-bottom: 0.35rem;
   }
 
   .form-group select {
     width: 100%;
     padding: 0.5rem 0.65rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 6px;
     font-size: 0.875rem;
-    color: #1a1a1a;
-    background: #fff;
+    color: var(--text-primary);
+    background: var(--color-surface);
     font-family: inherit;
   }
 
   .form-group select:focus {
     outline: none;
-    border-color: #6c63ff;
-    box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-primary-subtle);
   }
 
   .field-hint {
     font-size: 0.7rem;
-    color: #ef4444;
+    color: var(--color-danger);
     font-style: italic;
     margin-top: 0.2rem;
     display: block;
@@ -249,7 +249,7 @@
     justify-content: flex-end;
     gap: 0.75rem;
     padding: 0.75rem 1.25rem;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
   }
 
   .btn {
@@ -264,8 +264,8 @@
   }
 
   .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .btn-primary { background: #6c63ff; color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: #5a52e0; }
-  .btn-ghost { background: transparent; color: #6b7280; }
-  .btn-ghost:hover { color: #374151; background: #f3f4f6; }
+  .btn-primary { background: var(--color-primary); color: var(--text-inverse); }
+  .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
+  .btn-ghost { background: transparent; color: var(--text-muted); }
+  .btn-ghost:hover { color: var(--text-secondary); background: var(--color-ghost); }
 </style>

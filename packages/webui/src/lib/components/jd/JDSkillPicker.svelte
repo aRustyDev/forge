@@ -166,8 +166,8 @@
     align-items: center;
     gap: 0.25rem;
     padding: 0.2em 0.5em;
-    background: #e0e7ff;
-    color: #3730a3;
+    background: var(--color-tag-bg);
+    color: var(--color-tag-text);
     border-radius: 999px;
     font-size: 0.8rem;
     font-weight: 500;
@@ -176,7 +176,7 @@
   .remove-btn {
     background: none;
     border: none;
-    color: #6366f1;
+    color: var(--color-primary);
     cursor: pointer;
     font-size: 1rem;
     line-height: 1;
@@ -184,7 +184,7 @@
   }
 
   .remove-btn:hover {
-    color: #ef4444;
+    color: var(--color-danger);
   }
 
   .search-wrapper {
@@ -194,15 +194,15 @@
   .skill-input {
     width: 100%;
     padding: 0.4rem 0.6rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 0.375rem;
     font-size: 0.85rem;
     outline: none;
   }
 
   .skill-input:focus {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-primary-subtle);
   }
 
   .dropdown {
@@ -210,8 +210,8 @@
     top: 100%;
     left: 0;
     right: 0;
-    background: #fff;
-    border: 1px solid #d1d5db;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
     border-radius: 0.375rem;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
     max-height: 200px;
@@ -231,21 +231,21 @@
     text-align: left;
     cursor: pointer;
     font-size: 0.85rem;
-    color: #1a1a2e;
+    color: var(--text-primary);
   }
 
   .dropdown-item:hover {
-    background: #f0f9ff;
+    background: var(--color-info-subtle);
   }
 
   .category-label {
     font-size: 0.7rem;
-    color: #9ca3af;
+    color: var(--text-faint);
     font-style: italic;
   }
 
   .create-item {
-    color: #6366f1;
+    color: var(--color-primary);
     font-style: italic;
   }
 </style>

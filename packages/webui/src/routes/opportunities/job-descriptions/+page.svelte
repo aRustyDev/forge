@@ -203,7 +203,7 @@
   .list-panel {
     width: 320px;
     min-width: 280px;
-    border-right: 1px solid #e5e7eb;
+    border-right: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -214,20 +214,20 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
   }
 
   .panel-title {
     font-size: 1rem;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--text-primary);
     margin: 0;
   }
 
   .btn-new {
     padding: 0.35rem 0.75rem;
-    background: #3b82f6;
-    color: #fff;
+    background: var(--color-info);
+    color: var(--color-surface);
     border: none;
     border-radius: 0.375rem;
     font-size: 0.8rem;
@@ -236,20 +236,20 @@
   }
 
   .btn-new:hover {
-    background: #2563eb;
+    background: var(--color-info-text);
   }
 
   .list-filters {
     display: flex;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--color-ghost);
   }
 
   .status-filter {
     flex: 0 0 auto;
     padding: 0.35rem 0.5rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 0.375rem;
     font-size: 0.8rem;
     outline: none;
@@ -258,7 +258,7 @@
   .search-input {
     flex: 1;
     padding: 0.35rem 0.5rem;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 0.375rem;
     font-size: 0.8rem;
     outline: none;
@@ -266,7 +266,7 @@
 
   .search-input:focus,
   .status-filter:focus {
-    border-color: #3b82f6;
+    border-color: var(--color-info);
   }
 
   .card-list {
@@ -280,7 +280,7 @@
 
   .empty-list {
     text-align: center;
-    color: #9ca3af;
+    color: var(--text-faint);
     padding: 2rem 1rem;
     font-size: 0.85rem;
   }

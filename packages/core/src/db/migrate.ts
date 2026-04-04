@@ -83,6 +83,14 @@ export function runMigrations(db: Database, migrationsDir: string): void {
     const sql = readFileSync(join(migrationsDir, file), "utf-8");
     const name = migrationName(file);
 
+    // Table-rebuild migrations need PRAGMA foreign_keys = OFF, which must be
+    // set OUTSIDE any transaction (SQLite silently ignores it inside BEGIN).
+    // Detect these migrations by their PRAGMA statement and handle accordingly.
+    const needsFkOff = sql.includes("PRAGMA foreign_keys = OFF");
+    if (needsFkOff) {
+      db.exec("PRAGMA foreign_keys = OFF");
+    }
+
     try {
       db.exec("BEGIN");
       db.exec(sql);
@@ -93,6 +101,9 @@ export function runMigrations(db: Database, migrationsDir: string): void {
       db.run("INSERT OR IGNORE INTO _migrations (name) VALUES (?)", [name]);
 
       db.exec("COMMIT");
+      if (needsFkOff) {
+        db.exec("PRAGMA foreign_keys = ON");
+      }
       console.log(`Applied migration: ${file}`);
 
       // Run companion TypeScript data migrations
@@ -110,6 +121,9 @@ export function runMigrations(db: Database, migrationsDir: string): void {
         db.exec("ROLLBACK");
       } catch {
         // Rollback may fail if the transaction was already aborted by SQLite.
+      }
+      if (needsFkOff) {
+        db.exec("PRAGMA foreign_keys = ON");
       }
       console.error(`Migration failed: ${file}`);
       throw err;

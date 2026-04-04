@@ -109,7 +109,7 @@ export function list(
   const dataParams = [...params, limit, offset]
   const rows = db
     .query(
-      `${SELECT_WITH_ORG} ${where} ORDER BY jd.created_at DESC LIMIT ? OFFSET ?`,
+      `${SELECT_WITH_ORG} ${where} ORDER BY jd.updated_at DESC LIMIT ? OFFSET ?`,
     )
     .all(...dataParams) as JobDescriptionWithOrg[]
 

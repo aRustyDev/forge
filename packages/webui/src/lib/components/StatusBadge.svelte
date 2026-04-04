@@ -2,21 +2,41 @@
   let { status }: { status: string } = $props()
 
   const colorMap: Record<string, string> = {
+    // Existing statuses (source, bullet, perspective, resume)
     draft: '#6b7280',
     approved: '#22c55e',
     pending_review: '#f59e0b',
     rejected: '#ef4444',
     deriving: '#3b82f6',
     final: '#8b5cf6',
+    // JD statuses (Spec E1)
+    interested: '#6b7280',
+    analyzing: '#3b82f6',
+    applied: '#6366f1',
+    interviewing: '#a855f7',
+    offered: '#22c55e',
+    // 'rejected' already exists above with #ef4444 -- shared
+    withdrawn: '#f97316',
+    closed: '#374151',
   }
 
   const labelMap: Record<string, string> = {
+    // Existing statuses
     draft: 'Draft',
     approved: 'Approved',
     pending_review: 'Pending Review',
     rejected: 'Rejected',
     deriving: 'Deriving',
     final: 'Final',
+    // JD statuses (Spec E1)
+    interested: 'Interested',
+    analyzing: 'Analyzing',
+    applied: 'Applied',
+    interviewing: 'Interviewing',
+    offered: 'Offered',
+    // 'rejected' already exists above -- shared
+    withdrawn: 'Withdrawn',
+    closed: 'Closed',
   }
 
   let color = $derived(colorMap[status] ?? '#6b7280')

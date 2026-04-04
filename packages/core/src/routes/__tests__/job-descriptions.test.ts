@@ -244,4 +244,162 @@ describe('Job Description Routes', () => {
     )
     expect(res.status).toBe(404)
   })
+
+  // ── GET /job-descriptions/:id/skills ──────────────────────────────
+
+  test('GET skills returns empty array for JD with no skills', async () => {
+    const jdId = seedJobDescription(ctx.db)
+    const res = await apiRequest(ctx.app, 'GET', `/job-descriptions/${jdId}/skills`)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data).toBeArray()
+    expect(body.data).toHaveLength(0)
+  })
+
+  test('GET skills returns linked skills sorted by name', async () => {
+    const jdId = seedJobDescription(ctx.db)
+    const skillId1 = crypto.randomUUID()
+    const skillId2 = crypto.randomUUID()
+    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId1, 'Terraform', 'devops'])
+    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId2, 'Kubernetes', 'devops'])
+    ctx.db.run("INSERT INTO job_description_skills (job_description_id, skill_id) VALUES (?, ?)", [jdId, skillId1])
+    ctx.db.run("INSERT INTO job_description_skills (job_description_id, skill_id) VALUES (?, ?)", [jdId, skillId2])
+
+    const res = await apiRequest(ctx.app, 'GET', `/job-descriptions/${jdId}/skills`)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data).toHaveLength(2)
+    expect(body.data[0].name).toBe('Kubernetes')
+    expect(body.data[1].name).toBe('Terraform')
+  })
+
+  // ── POST /job-descriptions/:id/skills ─────────────────────────────
+
+  test('POST skill with skill_id links existing skill and returns 201', async () => {
+    const jdId = seedJobDescription(ctx.db)
+    const skillId = crypto.randomUUID()
+    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId, 'Python', 'language'])
+
+    const res = await apiRequest(ctx.app, 'POST', `/job-descriptions/${jdId}/skills`, { skill_id: skillId })
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.data.name).toBe('Python')
+
+    // Verify link exists
+    const getRes = await apiRequest(ctx.app, 'GET', `/job-descriptions/${jdId}/skills`)
+    const getBody = await getRes.json()
+    expect(getBody.data).toHaveLength(1)
+  })
+
+  test('POST skill with duplicate skill_id is idempotent', async () => {
+    const jdId = seedJobDescription(ctx.db)
+    const skillId = crypto.randomUUID()
+    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId, 'Go', 'language'])
+
+    await apiRequest(ctx.app, 'POST', `/job-descriptions/${jdId}/skills`, { skill_id: skillId })
+    const res = await apiRequest(ctx.app, 'POST', `/job-descriptions/${jdId}/skills`, { skill_id: skillId })
+    expect(res.status).toBe(201)
+
+    const getRes = await apiRequest(ctx.app, 'GET', `/job-descriptions/${jdId}/skills`)
+    const getBody = await getRes.json()
+    expect(getBody.data).toHaveLength(1)
+  })
+
+  test('POST skill with name creates new skill and links it', async () => {
+    const jdId = seedJobDescription(ctx.db)
+
+    const res = await apiRequest(ctx.app, 'POST', `/job-descriptions/${jdId}/skills`, { name: 'python' })
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.data.name).toBe('Python') // capitalizeFirst
+    expect(body.data.id).toHaveLength(36)
+
+    const getRes = await apiRequest(ctx.app, 'GET', `/job-descriptions/${jdId}/skills`)
+    const getBody = await getRes.json()
+    expect(getBody.data).toHaveLength(1)
+  })
+
+  test('POST skill with name deduplicates case-insensitively', async () => {
+    const jdId = seedJobDescription(ctx.db)
+    const skillId = crypto.randomUUID()
+    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId, 'Python', 'language'])
+
+    const res = await apiRequest(ctx.app, 'POST', `/job-descriptions/${jdId}/skills`, { name: 'python' })
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.data.id).toBe(skillId) // reuses existing
+  })
+
+  test('POST skill with neither skill_id nor name returns 400', async () => {
+    const jdId = seedJobDescription(ctx.db)
+    const res = await apiRequest(ctx.app, 'POST', `/job-descriptions/${jdId}/skills`, {})
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  // ── DELETE /job-descriptions/:jdId/skills/:skillId ────────────────
+
+  test('DELETE skill removes junction row and returns 204', async () => {
+    const jdId = seedJobDescription(ctx.db)
+    const skillId = crypto.randomUUID()
+    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId, 'Rust', 'language'])
+    ctx.db.run("INSERT INTO job_description_skills (job_description_id, skill_id) VALUES (?, ?)", [jdId, skillId])
+
+    const res = await apiRequest(ctx.app, 'DELETE', `/job-descriptions/${jdId}/skills/${skillId}`)
+    expect(res.status).toBe(204)
+
+    const getRes = await apiRequest(ctx.app, 'GET', `/job-descriptions/${jdId}/skills`)
+    const getBody = await getRes.json()
+    expect(getBody.data).toHaveLength(0)
+  })
+
+  test('DELETE skill for nonexistent link returns 204 (idempotent)', async () => {
+    const jdId = seedJobDescription(ctx.db)
+    const res = await apiRequest(ctx.app, 'DELETE', `/job-descriptions/${jdId}/skills/${crypto.randomUUID()}`)
+    expect(res.status).toBe(204)
+  })
+
+  // ── Cascade tests ─────────────────────────────────────────────────
+
+  test('Deleting a JD cascades to job_description_skills', async () => {
+    const jdId = seedJobDescription(ctx.db)
+    const skillId = crypto.randomUUID()
+    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId, 'AWS', 'cloud'])
+    ctx.db.run("INSERT INTO job_description_skills (job_description_id, skill_id) VALUES (?, ?)", [jdId, skillId])
+
+    await apiRequest(ctx.app, 'DELETE', `/job-descriptions/${jdId}`)
+
+    const row = ctx.db.query('SELECT COUNT(*) AS cnt FROM job_description_skills WHERE job_description_id = ?').get(jdId) as any
+    expect(row.cnt).toBe(0)
+  })
+
+  test('Deleting a skill cascades to job_description_skills', async () => {
+    const jdId = seedJobDescription(ctx.db)
+    const skillId = crypto.randomUUID()
+    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId, 'Docker', 'devops'])
+    ctx.db.run("INSERT INTO job_description_skills (job_description_id, skill_id) VALUES (?, ?)", [jdId, skillId])
+
+    ctx.db.run('DELETE FROM skills WHERE id = ?', [skillId])
+
+    const row = ctx.db.query('SELECT COUNT(*) AS cnt FROM job_description_skills WHERE skill_id = ?').get(skillId) as any
+    expect(row.cnt).toBe(0)
+  })
+
+  // ── Sort order test ───────────────────────────────────────────────
+
+  test('GET list returns JDs ordered by updated_at DESC', async () => {
+    const jd1 = seedJobDescription(ctx.db, { title: 'First' })
+    const jd2 = seedJobDescription(ctx.db, { title: 'Second' })
+
+    // Update jd1 so it has a newer updated_at
+    ctx.db.run(
+      "UPDATE job_descriptions SET title = 'First Updated', updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?",
+      [jd1],
+    )
+
+    const res = await apiRequest(ctx.app, 'GET', '/job-descriptions')
+    const body = await res.json()
+    expect(body.data[0].title).toBe('First Updated')
+  })
 })

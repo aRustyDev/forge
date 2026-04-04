@@ -208,4 +208,54 @@ describe('BulletService', () => {
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
   })
+
+  // ── submitBullet ───────────────────────────────────────────────────
+
+  test('submitBullet transitions draft to pending_review', () => {
+    const srcId = seedSource(db)
+    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'draft' })
+
+    const result = service.submitBullet(bulletId)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.status).toBe('pending_review')
+  })
+
+  test('submitBullet rejects non-draft bullet (pending_review)', () => {
+    const srcId = seedSource(db)
+    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'pending_review' })
+
+    const result = service.submitBullet(bulletId)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.code).toBe('VALIDATION_ERROR')
+    expect(result.error.message).toContain('Only draft bullets')
+  })
+
+  test('submitBullet rejects approved bullet', () => {
+    const srcId = seedSource(db)
+    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'approved' })
+
+    const result = service.submitBullet(bulletId)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  test('submitBullet rejects rejected bullet', () => {
+    const srcId = seedSource(db)
+    const bulletId = seedBullet(db, [{ id: srcId }], { status: 'rejected' })
+
+    const result = service.submitBullet(bulletId)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  test('submitBullet returns NOT_FOUND for missing ID', () => {
+    const result = service.submitBullet('nonexistent')
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.code).toBe('NOT_FOUND')
+  })
 })

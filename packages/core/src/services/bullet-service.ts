@@ -86,6 +86,19 @@ export class BulletService {
     return this.transition(id, 'pending_review')
   }
 
+  /**
+   * Submit a draft bullet for review (draft -> pending_review).
+   * Only draft bullets can be submitted. Use reopenBullet for rejected bullets.
+   */
+  submitBullet(id: string): Result<Bullet> {
+    const bullet = BulletRepository.get(this.db, id)
+    if (!bullet) return { ok: false, error: { code: 'NOT_FOUND', message: 'Bullet not found' } }
+    if (bullet.status !== 'draft') {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'Only draft bullets can be submitted for review' } }
+    }
+    return this.transition(id, 'pending_review')
+  }
+
   private transition(
     id: string,
     target: BulletStatus,

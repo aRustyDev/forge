@@ -43,6 +43,9 @@ export interface CreateBulletInput {
 export interface UpdateBulletInput {
   content?: string
   metrics?: string | null
+  notes?: string | null
+  domain?: string | null
+  technologies?: string[]
 }
 
 export interface BulletFilter {
@@ -252,8 +255,11 @@ export const BulletRepository = {
   },
 
   /**
-   * Update a bullet's mutable fields (content, metrics).
+   * Update a bullet's mutable fields (content, metrics, notes, domain, technologies).
    * Returns the updated bullet or null if not found.
+   *
+   * For technologies: DELETE all existing rows then INSERT the new list.
+   * Each technology is stored as tech.toLowerCase().trim() via insertTechnologies.
    */
   update(db: Database, id: string, input: UpdateBulletInput): Bullet | null {
     const sets: string[] = []
@@ -267,18 +273,42 @@ export const BulletRepository = {
       sets.push('metrics = ?')
       params.push(input.metrics)
     }
+    if (input.notes !== undefined) {
+      sets.push('notes = ?')
+      params.push(input.notes)
+    }
+    if (input.domain !== undefined) {
+      sets.push('domain = ?')
+      params.push(input.domain)
+    }
 
-    if (sets.length === 0) {
+    // Handle technologies: DELETE all existing, INSERT new list
+    const hasTechnologies = input.technologies !== undefined
+
+    if (sets.length === 0 && !hasTechnologies) {
       return BulletRepository.get(db, id)
     }
 
-    params.push(id)
+    let row: BulletRow | null
 
-    const row = db
-      .query(`UPDATE bullets SET ${sets.join(', ')} WHERE id = ? RETURNING *`)
-      .get(...params) as BulletRow | null
+    if (sets.length > 0) {
+      params.push(id)
+      row = db
+        .query(`UPDATE bullets SET ${sets.join(', ')} WHERE id = ? RETURNING *`)
+        .get(...params) as BulletRow | null
+    } else {
+      // Only technologies changed — verify bullet exists
+      row = db
+        .query('SELECT * FROM bullets WHERE id = ?')
+        .get(id) as BulletRow | null
+    }
 
     if (!row) return null
+
+    if (hasTechnologies) {
+      db.run('DELETE FROM bullet_technologies WHERE bullet_id = ?', [id])
+      insertTechnologies(db, id, input.technologies!)
+    }
 
     const technologies = getTechnologies(db, id)
     return rowToBullet(row, technologies)

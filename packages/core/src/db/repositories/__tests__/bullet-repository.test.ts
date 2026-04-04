@@ -252,6 +252,146 @@ describe('BulletRepository', () => {
       })
       expect(result).toBeNull()
     })
+
+    test('updates notes', () => {
+      const bullet = BulletRepository.create(db, {
+        content: 'Test',
+        source_content_snapshot: 'snap',
+        technologies: [],
+        metrics: null,
+      })
+
+      const updated = BulletRepository.update(db, bullet.id, {
+        notes: 'test note',
+      })
+
+      expect(updated).not.toBeNull()
+      expect(updated!.notes).toBe('test note')
+    })
+
+    test('clears notes with null', () => {
+      const bullet = BulletRepository.create(db, {
+        content: 'Test',
+        source_content_snapshot: 'snap',
+        technologies: [],
+        metrics: null,
+      })
+
+      // Set notes first
+      BulletRepository.update(db, bullet.id, { notes: 'initial note' })
+
+      const updated = BulletRepository.update(db, bullet.id, { notes: null })
+      expect(updated!.notes).toBeNull()
+    })
+
+    test('updates domain', () => {
+      const bullet = BulletRepository.create(db, {
+        content: 'Test',
+        source_content_snapshot: 'snap',
+        technologies: [],
+        metrics: null,
+      })
+
+      const updated = BulletRepository.update(db, bullet.id, {
+        domain: 'security',
+      })
+
+      expect(updated!.domain).toBe('security')
+    })
+
+    test('clears domain with null', () => {
+      const bullet = BulletRepository.create(db, {
+        content: 'Test',
+        source_content_snapshot: 'snap',
+        technologies: [],
+        metrics: null,
+        domain: 'security',
+      })
+
+      const updated = BulletRepository.update(db, bullet.id, { domain: null })
+      expect(updated!.domain).toBeNull()
+    })
+
+    test('replaces technologies', () => {
+      const bullet = BulletRepository.create(db, {
+        content: 'Test',
+        source_content_snapshot: 'snap',
+        technologies: ['old-tech'],
+        metrics: null,
+      })
+
+      const updated = BulletRepository.update(db, bullet.id, {
+        technologies: ['python', 'rust'],
+      })
+
+      expect(updated!.technologies).toEqual(['python', 'rust'])
+    })
+
+    test('clears technologies with empty array', () => {
+      const bullet = BulletRepository.create(db, {
+        content: 'Test',
+        source_content_snapshot: 'snap',
+        technologies: ['ts', 'go'],
+        metrics: null,
+      })
+
+      const updated = BulletRepository.update(db, bullet.id, {
+        technologies: [],
+      })
+
+      expect(updated!.technologies).toEqual([])
+    })
+
+    test('lowercases technologies', () => {
+      const bullet = BulletRepository.create(db, {
+        content: 'Test',
+        source_content_snapshot: 'snap',
+        technologies: [],
+        metrics: null,
+      })
+
+      const updated = BulletRepository.update(db, bullet.id, {
+        technologies: ['Python', 'RUST'],
+      })
+
+      expect(updated!.technologies).toEqual(['python', 'rust'])
+    })
+
+    test('updates only technologies returns bullet', () => {
+      const bullet = BulletRepository.create(db, {
+        content: 'Test',
+        source_content_snapshot: 'snap',
+        technologies: ['old'],
+        metrics: null,
+      })
+
+      const updated = BulletRepository.update(db, bullet.id, {
+        technologies: ['new'],
+      })
+
+      expect(updated).not.toBeNull()
+      expect(updated!.content).toBe('Test')
+      expect(updated!.technologies).toEqual(['new'])
+    })
+
+    test('updates content, notes, and technologies together', () => {
+      const bullet = BulletRepository.create(db, {
+        content: 'Original',
+        source_content_snapshot: 'snap',
+        technologies: [],
+        metrics: null,
+      })
+
+      const updated = BulletRepository.update(db, bullet.id, {
+        content: 'New content',
+        notes: 'my note',
+        technologies: ['go'],
+      })
+
+      expect(updated!.content).toBe('New content')
+      expect(updated!.notes).toBe('my note')
+      expect(updated!.technologies).toEqual(['go'])
+    })
   })
 
   // ── delete ──────────────────────────────────────────────────────────

@@ -41,6 +41,8 @@ ECharts infrastructure (Phase 59) provides the `EChart.svelte` wrapper and `echa
 | 9. Acceptance criteria | Yes |
 | 10. Future enhancements | No (informational only) |
 
+> **Spec deviation:** Section 1 axis set is JD-centric (user categories not in JD are omitted). This is an intentional narrowing from the spec's "either JD or user" wording.
+
 ## Files to Create
 
 | File | Description |
@@ -172,11 +174,11 @@ export function buildRadarOption(alignment: JDSkillAlignment): EChartsOption {
   return {
     tooltip: {
       trigger: 'item',
-      // NOTE: ECharts radar tooltip `params` structure: `params.value` is the data array
-      // for the series. Use `params.value[i]` indexed by radar indicator order.
+      // [IMPORTANT] The tooltip formatter uses the `categories` closure directly
+      // (available in scope). `params.value` is not needed here — the closure
+      // provides the same data with clearer semantics.
       formatter: (params: any) => {
         const seriesName = params.seriesName
-        const values: number[] = params.value
         return categories
           .map((cat, i) => {
             const matched = cat.matchedSkills.join(', ') || 'none'

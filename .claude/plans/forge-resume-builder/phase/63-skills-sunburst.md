@@ -88,6 +88,7 @@ Defines all pure functions for data aggregation and ECharts option building. No 
 
 ```typescript
 import type { EChartsOption } from 'echarts'
+import type { Skill, Bullet, Perspective } from '@forge/sdk'
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -112,6 +113,10 @@ export interface PieDataItem {
  * Resolve a CSS custom property value at render time.
  * ECharts cannot interpret `var(--token)` strings directly.
  * Must be called in browser context (onMount, event handler), never at module scope.
+ *
+ * [STYLE] Use `resolveTokenColor('--color-text')` for ECharts config values.
+ * Direct CSS var strings (`var(--...)`) cannot be used in ECharts options --
+ * ECharts expects resolved color strings (#hex, rgb(), etc.), not CSS functions.
  */
 export function resolveTokenColor(token: string, fallback: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback
@@ -438,7 +443,7 @@ Combined component housing both the skills sunburst and domain-archetype breakou
   import { onMount } from 'svelte'
   import { forge } from '$lib/sdk'
   import EChart from './EChart.svelte'
-  import { LoadingSpinner } from '$lib/components'
+  import { LoadingSpinner, EmptyState } from '$lib/components'
   import type { Skill, Bullet, Perspective } from '@forge/sdk'
   import {
     buildSkillsSunburstData,
@@ -457,6 +462,9 @@ Combined component housing both the skills sunburst and domain-archetype breakou
 
   // Drill-down state for sunburst
   let drillCategory = $state<string | null>(null)
+
+  // Empty data guard
+  let hasData = $derived(skills.length > 0)
 
   // ── Derived chart options ───────────────────────────────────────────
   let sunburstData = $derived(buildSkillsSunburstData(skills, bullets))
@@ -506,6 +514,11 @@ Combined component housing both the skills sunburst and domain-archetype breakou
 <div class="skills-charts">
   {#if loading}
     <LoadingSpinner size="lg" message="Loading skill data..." />
+  {:else if !hasData}
+    <EmptyState
+      title="No skill data"
+      description="Add skills to sources and derive bullets to see distributions."
+    />
   {:else}
     <div class="chart-card">
       <EChart

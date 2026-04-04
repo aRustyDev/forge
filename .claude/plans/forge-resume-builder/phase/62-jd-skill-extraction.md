@@ -3,7 +3,7 @@
 **Status:** Planning
 **Date:** 2026-04-03
 **Spec:** [2026-04-03-jd-skill-extraction.md](../refs/specs/2026-04-03-jd-skill-extraction.md)
-**Depends on:** Phase 49 (JD Detail Page -- JD entity with `raw_text` field and skill tagging via `job_description_skills` junction, migration 018)
+**Depends on:** Phase 49 (JD Detail Page -- JD entity with `raw_text` field and skill tagging via `job_description_skills` junction, migration 018) AND Phase 43 (migration 017 expands `prompt_logs.entity_type` CHECK to include `'job_description'`)
 **Blocks:** None
 **Parallelizable with:** Phase 60 (JD Resume Linkage), Phase 61 (JD Kanban Pipeline) -- all three modify `job-descriptions.ts` routes and SDK resource; serialize changes to shared files
 
@@ -485,11 +485,15 @@ Add after the existing JD resume linkage endpoints (or after the base CRUD endpo
     }
 
     // 7. Log successful extraction
+    // [FIX] Add nullish fallback for raw_response on the success path.
+    // result.rawResponse may be undefined if the AI driver only returns
+    // parsed data. Fall back to stringified result.data, then empty string
+    // to satisfy the NOT NULL constraint on prompt_logs.raw_response.
     try {
       services.promptLogs.create({
         prompt_input: prompt,
         prompt_template: JD_SKILL_EXTRACTION_TEMPLATE_VERSION,
-        raw_response: result.rawResponse,
+        raw_response: result.rawResponse ?? JSON.stringify(result.data) ?? '',
         status: 'success',
         entity_type: 'job_description',
         entity_id: id,
@@ -570,6 +574,8 @@ import {
 **File:** `packages/webui/src/lib/components/ConfidenceBar.svelte`
 
 [MINOR] This is a reusable component that visually represents a 0-1 confidence score. It can be used in future AI review UIs beyond skill extraction.
+
+[STYLE] Use design tokens (`var(--color-...)`) where possible in all new components (ConfidenceBar, ExtractedSkillCard, JDSkillExtraction). For ECharts option values that cannot use CSS vars, use the `resolveTokenColor()` utility from Phase 59. Avoid hardcoded hex values in component `<style>` blocks -- prefer `var(--color-success)`, `var(--color-danger)`, `var(--text-muted)`, etc.
 
 ```svelte
 <script lang="ts">

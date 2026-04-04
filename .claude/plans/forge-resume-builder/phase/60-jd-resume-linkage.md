@@ -62,7 +62,7 @@ Phase 49 builds the JD detail page with a split-panel layout, skill tagging (mig
 | `packages/sdk/src/types.ts` | Add `ResumeLink` and `JDLink` interfaces |
 | `packages/core/src/types/index.ts` | Add `ResumeLink` and `JDLink` interfaces |
 | `packages/webui/src/lib/components/jd/JDEditor.svelte` | Mount `JDLinkedResumes` section in edit mode |
-| Resume editor component (TBD based on current layout) | Mount `ResumeLinkedJDs` section |
+| Resume editor component (see Phase 45 -- if not landed: `+page.svelte`; if landed: main editor section) | Mount `ResumeLinkedJDs` section |
 
 ## Fallback Strategies
 
@@ -263,8 +263,14 @@ Add after the existing `app.delete('/job-descriptions/:id', ...)` handler, befor
 
     const db = services.db
 
-    // INSERT OR IGNORE for idempotent linking
-    db.run(
+    // INSERT OR IGNORE for idempotent linking.
+    // [FIX] Use `result.changes` from `db.run()` return value -- NOT a
+    // separate `SELECT changes()` query. SQLite's `changes()` function
+    // reports rows modified by the most recent statement, but issuing
+    // `db.query('SELECT changes()')` is itself a statement, making the
+    // result unreliable. Bun's SQLite driver returns `{ changes: number }`
+    // from `db.run()` directly.
+    const result = db.run(
       `INSERT OR IGNORE INTO job_description_resumes (job_description_id, resume_id) VALUES (?, ?)`,
       [jdId, resumeId],
     )
@@ -282,8 +288,7 @@ Add after the existing `app.delete('/job-descriptions/:id', ...)` handler, befor
       .get(jdId, resumeId)
 
     // Determine status code: 201 if new, 200 if already existed
-    const wasInserted = db.query('SELECT changes() AS c').get() as { c: number }
-    const status = wasInserted.c > 0 ? 201 : 200
+    const status = result.changes > 0 ? 201 : 200
 
     return c.json({ data: link }, status as any)
   })
@@ -303,15 +308,7 @@ Add after the existing `app.delete('/job-descriptions/:id', ...)` handler, befor
 
 [GAP] The `services.db` access pattern assumes the Hono route has access to the raw `Database` instance through services. If services does not expose `db` directly, the queries must be extracted into a repository method or the services layer must be extended. Verify the `Services` type exposes `db`.
 
-[ANTI-PATTERN] The `changes()` check after `INSERT OR IGNORE` may not be reliable if checked via a separate `query()` call -- SQLite's `changes()` function reports the number of rows modified by the most recent `INSERT`, `UPDATE`, or `DELETE` statement, but `query('SELECT changes()')` itself is a statement. The safer approach is to use `db.run()` which returns a `{ changes: number }` object in Bun's SQLite driver. Adjust:
-
-```typescript
-    const result = db.run(
-      `INSERT OR IGNORE INTO job_description_resumes (job_description_id, resume_id) VALUES (?, ?)`,
-      [jdId, resumeId],
-    )
-    const status = result.changes > 0 ? 201 : 200
-```
+[RESOLVED] The buggy `SELECT changes()` pattern has been corrected in the primary code block above to use `result.changes` from `db.run()`.
 
 **Acceptance criteria:**
 - `GET /api/job-descriptions/:id/resumes` returns `{ data: ResumeLink[] }` ordered by `created_at DESC`.
@@ -443,6 +440,7 @@ Add after the existing `app.get('/resumes/:id/gaps', ...)` handler:
 
 ```svelte
 <script lang="ts">
+  import { onMount } from 'svelte'
   import type { ForgeClient } from '@forge/sdk'
   import type { ResumeLink } from '@forge/sdk/types'
   import ResumePickerModal from './ResumePickerModal.svelte'
@@ -475,8 +473,16 @@ Add after the existing `app.get('/resumes/:id/gaps', ...)` handler:
     showPicker = false
   }
 
+  // Use onMount for initial data load.
+  onMount(() => { loadLinkedResumes() })
+
+  // Use a separate $effect for reactive jdId prop changes.
+  // This is safe because jdId is a prop (read-only from this component's
+  // perspective), not state written inside the effect.
   $effect(() => {
-    if (jdId) loadLinkedResumes()
+    // Read jdId to subscribe to prop changes
+    const _id = jdId
+    if (_id) loadLinkedResumes()
   })
 </script>
 
@@ -828,7 +834,7 @@ Add after the existing `app.get('/resumes/:id/gaps', ...)` handler:
 {/if}
 ```
 
-**File (Resume side):** Resume editor component (TBD based on Phase 49 layout)
+**File (Resume side):** The resume editor component mount point depends on Phase 45 (Editor Restructuring). If Phase 45 has not landed, mount in `packages/webui/src/routes/resumes/+page.svelte`. If Phase 45 has landed, mount in the main editor section of the restructured resume editor.
 
 ```svelte
 <!-- In the resume editor, after appropriate section -->

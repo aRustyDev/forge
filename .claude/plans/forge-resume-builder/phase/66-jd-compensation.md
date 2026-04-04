@@ -50,7 +50,7 @@ ECharts standard `bar` series does not support range bars via `encode`. The spec
 | `packages/core/src/db/migrations/021_salary_structured_fields.sql` | Add `salary_min`/`salary_max` to `job_descriptions`; add `salary_minimum`/`salary_target`/`salary_stretch` to `user_profile` |
 | `packages/webui/src/lib/components/charts/compensation-utils.ts` | `buildCompensationOption`, `computeAxisRange`, `formatSalary`, `getJDBarColor` |
 | `packages/webui/src/lib/components/charts/CompensationBulletGraph.svelte` | Bullet graph component with loading, empty, and chart states |
-| `packages/webui/src/lib/components/charts/__tests__/compensation-utils.test.ts` | Unit tests for utility functions (14 cases) |
+| `packages/webui/src/lib/components/charts/__tests__/compensation-utils.test.ts` | Unit tests for utility functions (15 cases) |
 
 ## Files to Modify
 
@@ -270,6 +270,8 @@ export function buildCompensationOption(data: CompensationData): EChartsOption {
   const markLineData: any[] = []
 
   if (expectations.minimum != null) {
+    // Band 1 starts at `axisMin` (chart left edge), not `$0`. The spec's '$0'
+    // refers to the conceptual floor — we only chart the visible range.
     markAreaData.push([
       { xAxis: axisMin, itemStyle: { color: 'rgba(239, 68, 68, 0.06)' } },
       { xAxis: expectations.minimum },
@@ -309,6 +311,12 @@ export function buildCompensationOption(data: CompensationData): EChartsOption {
       label: { formatter: `Stretch\n${formatSalary(expectations.stretch)}`, position: 'start' },
       lineStyle: { type: 'dashed', color: '#22c55e', width: 1 },
     })
+
+    // Band 4: above stretch (very light green)
+    markAreaData.push([
+      { xAxis: expectations.stretch, itemStyle: { color: 'rgba(34, 197, 94, 0.06)' } },
+      { xAxis: axisMax },
+    ])
   }
 
   return {
@@ -725,13 +733,27 @@ describe('buildCompensationOption', () => {
     expect(option.series[0].data[0]).toBe(200000)
     expect(option.series[1].data[0]).toBe(0)
   })
+
+  it('includes Band 4 (above stretch) markArea when stretch is set', () => {
+    const data = {
+      jdSalary: { min: 150000, max: 200000 },
+      expectations: { minimum: 120000, target: 160000, stretch: 200000 },
+      jdTitle: 'Test',
+    }
+    const option = buildCompensationOption(data)
+    // 4 bands: below min, min-target, target-stretch, above stretch
+    expect(option.series[1].markArea.data).toHaveLength(4)
+    const band4 = option.series[1].markArea.data[3]
+    expect(band4[0].xAxis).toBe(200000) // stretch value
+    expect(band4[0].itemStyle.color).toBe('rgba(34, 197, 94, 0.06)')
+  })
 })
 ```
 
 **Acceptance criteria:**
-- All 14 test cases pass.
+- All 15 test cases pass.
 - Axis range, formatting, color logic, and option structure validated.
-- Edge cases (null expectations, single salary value) handled.
+- Edge cases (null expectations, single salary value, Band 4 above stretch) handled.
 
 **Failure criteria:**
 - Any test fails, indicating a bug in utility functions.
@@ -741,6 +763,8 @@ describe('buildCompensationOption', () => {
 ## Testing
 
 ### Migration Tests
+
+> **Note:** Migration 021 integration tests are part of the general migration test suite (`migrate.test.ts`). No separate migration test file is needed -- add the expected migration count and name to the existing assertions.
 
 | Test | Assertion |
 |------|-----------|
@@ -780,6 +804,7 @@ describe('buildCompensationOption', () => {
 | `buildCompensationOption` markArea absent | When expectations null |
 | `buildCompensationOption` markLine count | 3 reference lines |
 | `buildCompensationOption` single salary | Zero-width range |
+| `buildCompensationOption` Band 4 above stretch | 4th markArea from stretch to axisMax with `rgba(34, 197, 94, 0.06)` |
 
 ### Component Tests (Manual / Future)
 

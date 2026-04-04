@@ -244,6 +244,7 @@ describe('formatPhone', () => {
     profile,
     isOpen = false,
     onclose,
+    buttonEl,
   }: {
     profile: {
       name?: string
@@ -258,6 +259,7 @@ describe('formatPhone', () => {
     } | null
     isOpen: boolean
     onclose: () => void
+    buttonEl?: HTMLElement
   } = $props()
 
   let menuEl: HTMLDivElement
@@ -292,18 +294,16 @@ describe('formatPhone', () => {
     }
   }
 
-  // Close on click outside
+  // Close on click outside.
+  // [FIX] The profile button element reference (`buttonEl` prop) must be
+  // passed to ProfileMenu and excluded in handlePointerDown. Without this
+  // exclusion, clicking the profile button fires both the button's onclick
+  // (toggles isOpen=true) and handlePointerDown (sets isOpen=false), causing
+  // the menu to never open.
   function handlePointerDown(event: PointerEvent) {
     if (!isOpen || !menuEl) return
     const target = event.target as Node
-    // Check if click is inside the menu
-    if (menuEl.contains(target)) return
-    // The profile button is the parent's responsibility — it should not
-    // re-open the menu on the same click that closes it. The parent
-    // toggles `isOpen` on button click, and this handler closes on
-    // outside click. No conflict because the button click sets isOpen=true
-    // BEFORE this handler fires.
-    onclose()
+    if (!menuEl.contains(target) && !buttonEl?.contains(target)) onclose()
   }
 
   // Register global listeners when open
@@ -682,6 +682,7 @@ import { forge } from '$lib/sdk'
 
 let profileData = $state<any>(null)
 let menuOpen = $state(false)
+let profileButtonEl: HTMLButtonElement
 
 let initials = $derived.by(() => {
   if (!profileData?.name) return '?'
@@ -699,8 +700,11 @@ function toggleProfileMenu() {
   menuOpen = !menuOpen
 }
 
-// Fetch profile on mount
-$effect(() => {
+// Fetch profile on mount — use onMount, NOT $effect.
+// $effect would re-run when profileData is written, causing an infinite loop.
+import { onMount } from 'svelte'
+
+onMount(() => {
   async function loadProfile() {
     try {
       const result = await forge.profile.get()
@@ -718,7 +722,7 @@ $effect(() => {
 Add to template, inside `.sidebar` after the `.nav-list` `</ul>`:
 ```svelte
 <div class="profile-button-area">
-  <button class="profile-button" onclick={toggleProfileMenu}>
+  <button class="profile-button" onclick={toggleProfileMenu} bind:this={profileButtonEl}>
     <span class="profile-avatar">{initials}</span>
     <span class="profile-name">{profileName}</span>
     <span class="profile-gear">&#9881;</span>
@@ -727,6 +731,7 @@ Add to template, inside `.sidebar` after the `.nav-list` `</ul>`:
     profile={profileData}
     isOpen={menuOpen}
     onclose={() => menuOpen = false}
+    buttonEl={profileButtonEl}
   />
 </div>
 ```

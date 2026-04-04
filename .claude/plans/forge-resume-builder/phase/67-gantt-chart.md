@@ -51,7 +51,7 @@ Status colors reuse the accent colors from Phase 61's pipeline column definition
 |------|-------------|
 | `packages/webui/src/lib/components/charts/gantt-utils.ts` | `buildGanttItems`, `buildGanttOption`, `STATUS_COLORS`, `TERMINAL_STATUSES`, `generateMockGanttItems` |
 | `packages/webui/src/lib/components/charts/ApplicationGantt.svelte` | Gantt chart component with loading, error, empty, and chart states; includes HTML legend |
-| `packages/webui/src/lib/components/charts/__tests__/gantt-utils.test.ts` | Unit tests for data transformation and option building (15 cases) |
+| `packages/webui/src/lib/components/charts/__tests__/gantt-utils.test.ts` | Unit tests for data transformation and option building (17 cases) |
 
 ## Files to Modify
 
@@ -71,6 +71,7 @@ No changes to `echarts-registry.ts` -- `CustomChart` is already registered by Ph
 - **ECharts `renderItem` with dashed right edge:** Uses a two-shape group (solid rect + dashed line) instead of a single rect with `lineDash`. ECharts SVG renderer applies `lineDash` to the entire rect border, not just the right edge. The group approach draws a solid-bordered rect body, then overlays a dashed vertical line on the right edge only.
 - **API failure:** The component sets an error state and shows an error message. No crash.
 - **Custom series tooltip:** Uses `params.value[0]` (the explicit category index from the data array) for item lookup, not `params.dataIndex`. In custom series, `params.dataIndex` can differ from the logical category index when `dataZoom` filtering is active.
+- **Multiline Y-axis labels:** Multiline Y-axis labels (`title\norgName`) combined with `overflow: 'truncate'` have inconsistent behavior across ECharts renderers. If truncation fails visually, truncate `orgName` to 20 chars in `buildGanttItems` before combining.
 
 ---
 
@@ -305,9 +306,11 @@ export function generateMockGanttItems(count: number = 8): GanttItem[] {
     const startDate = new Date(now.getTime() - daysAgo * 86400000)
     const status = statuses[i % statuses.length]
     const isActive = !TERMINAL_STATUSES.has(status)
+    const duration = (30 + Math.random() * 30) * 86400000
+    // Clamp terminal item endDate to now — mock data should not produce future dates.
     const endDate = isActive
       ? now
-      : new Date(startDate.getTime() + (30 + Math.random() * 30) * 86400000)
+      : new Date(Math.min(startDate.getTime() + duration, Date.now()))
 
     return {
       id: `mock-${i}`,
@@ -633,6 +636,11 @@ describe('buildGanttOption', () => {
     expect(option.dataZoom).toHaveLength(0)
   })
 
+  it('omits dataZoom when item count is exactly 10 (boundary)', () => {
+    const option = buildGanttOption(makeItems(10))
+    expect(option.dataZoom).toHaveLength(0)
+  })
+
   it('sets yAxis.inverse = true (newest at top)', () => {
     const option = buildGanttOption(makeItems(3))
     expect(option.yAxis.inverse).toBe(true)
@@ -666,14 +674,27 @@ describe('generateMockGanttItems', () => {
       expect(STATUS_COLORS[item.status] ?? '#d1d5db').toBe(item.color)
     }
   })
+
+  it('covers all 9 statuses (including withdrawn and closed) with 12 items', () => {
+    const items = generateMockGanttItems(12)
+    const statuses = new Set(items.map(i => i.status))
+    const allStatuses = [
+      'discovered', 'analyzing', 'applying', 'applied',
+      'interviewing', 'offered', 'rejected', 'withdrawn', 'closed',
+    ]
+    for (const status of allStatuses) {
+      expect(statuses.has(status)).toBe(true)
+    }
+  })
 })
 ```
 
 **Acceptance criteria:**
-- All 15 test cases pass.
+- All 17 test cases pass.
 - Sort order, title truncation, active/terminal logic, color mapping all verified.
 - Option structure (custom series, dataZoom, yAxis inverse) validated.
-- Mock data generator produces valid items.
+- dataZoom boundary (exactly 10 items -> no dataZoom) verified.
+- Mock data generator produces valid items and covers all 9 statuses.
 
 **Failure criteria:**
 - Any test fails, indicating a bug in transformation or option building.
@@ -699,10 +720,12 @@ describe('generateMockGanttItems', () => {
 | Custom series in option | `series[0].type === 'custom'` |
 | dataZoom for > 10 items | `dataZoom.length === 1`, `filterMode: 'weakFilter'` |
 | No dataZoom for <= 10 items | `dataZoom.length === 0` |
+| No dataZoom for exactly 10 items (boundary) | `dataZoom.length === 0` |
 | yAxis inverse | `yAxis.inverse === true` |
 | Time axis padding | `xAxis.min < startTime`, `xAxis.max > endTime` |
 | Mock item count | Requested count matches output |
 | Mock item validity | Dates, colors, statuses are valid |
+| Mock status coverage | 12 items covers all 9 statuses (including `withdrawn`, `closed`) |
 
 ### Component Tests (Manual / Future)
 

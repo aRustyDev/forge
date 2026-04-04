@@ -53,8 +53,8 @@ The `visualMap` uses swapped dimensions for horizontal orientation: `itemWidth: 
 | `packages/webui/src/lib/components/charts/choropleth-utils.ts` | `aggregateByState`, `buildChoroplethOption`, `getStateOrgs` |
 | `packages/webui/src/lib/components/charts/RoleChoropleth.svelte` | Choropleth map component with module-level `mapLoaded`, loading/error/empty states, state click detail, unresolved badge |
 | `packages/webui/static/geo/us-states.json` | US states GeoJSON file (public domain, simplified boundaries ~300-500KB) |
-| `packages/webui/src/lib/components/charts/__tests__/state-resolver.test.ts` | Unit tests for state resolution (18 cases) |
-| `packages/webui/src/lib/components/charts/__tests__/choropleth-utils.test.ts` | Unit tests for aggregation and option building (12 cases) |
+| `packages/webui/src/lib/components/charts/__tests__/state-resolver.test.ts` | Unit tests for state resolution (19 cases) |
+| `packages/webui/src/lib/components/charts/__tests__/choropleth-utils.test.ts` | Unit tests for aggregation and option building (13 cases) |
 
 ## Files to Modify
 
@@ -489,20 +489,29 @@ export function buildChoroplethOption(
     loading = true
     error = null
 
+    // Separate error handling for GeoJSON vs JD API failures.
+    // Use Promise.allSettled with specific error messages instead of
+    // Promise.all which would collapse both failures into a single catch.
     try {
-      const [_, jdsResult] = await Promise.all([
+      const [geoResult, jdsResult] = await Promise.allSettled([
         loadGeoJSON(),
         forge.jobDescriptions.list({ limit: 500 }),
       ])
 
-      if (jdsResult.ok) {
-        jds = jdsResult.data
-        data = aggregateByState(jds)
-      } else {
-        error = 'Failed to load job descriptions'
+      if (geoResult.status === 'rejected') {
+        error = 'Failed to load US map data. Check network connection.'
+        return
       }
+
+      if (jdsResult.status === 'rejected' || !jdsResult.value.ok) {
+        error = 'Failed to load job descriptions'
+        return
+      }
+
+      jds = jdsResult.value.data
+      data = aggregateByState(jds)
     } catch {
-      error = 'An error occurred loading map data'
+      error = 'An unexpected error occurred loading map data'
     } finally {
       loading = false
     }
@@ -652,6 +661,8 @@ export function buildChoroplethOption(
 
 Obtain a simplified US states GeoJSON file from a public domain source (US Census Bureau cartographic boundaries or community repositories like d3-geo). The file must be a `FeatureCollection` where each `Feature` has `properties.name` set to the full state name (e.g., "California", "New York") for ECharts matching.
 
+Recommended source: `https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json`. Verify `properties.name` uses full state names (e.g., "California"). Add validation in T68.4 acceptance criteria: "GeoJSON has 51 features with `properties.name` matching `STATE_ABBR_TO_NAME` values."
+
 Requirements:
 - File size: ~300-500KB (simplified boundaries, not full-resolution)
 - Format: GeoJSON `FeatureCollection`
@@ -666,6 +677,7 @@ Requirements:
 - All 50 states + DC are represented (51 features).
 - File size is under 1MB (simplified boundaries).
 - `echarts.registerMap('USA', geoJson)` succeeds without errors.
+- GeoJSON has 51 features with `properties.name` matching `STATE_ABBR_TO_NAME` values.
 
 **Failure criteria:**
 - State names use abbreviations instead of full names (ECharts data matching fails).
@@ -699,11 +711,14 @@ Read `?location=` query parameter from the URL and pre-populate the location fil
 ```typescript
 import { page } from '$app/stores'
 
-// Read location query parameter for pre-filtering from choropleth click
-const locationParam = $derived($page.url.searchParams.get('location'))
-
-// In the filter initialization:
-let locationFilter = $state(locationParam ?? '')
+// Initialize locationFilter reactively from URL params via $effect.
+// Using `$state(locationParam ?? '')` would capture the initial value only —
+// it would not update when the URL changes (e.g., browser back/forward).
+let locationFilter = $state('')
+$effect(() => {
+  const param = $page.url.searchParams.get('location')
+  if (param) locationFilter = param
+})
 ```
 
 **Acceptance criteria:**
@@ -804,13 +819,23 @@ describe('resolveState', () => {
   it('returns null for "Remote OK" (should NOT match Oklahoma)', () => {
     expect(resolveState('Remote OK')).toBeNull()
   })
+
+  // Standalone abbreviation edge case
+  // resolveState('OK') returns 'Oklahoma' — standalone two-letter abbreviations
+  // are resolved when they match a state. This is intentional: if a location is
+  // literally 'OK', we interpret it as Oklahoma. If this causes false positives,
+  // add an exclusion list in a future iteration.
+  it('resolves standalone "OK" to Oklahoma (intentional)', () => {
+    expect(resolveState('OK')).toBe('Oklahoma')
+  })
 })
 ```
 
 **Acceptance criteria:**
-- All 18 test cases pass.
+- All 19 test cases pass.
 - Abbreviation, full name, and city patterns all verified.
 - False positive protection for "AI Engineer" and "Remote OK" verified.
+- Standalone "OK" resolves to Oklahoma (intentional behavior documented).
 - Null/empty/undefined edge cases verified.
 
 **Failure criteria:**
@@ -895,6 +920,19 @@ describe('aggregateByState', () => {
     const data = aggregateByState(jds as any)
     expect(data.stateCounts[0].jds).toEqual(['Engineer'])
   })
+
+  it('precomputes stateOrgsMap with org names and counts', () => {
+    const jds = [
+      { id: '1', title: 'A', location: 'San Francisco, CA', organization_name: 'Acme' },
+      { id: '2', title: 'B', location: 'Los Angeles, CA', organization_name: 'Acme' },
+      { id: '3', title: 'C', location: 'San Jose, CA', organization_name: 'BigCo' },
+    ]
+    const data = aggregateByState(jds as any)
+    const caOrgs = data.stateOrgsMap.get('California')!
+    expect(caOrgs).toBeDefined()
+    expect(caOrgs[0]).toEqual({ name: 'Acme', count: 2 })
+    expect(caOrgs[1]).toEqual({ name: 'BigCo', count: 1 })
+  })
 })
 
 describe('getStateOrgs', () => {
@@ -973,9 +1011,9 @@ describe('buildChoroplethOption', () => {
 ```
 
 **Acceptance criteria:**
-- All 12 test cases pass.
+- All 13 test cases pass.
 - State grouping, counting, sorting, unresolved handling verified.
-- Org aggregation and limit verified.
+- Org aggregation, limit, and stateOrgsMap precomputation verified.
 - Option structure validated.
 
 **Failure criteria:**
@@ -1009,6 +1047,7 @@ describe('buildChoroplethOption', () => {
 | "Anywhere" | `null` |
 | "AI Engineer" | `null` (NOT Arizona) |
 | "Remote OK" | `null` (NOT Oklahoma) |
+| "OK" (standalone) | `"Oklahoma"` (intentional -- document as known behavior) |
 
 ### Aggregation Unit Tests
 
@@ -1022,6 +1061,7 @@ describe('buildChoroplethOption', () => {
 | All remote -> empty stateCounts | `stateCounts: []` |
 | Sorts by value descending | CA (2) before NY (1) |
 | Includes JD titles | `jds: ['Engineer']` |
+| stateOrgsMap precomputed | `stateOrgsMap.get('California')` has Acme (2), BigCo (1) |
 | getStateOrgs sorted by count | Acme (2) before BigCo (1) |
 | getStateOrgs limits to 5 | `orgs.length <= 5` |
 | getStateOrgs "Unknown" fallback | Null org -> "Unknown" |
@@ -1095,3 +1135,4 @@ describe('buildChoroplethOption', () => {
 **Cross-phase:**
 - Phase 67 and 68 both modify `+page.svelte` (dashboard) -- different sections, coordinated merge needed.
 - Phase 68 does not modify `echarts-registry.ts` (MapChart and VisualMapComponent already registered by Phase 59).
+- Phases 65 and 66 both modify `echarts-registry.ts`. `echarts.use()` is idempotent -- registering `BarChart` twice is safe. If Phase 66 lands before Phase 65, uncomment the `BarChart` import; if 65 lands first, leave it commented.

@@ -139,6 +139,7 @@ import { GridComponent } from 'echarts/components'
 import { VisualMapComponent } from 'echarts/components'
 import { DatasetComponent } from 'echarts/components'
 import { TransformComponent } from 'echarts/components'
+import { GraphicComponent } from 'echarts/components'  // Phase 63's sunburst center-text label requires this
 
 // ── Renderer ─────────────────────────────────────────────────────
 import { SVGRenderer } from 'echarts/renderers'
@@ -157,6 +158,7 @@ echarts.use([
   VisualMapComponent,
   DatasetComponent,
   TransformComponent,
+  GraphicComponent,
   SVGRenderer,
 ])
 
@@ -170,7 +172,7 @@ export { echarts }
 
 **Acceptance criteria:**
 - Exactly 5 chart types registered: Pie, Sunburst, Treemap, Custom, Map.
-- Exactly 7 components registered: Tooltip, Legend, Title, Grid, VisualMap, Dataset, Transform.
+- Exactly 8 components registered: Tooltip, Legend, Title, Grid, VisualMap, Dataset, Transform, Graphic.
 - SVGRenderer registered (not CanvasRenderer).
 - `echarts` export is the configured instance from `echarts/core`.
 - TypeScript compilation succeeds.
@@ -403,10 +405,13 @@ Chart color tokens for dark mode:
 
   // ── Initialization ──────────────────────────────────────────────
 
+  // [FIX] Remove the `chart.setOption(option)` call from onMount.
+  // The `$effect` watching `option` (below) handles it when `chart`
+  // transitions from null to initialized. Having both causes a redundant
+  // double-render on first mount.
   onMount(() => {
     const theme = buildEChartsTheme()
     chart = echarts.init(chartEl, theme, { renderer: 'svg' })
-    chart.setOption(option)
 
     // ── Event forwarding ──────────────────────────────────────
     if (onChartEvent) {

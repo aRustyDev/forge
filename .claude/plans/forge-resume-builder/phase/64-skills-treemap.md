@@ -21,6 +21,7 @@ Add three treemap visualizations to the dashboard: (1) a Skills Treemap showing 
 - Filtering or search controls on treemaps -- deferred to a future toolbar spec
 - Real-time updates (treemaps refresh on page load or manual reload)
 - Data sharing with J2 components (each component independently fetches; shared data lifting is a future optimization)
+- Optimizing dashboard data load cost (the dashboard loads 12,000+ objects across J2+J3 chart components -- this is acceptable for a single-user tool but should be documented as a known cost; a shared data context or caching layer is deferred to a future optimization spec)
 
 ## Context
 

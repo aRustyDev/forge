@@ -3,7 +3,7 @@
 **Status:** Planning
 **Date:** 2026-04-03
 **Spec:** [2026-04-03-jd-kanban-pipeline.md](../refs/specs/2026-04-03-jd-kanban-pipeline.md)
-**Depends on:** Phase 49 (JD Detail Page -- JD entity with CRUD UI), Phase 43 (Generic Kanban -- `GenericKanban.svelte`, `ViewToggle.svelte`, column/card infrastructure)
+**Depends on:** Phase 49 (JD Detail Page -- JD entity with CRUD UI), Phase 43 (Generic Kanban -- `GenericKanban.svelte`, `ViewToggle.svelte`, column/card infrastructure). **Phase 61 is BLOCKED until Phase 43's GenericKanban API is stable and committed. This is a hard prerequisite, not just a soft dependency.**
 **Blocks:** None
 **Parallelizable with:** Phase 60 (JD Resume Linkage), Phase 62 (JD Skill Extraction AI) -- Phase 61 modifies shared files (`job-descriptions.ts` routes, core/SDK types, `StatusBadge.svelte`); serialize changes to those files
 
@@ -144,6 +144,13 @@ CREATE INDEX idx_job_descriptions_status ON job_descriptions(status);
 -- job_description_resumes: references job_descriptions(id) ON DELETE CASCADE.
 -- Same IDs preserved; no action needed.
 
+-- [FIX] Recreate the updated_at trigger after the table rebuild.
+-- Without this, updating a JD will no longer auto-set updated_at.
+CREATE TRIGGER jd_updated_at AFTER UPDATE ON job_descriptions
+BEGIN
+  UPDATE job_descriptions SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
+
 PRAGMA foreign_keys = ON;
 
 INSERT INTO _migrations (name) VALUES ('020_jd_pipeline_statuses');
@@ -229,7 +236,18 @@ export type JobDescriptionStatus =
 [IMPORTANT] The `ColumnDef` type must match `GenericKanban`'s expected interface from Phase 43. Verify the exact interface shape before implementation. The `dropStatus` field on the Closed column tells GenericKanban which status to set when a card is dropped into a column that maps to multiple statuses.
 
 ```typescript
-import type { ColumnDef } from '@forge/webui/lib/components/kanban/types'
+// [FIX] Do NOT import ColumnDef from @forge/webui — that creates a circular
+// dependency (core -> webui -> core). Define the ColumnDef type locally in
+// packages/core/src/constants/ or in packages/sdk/src/types.ts so it can be
+// shared without circular imports. Alternatively, define JD_PIPELINE_COLUMNS
+// directly in the webui package.
+export interface ColumnDef {
+  key: string
+  label: string
+  statuses: string[]
+  accent: string
+  dropStatus?: string
+}
 
 export const JD_PIPELINE_STATUSES = [
   'discovered', 'analyzing', 'applying', 'applied',
@@ -253,7 +271,7 @@ export const JD_PIPELINE_COLUMNS: ColumnDef[] = [
 ]
 ```
 
-[GAP] The `ColumnDef` type may be defined in the webui package (Phase 43) rather than in core. If so, the import path needs adjustment. Alternatively, define `ColumnDef` in core or use an inline type. Verify Phase 43's export structure.
+[RESOLVED] The `ColumnDef` type is now defined inline in `packages/core/src/constants/index.ts` to avoid circular dependencies between core and webui. If Phase 43 defines its own `ColumnDef`, the core version should be canonical and Phase 43's should re-export or alias it.
 
 **Acceptance criteria:**
 - `JD_PIPELINE_STATUSES` is a readonly tuple of all 9 status values.
@@ -484,6 +502,7 @@ const status = input.status ?? 'discovered'
 
 ```svelte
 <script lang="ts">
+  import { onMount } from 'svelte'
   import type { ForgeClient } from '@forge/sdk'
 
   let { filters, forge, onchange }: {
@@ -499,7 +518,10 @@ const status = input.status ?? 'discovered'
 
   let organizations = $state<OrgOption[]>([])
 
-  $effect(() => {
+  // [FIX] Use onMount for org loading instead of $effect.
+  // $effect would re-run when `organizations` is written, causing an
+  // infinite loop (effect reads forge -> writes organizations -> re-runs).
+  onMount(() => {
     forge.organizations.list({ limit: 500 }).then(result => {
       if (result.ok) {
         organizations = result.data.map(o => ({ id: o.id, name: o.name }))
@@ -633,11 +655,16 @@ const status = input.status ?? 'discovered'
   }
 
   async function handleJDDrop(itemId: string, newStatus: string) {
-    // Optimistic update
+    // Optimistic update.
+    // [FIX] Use array reassignment via .map() instead of index mutation.
+    // Array index mutation (`allJDs[idx] = ...`) does not reliably trigger
+    // Svelte 5 reactivity. Full array reassignment does.
     const idx = allJDs.findIndex(jd => jd.id === itemId)
     if (idx >= 0) {
       const prev = allJDs[idx].status
-      allJDs[idx] = { ...allJDs[idx], status: newStatus as JobDescriptionStatus }
+      allJDs = allJDs.map((jd, i) =>
+        i === idx ? { ...jd, status: newStatus as JobDescriptionStatus } : jd
+      )
 
       const result = await forge.jobDescriptions.update(itemId, {
         status: newStatus as JobDescriptionStatus,
@@ -645,7 +672,9 @@ const status = input.status ?? 'discovered'
 
       if (!result.ok) {
         // Revert on failure
-        allJDs[idx] = { ...allJDs[idx], status: prev }
+        allJDs = allJDs.map((jd, i) =>
+          i === idx ? { ...jd, status: prev } : jd
+        )
       }
     }
   }

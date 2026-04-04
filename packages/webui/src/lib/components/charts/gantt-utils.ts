@@ -71,8 +71,7 @@ interface JDLike {
  * - Active JDs use `new Date()` as endDate; terminal JDs use `updated_at`.
  * - Each item is colored by its status via STATUS_COLORS.
  */
-export function buildGanttItems(jds: JDLike[]): GanttItem[] {
-  const now = new Date()
+export function buildGanttItems(jds: JDLike[], now: Date = new Date()): GanttItem[] {
 
   return jds
     .map(jd => {

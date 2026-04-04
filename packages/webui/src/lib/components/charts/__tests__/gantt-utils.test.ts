@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
   buildGanttItems,
   buildGanttOption,
@@ -10,21 +10,12 @@ import {
 describe('buildGanttItems', () => {
   const now = new Date('2026-04-03T12:00:00Z')
 
-  beforeEach(() => {
-    vi.useFakeTimers()
-    vi.setSystemTime(now)
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   it('sorts JDs by created_at descending (newest first)', () => {
     const jds = [
       { id: '1', title: 'Old', status: 'applied', created_at: '2026-01-01', updated_at: '2026-02-01', organization_name: null },
       { id: '2', title: 'New', status: 'applied', created_at: '2026-03-01', updated_at: '2026-03-15', organization_name: null },
     ]
-    const items = buildGanttItems(jds as any)
+    const items = buildGanttItems(jds as any, now)
     expect(items[0].title).toBe('New')
     expect(items[1].title).toBe('Old')
   })
@@ -33,7 +24,7 @@ describe('buildGanttItems', () => {
     const jds = [
       { id: '1', title: 'A'.repeat(35), status: 'applied', created_at: '2026-01-01', updated_at: '2026-02-01', organization_name: null },
     ]
-    const items = buildGanttItems(jds as any)
+    const items = buildGanttItems(jds as any, now)
     expect(items[0].title).toBe('A'.repeat(30) + '...')
   })
 
@@ -41,7 +32,7 @@ describe('buildGanttItems', () => {
     const activeStatuses = ['discovered', 'analyzing', 'applying', 'applied', 'interviewing', 'offered']
     for (const status of activeStatuses) {
       const jds = [{ id: '1', title: 'Test', status, created_at: '2026-01-01', updated_at: '2026-02-01', organization_name: null }]
-      const items = buildGanttItems(jds as any)
+      const items = buildGanttItems(jds as any, now)
       expect(items[0].isActive).toBe(true)
     }
   })
@@ -49,7 +40,7 @@ describe('buildGanttItems', () => {
   it('sets isActive false for rejected, withdrawn, closed', () => {
     for (const status of ['rejected', 'withdrawn', 'closed']) {
       const jds = [{ id: '1', title: 'Test', status, created_at: '2026-01-01', updated_at: '2026-02-01', organization_name: null }]
-      const items = buildGanttItems(jds as any)
+      const items = buildGanttItems(jds as any, now)
       expect(items[0].isActive).toBe(false)
     }
   })
@@ -58,7 +49,7 @@ describe('buildGanttItems', () => {
     const jds = [
       { id: '1', title: 'Test', status: 'applied', created_at: '2026-01-01', updated_at: '2026-02-01', organization_name: null },
     ]
-    const items = buildGanttItems(jds as any)
+    const items = buildGanttItems(jds as any, now)
     expect(items[0].endDate.getTime()).toBe(now.getTime())
   })
 
@@ -66,7 +57,7 @@ describe('buildGanttItems', () => {
     const jds = [
       { id: '1', title: 'Test', status: 'rejected', created_at: '2026-01-01', updated_at: '2026-02-15T00:00:00Z', organization_name: null },
     ]
-    const items = buildGanttItems(jds as any)
+    const items = buildGanttItems(jds as any, now)
     expect(items[0].endDate.getTime()).toBe(new Date('2026-02-15T00:00:00Z').getTime())
   })
 
@@ -74,7 +65,7 @@ describe('buildGanttItems', () => {
     const jds = [
       { id: '1', title: 'Test', status: 'offered', created_at: '2026-01-01', updated_at: '2026-02-01', organization_name: null },
     ]
-    const items = buildGanttItems(jds as any)
+    const items = buildGanttItems(jds as any, now)
     expect(items[0].color).toBe('#22c55e')
   })
 
@@ -82,7 +73,7 @@ describe('buildGanttItems', () => {
     const jds = [
       { id: '1', title: 'Test', status: 'applied', created_at: '2026-01-01', updated_at: '2026-02-01', organization_name: null },
     ]
-    const items = buildGanttItems(jds as any)
+    const items = buildGanttItems(jds as any, now)
     expect(items[0].orgName).toBeNull()
   })
 })

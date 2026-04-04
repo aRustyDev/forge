@@ -102,7 +102,7 @@ describe('DerivationService', () => {
 
     expect(result.data).toHaveLength(1)
     expect(result.data[0].content).toBe('Led 4-engineer team migrating cloud forensics platform')
-    expect(result.data[0].status).toBe('pending_review')
+    expect(result.data[0].status).toBe('in_review')
 
     // Verify bullet_sources junction row with is_primary=1
     const sources = BulletRepository.getSources(db, result.data[0].id)
@@ -204,7 +204,7 @@ describe('DerivationService', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.content).toBe('Perspective content')
-    expect(result.data.status).toBe('pending_review')
+    expect(result.data.status).toBe('in_review')
     expect(result.data.bullet_id).toBe(bullet.id)
   })
 

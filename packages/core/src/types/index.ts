@@ -7,17 +7,20 @@
 
 // ── Status Unions ─────────────────────────────────────────────────────
 
-/** Valid statuses for a Source record. */
-export type SourceStatus = 'draft' | 'approved' | 'deriving'
+/** Unified 5-status model for kanban boards. Used by bullets, sources (excluding deriving), resumes, perspectives. */
+export type UnifiedKanbanStatus = 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
+
+/** Valid statuses for a Source record. Includes transient 'deriving' lock status. */
+export type SourceStatus = 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived' | 'deriving'
 
 /** Valid statuses for a Bullet record. */
-export type BulletStatus = 'draft' | 'pending_review' | 'approved' | 'rejected'
+export type BulletStatus = 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
 
 /** Valid statuses for a Perspective record. */
-export type PerspectiveStatus = 'draft' | 'pending_review' | 'approved' | 'rejected'
+export type PerspectiveStatus = 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
 
 /** Valid statuses for a Resume record. */
-export type ResumeStatus = 'draft' | 'final'
+export type ResumeStatus = 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
 
 /** Valid updated_by values. */
 export type UpdatedBy = 'human' | 'ai'

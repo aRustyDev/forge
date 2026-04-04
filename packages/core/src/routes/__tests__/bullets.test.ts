@@ -33,7 +33,7 @@ describe('Bullet Routes', () => {
   test('GET /bullets?status=approved filters by status', async () => {
     const sourceId = seedSource(ctx.db)
     seedBullet(ctx.db, [{ id: sourceId }], { status: 'approved' })
-    seedBullet(ctx.db, [{ id: sourceId }], { status: 'pending_review' })
+    seedBullet(ctx.db, [{ id: sourceId }], { status: 'in_review' })
 
     const res = await apiRequest(ctx.app, 'GET', '/bullets?status=approved')
     expect(res.status).toBe(200)
@@ -56,9 +56,9 @@ describe('Bullet Routes', () => {
 
   // ── PATCH /bullets/:id/approve ────────────────────────────────────
 
-  test('PATCH /bullets/:id/approve from pending_review returns 200', async () => {
+  test('PATCH /bullets/:id/approve from in_review returns 200', async () => {
     const sourceId = seedSource(ctx.db)
-    const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { status: 'pending_review' })
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { status: 'in_review' })
 
     const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/approve`)
     expect(res.status).toBe(200)
@@ -81,7 +81,7 @@ describe('Bullet Routes', () => {
 
   test('PATCH /bullets/:id/reject with reason returns 200', async () => {
     const sourceId = seedSource(ctx.db)
-    const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { status: 'pending_review' })
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { status: 'in_review' })
 
     const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/reject`, {
       rejection_reason: 'Too vague',
@@ -93,7 +93,7 @@ describe('Bullet Routes', () => {
 
   test('PATCH /bullets/:id/reject without reason returns 400', async () => {
     const sourceId = seedSource(ctx.db)
-    const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { status: 'pending_review' })
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { status: 'in_review' })
 
     const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/reject`, {
       rejection_reason: '',
@@ -112,7 +112,7 @@ describe('Bullet Routes', () => {
     const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/reopen`)
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.status).toBe('pending_review')
+    expect(body.data.status).toBe('in_review')
   })
 
   // ── DELETE /bullets/:id ───────────────────────────────────────────
@@ -194,19 +194,19 @@ describe('Bullet Routes', () => {
 
   // ── PATCH /bullets/:id/submit ──────────────────────────────────────
 
-  test('PATCH /bullets/:id/submit transitions draft to pending_review', async () => {
+  test('PATCH /bullets/:id/submit transitions draft to in_review', async () => {
     const sourceId = seedSource(ctx.db)
     const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { status: 'draft' })
 
     const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/submit`)
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.status).toBe('pending_review')
+    expect(body.data.status).toBe('in_review')
   })
 
   test('PATCH /bullets/:id/submit on non-draft returns 400', async () => {
     const sourceId = seedSource(ctx.db)
-    const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { status: 'pending_review' })
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { status: 'in_review' })
 
     const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/submit`)
     expect(res.status).toBe(400)

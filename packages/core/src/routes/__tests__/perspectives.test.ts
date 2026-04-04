@@ -49,10 +49,10 @@ describe('Perspective Routes', () => {
 
   // ── PATCH /perspectives/:id/approve ───────────────────────────────
 
-  test('PATCH /perspectives/:id/approve from pending_review returns 200', async () => {
+  test('PATCH /perspectives/:id/approve from in_review returns 200', async () => {
     const sourceId = seedSource(ctx.db)
     const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
-    const perspId = seedPerspective(ctx.db, bulletId, { status: 'pending_review' })
+    const perspId = seedPerspective(ctx.db, bulletId, { status: 'in_review' })
 
     const res = await apiRequest(ctx.app, 'PATCH', `/perspectives/${perspId}/approve`)
     expect(res.status).toBe(200)
@@ -65,7 +65,7 @@ describe('Perspective Routes', () => {
   test('PATCH /perspectives/:id/reject with reason returns 200', async () => {
     const sourceId = seedSource(ctx.db)
     const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
-    const perspId = seedPerspective(ctx.db, bulletId, { status: 'pending_review' })
+    const perspId = seedPerspective(ctx.db, bulletId, { status: 'in_review' })
 
     const res = await apiRequest(ctx.app, 'PATCH', `/perspectives/${perspId}/reject`, {
       rejection_reason: 'Too generic',

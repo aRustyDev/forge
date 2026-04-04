@@ -11,7 +11,7 @@ import type { Database } from 'bun:sqlite'
 
 // ── Types ────────────────────────────────────────────────────────────
 
-export type BulletStatus = 'draft' | 'pending_review' | 'approved' | 'rejected'
+export type BulletStatus = 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
 
 export interface Bullet {
   id: string
@@ -35,7 +35,7 @@ export interface CreateBulletInput {
   technologies: string[]
   metrics: string | null
   domain?: string | null
-  status?: string   // default: 'pending_review'
+  status?: string   // default: 'in_review'
   prompt_log_id?: string
   source_ids?: Array<{ id: string; is_primary?: boolean }>
 }
@@ -129,7 +129,7 @@ export const BulletRepository = {
    */
   create(db: Database, input: CreateBulletInput): Bullet {
     const id = crypto.randomUUID()
-    const status = input.status ?? 'pending_review'
+    const status = input.status ?? 'in_review'
 
     const row = db
       .query(

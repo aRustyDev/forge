@@ -92,7 +92,7 @@ describe('Resume Routes', () => {
     const resumeId = seedResume(ctx.db)
     const sourceId = seedSource(ctx.db)
     const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
-    const perspId = seedPerspective(ctx.db, bulletId, { status: 'pending_review' })
+    const perspId = seedPerspective(ctx.db, bulletId, { status: 'in_review' })
     const secId = seedResumeSection(ctx.db, resumeId, 'Experience', 'experience')
 
     const res = await apiRequest(ctx.app, 'POST', `/resumes/${resumeId}/entries`, {

@@ -1,7 +1,7 @@
 /**
  * ReviewService — review queue for pending bullets and perspectives.
  *
- * Returns counts and items in pending_review status with
+ * Returns counts and items in in_review status with
  * relevant context (source title, bullet content).
  */
 
@@ -53,7 +53,7 @@ export class ReviewService {
          FROM bullets b
          JOIN bullet_sources bs ON b.id = bs.bullet_id AND bs.is_primary = 1
          JOIN sources s ON bs.source_id = s.id
-         WHERE b.status = 'pending_review'
+         WHERE b.status = 'in_review'
          ORDER BY b.created_at DESC`,
       )
       .all() as BulletReviewRow[]
@@ -91,7 +91,7 @@ export class ReviewService {
          JOIN bullets b ON p.bullet_id = b.id
          JOIN bullet_sources bs ON b.id = bs.bullet_id AND bs.is_primary = 1
          JOIN sources s ON bs.source_id = s.id
-         WHERE p.status = 'pending_review'
+         WHERE p.status = 'in_review'
          ORDER BY p.created_at DESC`,
       )
       .all() as PerspectiveReviewRow[]

@@ -30,7 +30,7 @@ describe('BulletRepository', () => {
       expect(bullet.source_content_snapshot).toBe('snapshot')
       expect(bullet.domain).toBeNull()
       expect(bullet.notes).toBeNull()
-      expect(bullet.status).toBe('pending_review')
+      expect(bullet.status).toBe('in_review')
       expect(bullet.technologies).toEqual(['typescript'])
 
       const sources = BulletRepository.getSources(db, bullet.id)

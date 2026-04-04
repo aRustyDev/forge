@@ -560,9 +560,10 @@
     <select class="filter-select" bind:value={statusFilter}>
       <option value="all">All statuses</option>
       <option value="draft">Draft</option>
-      <option value="pending_review">Pending</option>
+      <option value="in_review">In Review</option>
       <option value="approved">Approved</option>
       <option value="rejected">Rejected</option>
+      <option value="archived">Archived</option>
     </select>
 
     <select class="filter-select" bind:value={archetypeFilter}>

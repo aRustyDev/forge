@@ -172,10 +172,11 @@
 
     <select class="status-select" bind:value={statusFilter}>
       <option value="all">All statuses</option>
-      <option value="pending_review">Pending</option>
+      <option value="in_review">In Review</option>
       <option value="approved">Approved</option>
       <option value="rejected">Rejected</option>
       <option value="draft">Draft</option>
+      <option value="archived">Archived</option>
     </select>
   </div>
 
@@ -238,7 +239,7 @@
 
           <!-- Inline actions -->
           <div class="item-actions">
-            {#if item.status === 'pending_review'}
+            {#if item.status === 'in_review'}
               <button class="btn btn-approve" onclick={(e) => { e.stopPropagation(); approveItem(item.id) }}>Approve</button>
               <button class="btn btn-reject" onclick={(e) => { e.stopPropagation(); openReject(item.id) }}>Reject</button>
             {/if}

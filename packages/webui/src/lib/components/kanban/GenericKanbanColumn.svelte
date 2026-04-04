@@ -99,7 +99,7 @@
     border-top: 3px solid;
     background: var(--color-surface-raised, #f9fafb);
     border-radius: var(--radius-md, 6px);
-    overflow-y: auto;
+    min-height: 0;
   }
 
   .column-header {
@@ -109,9 +109,7 @@
     padding: var(--space-3, 0.6rem) var(--space-3, 0.75rem);
     background: var(--color-surface, #fff);
     border-bottom: 1px solid var(--color-border, #e5e7eb);
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    flex-shrink: 0;
   }
 
   .column-label {

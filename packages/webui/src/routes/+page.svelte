@@ -7,6 +7,7 @@
   import BulletsTreemap from '$lib/components/charts/BulletsTreemap.svelte'
   import DomainsTreemap from '$lib/components/charts/DomainsTreemap.svelte'
   import ApplicationGantt from '$lib/components/charts/ApplicationGantt.svelte'
+  import RoleChoropleth from '$lib/components/charts/RoleChoropleth.svelte'
 
   let loading = $state(true)
   let error = $state<string | null>(null)
@@ -193,6 +194,14 @@
       <h2 class="section-title">Application Timeline</h2>
       <div class="chart-card">
         <ApplicationGantt />
+      </div>
+    </section>
+
+    <!-- Opportunity Map (Phase 68) -->
+    <section class="section">
+      <h2 class="section-title">Opportunity Map</h2>
+      <div class="chart-card">
+        <RoleChoropleth />
       </div>
     </section>
   {/if}

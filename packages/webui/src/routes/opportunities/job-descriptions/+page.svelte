@@ -6,6 +6,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
+  import { page } from '$app/state'
   import { LoadingSpinner, EmptyState } from '$lib/components'
   import ViewToggle from '$lib/components/ViewToggle.svelte'
   import GenericKanban from '$lib/components/kanban/GenericKanban.svelte'
@@ -61,6 +62,15 @@
   // List view filters
   let statusFilter = $state<JobDescriptionStatus | 'all'>('all')
   let searchText = $state('')
+  let locationFilter = $state('')
+
+  // Initialize locationFilter reactively from URL params via $effect.
+  // Using `$state(locationParam ?? '')` would capture the initial value only --
+  // it would not update when the URL changes (e.g., browser back/forward).
+  $effect(() => {
+    const param = page.url.searchParams.get('location')
+    if (param) locationFilter = param
+  })
 
   // Board view filters
   let boardFilters = $state({ organization_id: '', location: '', search: '' })
@@ -78,6 +88,12 @@
       result = result.filter(jd =>
         jd.title.toLowerCase().includes(q) ||
         jd.organization_name?.toLowerCase().includes(q)
+      )
+    }
+    if (locationFilter.trim()) {
+      const loc = locationFilter.toLowerCase()
+      result = result.filter(jd =>
+        (jd.location ?? '').toLowerCase().includes(loc)
       )
     }
     return result
@@ -255,6 +271,15 @@
               placeholder="Search title or org..."
               bind:value={searchText}
             />
+            {#if locationFilter}
+              <button
+                class="location-badge"
+                onclick={() => { locationFilter = '' }}
+                title="Clear location filter"
+              >
+                {locationFilter} &times;
+              </button>
+            {/if}
           </div>
 
           <div class="card-list">
@@ -409,6 +434,26 @@
   .search-input:focus,
   .status-filter:focus {
     border-color: var(--color-info);
+  }
+
+  .location-badge {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.25rem 0.5rem;
+    background: var(--color-info-subtle);
+    border: 1px solid var(--color-info);
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    color: var(--color-info-text);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .location-badge:hover {
+    background: var(--color-info);
+    color: var(--color-surface);
   }
 
   .card-list {

@@ -357,6 +357,9 @@ export class ResumeService {
     if (!section || section.resume_id !== resumeId) {
       return { ok: false, error: { code: 'NOT_FOUND', message: 'Section not found' } }
     }
+    if (section.entry_type !== 'skills') {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'Skills can only be added to skills-type sections' } }
+    }
     try {
       const skill = ResumeRepository.addSkill(this.db, sectionId, skillId)
       return { ok: true, data: skill }

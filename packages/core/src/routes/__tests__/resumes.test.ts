@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { Database } from 'bun:sqlite'
 import { createTestApp, apiRequest, type TestContext } from './helpers'
-import { seedSource, seedBullet, seedPerspective, seedResume, seedResumeEntry, seedResumeSection } from '../../db/__tests__/helpers'
+import { seedSource, seedBullet, seedPerspective, seedResume, seedResumeEntry, seedResumeSection, seedSkill, seedResumeSkill } from '../../db/__tests__/helpers'
 
 describe('Resume Routes', () => {
   let ctx: TestContext
@@ -141,5 +141,273 @@ describe('Resume Routes', () => {
     // Verify deleted
     const getRes = await apiRequest(ctx.app, 'GET', `/resumes/${resumeId}`)
     expect(getRes.status).toBe(404)
+  })
+
+  // ── Section CRUD routes ────────────────────────────────────────────
+
+  describe('Section CRUD routes', () => {
+    test('POST /resumes/:id/sections creates a section', async () => {
+      const resumeId = seedResume(ctx.db)
+      const res = await apiRequest(ctx.app, 'POST', `/resumes/${resumeId}/sections`, {
+        title: 'Work History',
+        entry_type: 'experience',
+        position: 0,
+      })
+      expect(res.status).toBe(201)
+      const { data } = await res.json()
+      expect(data.title).toBe('Work History')
+      expect(data.entry_type).toBe('experience')
+      expect(data.id).toHaveLength(36)
+    })
+
+    test('GET /resumes/:id/sections lists sections ordered by position', async () => {
+      const resumeId = seedResume(ctx.db)
+      seedResumeSection(ctx.db, resumeId, 'Skills', 'skills', 1)
+      seedResumeSection(ctx.db, resumeId, 'Summary', 'freeform', 0)
+
+      const res = await apiRequest(ctx.app, 'GET', `/resumes/${resumeId}/sections`)
+      expect(res.status).toBe(200)
+      const { data } = await res.json()
+      expect(data).toHaveLength(2)
+      expect(data[0].title).toBe('Summary')
+      expect(data[1].title).toBe('Skills')
+    })
+
+    test('PATCH /resumes/:id/sections/:sectionId updates title', async () => {
+      const resumeId = seedResume(ctx.db)
+      const sectionId = seedResumeSection(ctx.db, resumeId, 'Old Title', 'experience')
+
+      const res = await apiRequest(ctx.app, 'PATCH', `/resumes/${resumeId}/sections/${sectionId}`, {
+        title: 'Professional Experience',
+      })
+      expect(res.status).toBe(200)
+      const { data } = await res.json()
+      expect(data.title).toBe('Professional Experience')
+      expect(data.entry_type).toBe('experience')
+    })
+
+    test('DELETE /resumes/:id/sections/:sectionId deletes with cascade', async () => {
+      const resumeId = seedResume(ctx.db)
+      const sectionId = seedResumeSection(ctx.db, resumeId, 'Experience', 'experience')
+      const sourceId = seedSource(ctx.db)
+      const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+      const perspId = seedPerspective(ctx.db, bulletId)
+      seedResumeEntry(ctx.db, sectionId, { perspectiveId: perspId })
+
+      const res = await apiRequest(ctx.app, 'DELETE', `/resumes/${resumeId}/sections/${sectionId}`)
+      expect(res.status).toBe(204)
+
+      // Entries should be gone
+      const entries = ctx.db.query('SELECT * FROM resume_entries WHERE section_id = ?').all(sectionId) as any[]
+      expect(entries).toHaveLength(0)
+    })
+
+    test('returns 404 for section on wrong resume', async () => {
+      const resume1 = seedResume(ctx.db)
+      const resume2 = seedResume(ctx.db)
+      const sectionId = seedResumeSection(ctx.db, resume1, 'Experience', 'experience')
+
+      const res = await apiRequest(ctx.app, 'DELETE', `/resumes/${resume2}/sections/${sectionId}`)
+      expect(res.status).toBe(404)
+    })
+  })
+
+  // ── Resume Skills routes ───────────────────────────────────────────
+
+  describe('Resume Skills routes', () => {
+    test('POST /resumes/:id/sections/:sectionId/skills adds a skill', async () => {
+      const resumeId = seedResume(ctx.db)
+      const sectionId = seedResumeSection(ctx.db, resumeId, 'Skills', 'skills')
+      const skillId = seedSkill(ctx.db, { name: 'Python' })
+
+      const res = await apiRequest(
+        ctx.app, 'POST',
+        `/resumes/${resumeId}/sections/${sectionId}/skills`,
+        { skill_id: skillId },
+      )
+      expect(res.status).toBe(201)
+      const { data } = await res.json()
+      expect(data.skill_id).toBe(skillId)
+    })
+
+    test('GET /resumes/:id/sections/:sectionId/skills lists skills', async () => {
+      const resumeId = seedResume(ctx.db)
+      const sectionId = seedResumeSection(ctx.db, resumeId, 'Skills', 'skills')
+      const skill1 = seedSkill(ctx.db, { name: 'Python' })
+      const skill2 = seedSkill(ctx.db, { name: 'TypeScript' })
+      seedResumeSkill(ctx.db, sectionId, skill1, 0)
+      seedResumeSkill(ctx.db, sectionId, skill2, 1)
+
+      const res = await apiRequest(ctx.app, 'GET', `/resumes/${resumeId}/sections/${sectionId}/skills`)
+      expect(res.status).toBe(200)
+      const { data } = await res.json()
+      expect(data).toHaveLength(2)
+    })
+
+    test('DELETE /resumes/:id/sections/:sectionId/skills/:skillId removes a skill', async () => {
+      const resumeId = seedResume(ctx.db)
+      const sectionId = seedResumeSection(ctx.db, resumeId, 'Skills', 'skills')
+      const skillId = seedSkill(ctx.db, { name: 'Go' })
+      seedResumeSkill(ctx.db, sectionId, skillId)
+
+      const res = await apiRequest(
+        ctx.app, 'DELETE',
+        `/resumes/${resumeId}/sections/${sectionId}/skills/${skillId}`,
+      )
+      expect(res.status).toBe(204)
+
+      // Verify removed
+      const skills = ctx.db.query('SELECT * FROM resume_skills WHERE section_id = ?').all(sectionId) as any[]
+      expect(skills).toHaveLength(0)
+    })
+
+    test('rejects adding skill to non-skills section', async () => {
+      const resumeId = seedResume(ctx.db)
+      const sectionId = seedResumeSection(ctx.db, resumeId, 'Experience', 'experience')
+      const skillId = seedSkill(ctx.db, { name: 'Python' })
+
+      const res = await apiRequest(
+        ctx.app, 'POST',
+        `/resumes/${resumeId}/sections/${sectionId}/skills`,
+        { skill_id: skillId },
+      )
+      expect(res.status).toBe(400)
+      const body = await res.json()
+      expect(body.error.code).toBe('VALIDATION_ERROR')
+    })
+
+    test('duplicate skill returns 409', async () => {
+      const resumeId = seedResume(ctx.db)
+      const sectionId = seedResumeSection(ctx.db, resumeId, 'Skills', 'skills')
+      const skillId = seedSkill(ctx.db, { name: 'Rust' })
+      seedResumeSkill(ctx.db, sectionId, skillId)
+
+      const res = await apiRequest(
+        ctx.app, 'POST',
+        `/resumes/${resumeId}/sections/${sectionId}/skills`,
+        { skill_id: skillId },
+      )
+      expect(res.status).toBe(409)
+    })
+  })
+
+  // ── Updated entry endpoints ────────────────────────────────────────
+
+  describe('Updated entry endpoints', () => {
+    test('POST /resumes/:id/entries with section_id', async () => {
+      const resumeId = seedResume(ctx.db)
+      const sectionId = seedResumeSection(ctx.db, resumeId, 'Experience', 'experience')
+      const sourceId = seedSource(ctx.db)
+      const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+      const perspId = seedPerspective(ctx.db, bulletId)
+
+      const res = await apiRequest(ctx.app, 'POST', `/resumes/${resumeId}/entries`, {
+        section_id: sectionId,
+        perspective_id: perspId,
+        position: 0,
+      })
+      expect(res.status).toBe(201)
+      const { data } = await res.json()
+      expect(data.section_id).toBe(sectionId)
+    })
+
+    test('POST /resumes/:id/entries freeform (no perspective_id)', async () => {
+      const resumeId = seedResume(ctx.db)
+      const sectionId = seedResumeSection(ctx.db, resumeId, 'Summary', 'freeform')
+
+      const res = await apiRequest(ctx.app, 'POST', `/resumes/${resumeId}/entries`, {
+        section_id: sectionId,
+        content: 'Hello freeform',
+        position: 0,
+      })
+      expect(res.status).toBe(201)
+      const { data } = await res.json()
+      expect(data.perspective_id).toBeNull()
+      expect(data.content).toBe('Hello freeform')
+    })
+
+    test('reorder entries with section_id', async () => {
+      const resumeId = seedResume(ctx.db)
+      const sectionId = seedResumeSection(ctx.db, resumeId, 'Experience', 'experience')
+      const sourceId = seedSource(ctx.db)
+      const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+      const p1 = seedPerspective(ctx.db, bulletId, { content: 'First' })
+      const p2 = seedPerspective(ctx.db, bulletId, { content: 'Second' })
+      const e1 = seedResumeEntry(ctx.db, sectionId, { perspectiveId: p1, position: 0 })
+      const e2 = seedResumeEntry(ctx.db, sectionId, { perspectiveId: p2, position: 1 })
+
+      const res = await apiRequest(ctx.app, 'PATCH', `/resumes/${resumeId}/entries/reorder`, {
+        entries: [
+          { id: e2, section_id: sectionId, position: 0 },
+          { id: e1, section_id: sectionId, position: 1 },
+        ],
+      })
+      expect(res.status).toBe(200)
+    })
+  })
+
+  // ── End-to-end smoke tests ─────────────────────────────────────────
+
+  describe('End-to-end smoke: section lifecycle', () => {
+    test('add section -> add skills -> verify IR', async () => {
+      const resumeId = seedResume(ctx.db)
+      const skillId = seedSkill(ctx.db, { name: 'TypeScript', category: 'Languages' })
+
+      // Create skills section
+      const createRes = await apiRequest(ctx.app, 'POST', `/resumes/${resumeId}/sections`, {
+        title: 'Technical Skills',
+        entry_type: 'skills',
+        position: 0,
+      })
+      expect(createRes.status).toBe(201)
+      const { data: section } = await createRes.json()
+
+      // Add skill
+      const addRes = await apiRequest(
+        ctx.app, 'POST',
+        `/resumes/${resumeId}/sections/${section.id}/skills`,
+        { skill_id: skillId },
+      )
+      expect(addRes.status).toBe(201)
+
+      // Get IR
+      const irRes = await apiRequest(ctx.app, 'GET', `/resumes/${resumeId}/ir`)
+      expect(irRes.status).toBe(200)
+      const { data: ir } = await irRes.json()
+      expect(ir.sections).toHaveLength(1)
+      expect(ir.sections[0].type).toBe('skills')
+      expect(ir.sections[0].items[0].kind).toBe('skill_group')
+      expect(ir.sections[0].items[0].categories[0].skills).toContain('TypeScript')
+    })
+
+    test('add freeform section -> add entry -> verify IR', async () => {
+      const resumeId = seedResume(ctx.db)
+
+      // Create freeform section
+      const createRes = await apiRequest(ctx.app, 'POST', `/resumes/${resumeId}/sections`, {
+        title: 'Summary',
+        entry_type: 'freeform',
+        position: 0,
+      })
+      expect(createRes.status).toBe(201)
+      const { data: section } = await createRes.json()
+
+      // Add freeform entry
+      const addRes = await apiRequest(ctx.app, 'POST', `/resumes/${resumeId}/entries`, {
+        section_id: section.id,
+        content: 'Experienced engineer.',
+        position: 0,
+      })
+      expect(addRes.status).toBe(201)
+
+      // Get IR
+      const irRes = await apiRequest(ctx.app, 'GET', `/resumes/${resumeId}/ir`)
+      expect(irRes.status).toBe(200)
+      const { data: ir } = await irRes.json()
+      expect(ir.sections).toHaveLength(1)
+      expect(ir.sections[0].type).toBe('freeform')
+      expect(ir.sections[0].items[0].kind).toBe('summary')
+      expect(ir.sections[0].items[0].content).toBe('Experienced engineer.')
+    })
   })
 })

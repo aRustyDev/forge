@@ -3,11 +3,12 @@
  */
 
 import { Hono } from 'hono'
+import type { Database } from 'bun:sqlite'
 import type { Services } from '../services'
 import { mapStatusCode } from './server'
 import type { CreateResume, UpdateResume, AddResumeEntry } from '../types'
 
-export function resumeRoutes(services: Services) {
+export function resumeRoutes(services: Services, db: Database) {
   const app = new Hono()
 
   app.post('/resumes', async (c) => {
@@ -62,6 +63,14 @@ export function resumeRoutes(services: Services) {
     return c.json({ data: result.data }, 201)
   })
 
+  // Reorder must come before :entryId to avoid "reorder" matching as a param
+  app.patch('/resumes/:id/entries/reorder', async (c) => {
+    const body = await c.req.json<{ entries: Array<{ id: string; section_id: string; position: number }> }>()
+    const result = services.resumes.reorderEntries(c.req.param('id'), body.entries)
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.json({ data: null })
+  })
+
   app.patch('/resumes/:id/entries/:entryId', async (c) => {
     const body = await c.req.json<{ content?: string | null; section_id?: string; position?: number; notes?: string | null }>()
     const result = services.resumes.updateEntry(c.req.param('id'), c.req.param('entryId'), body)
@@ -73,13 +82,6 @@ export function resumeRoutes(services: Services) {
     const result = services.resumes.removeEntry(c.req.param('id'), c.req.param('entryId'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
-  })
-
-  app.patch('/resumes/:id/entries/reorder', async (c) => {
-    const body = await c.req.json<{ entries: Array<{ id: string; section_id: string; position: number }> }>()
-    const result = services.resumes.reorderEntries(c.req.param('id'), body.entries)
-    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
-    return c.json({ data: null })
   })
 
   // ── Section CRUD ────────────────────────────────────────────────────
@@ -216,6 +218,31 @@ export function resumeRoutes(services: Services) {
         'Content-Disposition': 'inline; filename="resume.pdf"',
       },
     })
+  })
+
+  // ── Linked JDs (reverse lookup) ──────────────────────────────────
+
+  app.get('/resumes/:id/job-descriptions', (c) => {
+    const resumeId = c.req.param('id')
+
+    // Verify resume exists
+    const resume = services.resumes.getResume(resumeId)
+    if (!resume.ok) return c.json({ error: resume.error }, mapStatusCode(resume.error.code))
+
+    const rows = db
+      .query(`
+        SELECT jd.id AS job_description_id, jd.title, o.name AS organization_name,
+               jd.status, jd.location, jd.salary_range,
+               jdr.created_at, jd.created_at AS jd_created_at
+        FROM job_description_resumes jdr
+        JOIN job_descriptions jd ON jd.id = jdr.job_description_id
+        LEFT JOIN organizations o ON o.id = jd.organization_id
+        WHERE jdr.resume_id = ?
+        ORDER BY jdr.created_at DESC
+      `)
+      .all(resumeId)
+
+    return c.json({ data: rows })
   })
 
   // ── Contact reverse lookup ──────────────────────────────────────────

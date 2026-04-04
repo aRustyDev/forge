@@ -109,6 +109,9 @@
     padding: var(--space-3, 0.6rem) var(--space-3, 0.75rem);
     background: var(--color-surface, #fff);
     border-bottom: 1px solid var(--color-border, #e5e7eb);
+    position: sticky;
+    top: 0;
+    z-index: 10;
   }
 
   .column-label {

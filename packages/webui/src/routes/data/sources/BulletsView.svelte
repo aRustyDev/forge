@@ -316,7 +316,7 @@
   {:else}
     <div class="item-list">
       {#each filteredItems as item (item.id)}
-        <div class="item-card" style="cursor: pointer;" onclick={() => detailBulletId = item.id}>
+        <div class="item-card" style="cursor: pointer;" onclick={() => detailBulletId = contentType === 'perspective' ? item.bullet_id : item.id}>
           <div class="item-header">
             <p class="item-content">{truncate(item.content, 200)}</p>
             <StatusBadge status={item.status} />

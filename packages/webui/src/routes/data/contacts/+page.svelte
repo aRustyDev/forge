@@ -161,7 +161,8 @@
 
 <style>
   .contacts-page {
-    height: 100%;
+    height: calc(100vh - 4rem);
+    margin: -2rem;
     display: flex;
     flex-direction: column;
   }
@@ -175,7 +176,7 @@
 
   .split-panel {
     display: flex;
-    height: 100%;
+    flex: 1;
     min-height: 0;
   }
 

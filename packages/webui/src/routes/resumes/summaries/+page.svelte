@@ -8,9 +8,10 @@
   let loading = $state(true)
   let confirmDeleteId = $state<string | null>(null)
   let editing = $state<string | null>(null)
+  let createMode = $state(false)
   let saving = $state(false)
 
-  // Form fields for inline edit
+  // Form fields for inline edit / create
   let formTitle = $state('')
   let formRole = $state('')
   let formTagline = $state('')
@@ -69,6 +70,7 @@
   }
 
   function startEdit(summary: Summary) {
+    createMode = false
     editing = summary.id
     formTitle = summary.title
     formRole = summary.role ?? ''
@@ -96,15 +98,37 @@
     saving = false
   }
 
-  async function createSummary() {
-    const result = await forge.summaries.create({ title: 'New Summary' })
+  function startCreate() {
+    editing = null
+    createMode = true
+    formTitle = ''
+    formRole = ''
+    formTagline = ''
+    formDescription = ''
+    formNotes = ''
+  }
+
+  async function saveCreate() {
+    if (!formTitle.trim()) {
+      addToast({ message: 'Title is required', type: 'error' })
+      return
+    }
+    saving = true
+    const result = await forge.summaries.create({
+      title: formTitle,
+      role: formRole || null,
+      tagline: formTagline || null,
+      description: formDescription || null,
+      notes: formNotes || null,
+    })
     if (result.ok) {
       summaries = [result.data, ...summaries]
-      startEdit(result.data)
+      createMode = false
       addToast({ message: 'Summary created', type: 'success' })
     } else {
       addToast({ message: friendlyError(result.error, 'Failed to create'), type: 'error' })
     }
+    saving = false
   }
 </script>
 
@@ -114,17 +138,50 @@
       <h1 class="page-title">Summaries</h1>
       <p class="subtitle">Reusable professional summaries and templates</p>
     </div>
-    <button class="btn btn-primary" onclick={createSummary}>+ New Summary</button>
+    <button class="btn btn-primary" onclick={startCreate}>+ New Summary</button>
   </div>
+
+  {#if createMode}
+    <div class="summary-card" style="margin-bottom: 1rem;">
+      <div class="edit-form">
+        <div class="form-field">
+          <label class="field-label">Title</label>
+          <input bind:value={formTitle} class="field-input" placeholder="e.g. Cloud Security Summary" />
+        </div>
+        <div class="form-field">
+          <label class="field-label">Role</label>
+          <input bind:value={formRole} class="field-input" placeholder="e.g. Senior Security Engineer" />
+        </div>
+        <div class="form-field">
+          <label class="field-label">Tagline</label>
+          <input bind:value={formTagline} class="field-input" placeholder="e.g. Cloud + DevSecOps + Detection Engineering" />
+        </div>
+        <div class="form-field">
+          <label class="field-label">Description</label>
+          <textarea bind:value={formDescription} rows="3" class="field-input" placeholder="Full summary paragraph..." />
+        </div>
+        <div class="form-field">
+          <label class="field-label">Notes (internal)</label>
+          <textarea bind:value={formNotes} rows="2" class="field-input" />
+        </div>
+        <div class="edit-actions">
+          <button onclick={saveCreate} disabled={saving} class="btn btn-primary btn-sm">
+            {saving ? 'Creating...' : 'Create'}
+          </button>
+          <button onclick={() => createMode = false} class="btn btn-ghost btn-sm">Cancel</button>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   {#if loading}
     <LoadingSpinner />
-  {:else if summaries.length === 0}
+  {:else if summaries.length === 0 && !createMode}
     <EmptyState
       title="No summaries yet"
       description="Create one to get started. Summaries can be linked to resumes or promoted to templates for reuse."
       action="Create Summary"
-      onaction={createSummary}
+      onaction={startCreate}
     />
   {:else}
     <!-- Templates Section -->

@@ -159,6 +159,7 @@
   function startCreate() {
     selectedId = null
     createMode = true
+    viewMode = 'list'
   }
 
   function handleCreated(jd: JobDescriptionWithOrg) {
@@ -237,7 +238,7 @@
           sortItems={(a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? '')}
         >
           {#snippet filterBar()}
-            <JDFilterBar bind:filters={boardFilters} {forge} onchange={() => {}} />
+            <JDFilterBar bind:filters={boardFilters} jds={jds} onchange={() => {}} />
           {/snippet}
 
           {#snippet cardContent(jd)}
@@ -335,7 +336,8 @@
 
 <style>
   .jd-page {
-    height: 100%;
+    height: calc(100vh - 4rem);
+    margin: -2rem;
     display: flex;
     flex-direction: column;
   }

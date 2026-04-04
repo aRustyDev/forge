@@ -2,14 +2,12 @@
   JDFilterBar.svelte -- Filter controls for the JD kanban board.
   Organization dropdown, location text filter, search text filter.
   All filters are client-side AND logic.
+  Org dropdown only shows organizations that have at least one JD on the board.
 -->
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import type { ForgeClient } from '@forge/sdk'
-
-  let { filters, forge, onchange }: {
+  let { filters, jds, onchange }: {
     filters: { organization_id: string; location: string; search: string }
-    forge: ForgeClient
+    jds: Array<{ organization_id: string | null; organization_name?: string | null }>
     onchange: () => void
   } = $props()
 
@@ -18,17 +16,17 @@
     name: string
   }
 
-  let organizations = $state<OrgOption[]>([])
-
-  // Use onMount for org loading instead of $effect.
-  // $effect would re-run when organizations is written, causing an
-  // infinite loop (effect reads forge -> writes organizations -> re-runs).
-  onMount(() => {
-    forge.organizations.list({ limit: 500 }).then(result => {
-      if (result.ok) {
-        organizations = result.data.map(o => ({ id: o.id, name: o.name }))
+  // Derive unique organizations from the JDs currently on the board.
+  // Only shows orgs that actually have JDs, not all orgs in the system.
+  let organizations = $derived.by(() => {
+    const seen = new Map<string, string>()
+    for (const jd of jds) {
+      if (jd.organization_id && !seen.has(jd.organization_id)) {
+        seen.set(jd.organization_id, jd.organization_name ?? 'Unknown')
       }
-    })
+    }
+    return Array.from(seen, ([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
   })
 </script>
 

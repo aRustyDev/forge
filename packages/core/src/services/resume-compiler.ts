@@ -24,6 +24,7 @@ import type {
   PresentationItem,
   SummaryItem,
   UserProfile,
+  Summary,
 } from '../types'
 
 /** Truncate text to `len` characters, appending '...' if truncated. */
@@ -40,6 +41,7 @@ interface ResumeRow {
   name: string
   target_role: string
   header: string | null  // JSON blob
+  summary_id: string | null
 }
 
 interface ResumeSectionRow {
@@ -82,7 +84,7 @@ interface SkillRow {
 export function compileResumeIR(db: Database, resumeId: string): ResumeDocument | null {
   // 1. Fetch resume base data
   const resume = db
-    .query('SELECT id, name, target_role, header FROM resumes WHERE id = ?')
+    .query('SELECT id, name, target_role, header, summary_id FROM resumes WHERE id = ?')
     .get(resumeId) as ResumeRow | null
 
   if (!resume) return null
@@ -92,8 +94,16 @@ export function compileResumeIR(db: Database, resumeId: string): ResumeDocument 
     .query('SELECT * FROM user_profile LIMIT 1')
     .get() as UserProfile | null
 
-  // 3. Parse header — contact fields from profile, content fields from resume
-  const header = parseHeader(resume, profile)
+  // 3. Fetch linked summary (if any)
+  let summary: Summary | null = null
+  if (resume.summary_id) {
+    summary = db
+      .query('SELECT * FROM summaries WHERE id = ?')
+      .get(resume.summary_id) as Summary | null
+  }
+
+  // 4. Parse header — contact fields from profile, content fields from resume, tagline from summary
+  const header = parseHeader(resume, profile, summary)
 
   // 4. Fetch sections from resume_sections table
   const sectionRows = db
@@ -135,7 +145,7 @@ function buildSectionItems(db: Database, section: ResumeSectionRow): IRSectionIt
 
 // ── Section builders ─────────────────────────────────────────────────
 
-function parseHeader(resume: ResumeRow, profile: UserProfile | null): ResumeHeader {
+function parseHeader(resume: ResumeRow, profile: UserProfile | null, summary: Summary | null): ResumeHeader {
   // Content fields from the resume-specific header JSON
   let tagline: string | null = resume.target_role
   if (resume.header) {
@@ -145,6 +155,11 @@ function parseHeader(resume: ResumeRow, profile: UserProfile | null): ResumeHead
     } catch {
       // Fall through — tagline defaults to target_role
     }
+  }
+
+  // Overlay summary fields (tagline from summary takes priority)
+  if (summary && summary.tagline) {
+    tagline = summary.tagline
   }
 
   // Contact fields from profile (single source of truth)
@@ -301,14 +316,25 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
         re.content AS entry_content,
         p.content AS perspective_content,
         bs.source_id,
-        se.institution,
+        se.education_type,
+        COALESCE(o.name, se.institution) AS institution,
         se.field,
-        se.end_date
+        se.end_date,
+        se.degree_level,
+        se.degree_type,
+        se.gpa,
+        se.location,
+        se.credential_id,
+        COALESCE(o.name, se.issuing_body) AS issuing_body,
+        se.certificate_subtype,
+        se.edu_description,
+        se.organization_id
       FROM resume_entries re
       JOIN perspectives p ON p.id = re.perspective_id
       JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
       JOIN sources s ON s.id = bs.source_id
       LEFT JOIN source_education se ON se.source_id = s.id
+      LEFT JOIN organizations o ON o.id = se.organization_id
       WHERE re.section_id = ?
       ORDER BY re.position ASC`
     )
@@ -317,9 +343,19 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
       entry_content: string | null
       perspective_content: string
       source_id: string
+      education_type: string | null
       institution: string | null
       field: string | null
       end_date: string | null
+      degree_level: string | null
+      degree_type: string | null
+      gpa: string | null
+      location: string | null
+      credential_id: string | null
+      issuing_body: string | null
+      certificate_subtype: string | null
+      edu_description: string | null
+      organization_id: string | null
     }>
 
   return rows.map(row => ({
@@ -329,6 +365,16 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
     date: row.end_date ? new Date(row.end_date).getFullYear().toString() : '',
     entry_id: row.entry_id,
     source_id: row.source_id,
+    education_type: row.education_type ?? undefined,
+    degree_level: row.degree_level,
+    degree_type: row.degree_type,
+    field: row.field ?? null,
+    gpa: row.gpa,
+    location: row.location,
+    credential_id: row.credential_id,
+    issuing_body: row.issuing_body,
+    certificate_subtype: row.certificate_subtype,
+    edu_description: row.edu_description,
   }))
 }
 

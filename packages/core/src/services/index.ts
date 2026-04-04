@@ -21,6 +21,8 @@ import { ArchetypeService } from './archetype-service'
 import { ProfileService } from './profile-service'
 import { JobDescriptionService } from './job-description-service'
 import { TemplateService } from './template-service'
+import { ExportService } from './export-service'
+import { SummaryService } from './summary-service'
 
 export interface Services {
   sources: SourceService
@@ -38,13 +40,15 @@ export interface Services {
   profile: ProfileService
   jobDescriptions: JobDescriptionService
   templates: TemplateService
+  export: ExportService
+  summaries: SummaryService
 }
 
 /**
  * Create all services with shared database connection.
  * The in-memory derivation lock Set is a singleton for bullet derivation.
  */
-export function createServices(db: Database): Services {
+export function createServices(db: Database, dbPath: string): Services {
   const derivingBullets = new Set<string>()
 
   return {
@@ -63,6 +67,8 @@ export function createServices(db: Database): Services {
     profile: new ProfileService(db),
     jobDescriptions: new JobDescriptionService(db),
     templates: new TemplateService(db),
+    export: new ExportService(db, dbPath),
+    summaries: new SummaryService(db),
   }
 }
 
@@ -82,3 +88,5 @@ export { ArchetypeService } from './archetype-service'
 export { ProfileService } from './profile-service'
 export { JobDescriptionService } from './job-description-service'
 export { TemplateService } from './template-service'
+export { ExportService } from './export-service'
+export { SummaryService } from './summary-service'

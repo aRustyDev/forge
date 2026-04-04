@@ -270,7 +270,7 @@
     padding: 0.45rem 1.5rem 0.45rem 2.5rem;
     color: var(--color-sidebar-text);
     text-decoration: none;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
     transition: background 0.15s, color 0.15s;
   }
 

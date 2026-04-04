@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { LoadingSpinner, EmptyState, ConfirmDialog } from '$lib/components'
+  import { LoadingSpinner, EmptyState, ConfirmDialog, PageWrapper } from '$lib/components'
   import type { UserNote, NoteReference } from '@forge/sdk'
 
   const ENTITY_TYPES = ['source', 'bullet', 'perspective', 'resume_entry', 'resume', 'skill', 'organization']
@@ -169,7 +169,8 @@
   }
 </script>
 
-<div class="notes-page">
+<PageWrapper>
+  <div class="notes-page">
   <!-- Left panel -->
   <div class="list-panel">
     <div class="list-header">
@@ -312,7 +313,8 @@
       </div>
     {/if}
   </div>
-</div>
+  </div>
+</PageWrapper>
 
 <ConfirmDialog
   open={confirmDeleteOpen}
@@ -328,8 +330,8 @@
   .notes-page {
     display: flex;
     gap: 0;
-    height: calc(100vh - 4rem);
-    margin: -2rem;
+    flex: 1;
+    min-height: 0;
   }
 
   .list-panel {

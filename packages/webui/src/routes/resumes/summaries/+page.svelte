@@ -412,37 +412,4 @@
   }
 
   .edit-actions { display: flex; gap: 0.5rem; }
-
-  /* Button resets */
-  .btn {
-    border: none;
-    border-radius: 6px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .btn-primary {
-    background: var(--color-primary);
-    color: var(--text-inverse);
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-  }
-  .btn-primary:hover { background: var(--color-primary-hover); }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-ghost {
-    background: var(--color-ghost);
-    color: var(--text-secondary);
-    padding: 0.375rem 0.75rem;
-    font-size: 0.8rem;
-  }
-  .btn-ghost:hover { background: var(--color-ghost-hover); }
-  .btn-danger-ghost {
-    background: var(--color-danger-subtle);
-    color: var(--color-danger-hover);
-    padding: 0.375rem 0.75rem;
-    font-size: 0.8rem;
-  }
-  .btn-danger-ghost:hover { background: var(--color-danger-subtle); }
-  .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.8rem; }
-  .btn-xs { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
 </style>

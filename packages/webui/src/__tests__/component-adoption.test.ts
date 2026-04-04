@@ -30,7 +30,7 @@ const ANTI_PATTERNS: AntiPattern[] = [
     pattern: /height:\s*calc\(100vh\s*-\s*4rem\)/,
     allowedIn: ['PageWrapper.svelte'],
     message: 'Use <PageWrapper> instead of inline viewport-escape CSS (height: calc(100vh - 4rem))',
-    expectedViolations: 8,
+    expectedViolations: 7,
   },
   {
     name: 'SplitPanel',
@@ -51,7 +51,7 @@ const ANTI_PATTERNS: AntiPattern[] = [
     pattern: /\.btn-primary\s*\{/,
     allowedIn: ['base.css'],
     message: 'Use global .btn-primary class from base.css instead of page-scoped button CSS',
-    expectedViolations: 19,
+    expectedViolations: 18,
   },
   {
     name: 'PageHeader',

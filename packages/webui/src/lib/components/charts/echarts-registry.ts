@@ -38,6 +38,7 @@ import { TransformComponent } from 'echarts/components'
 import { GraphicComponent } from 'echarts/components' // Phase 63's sunburst center-text label requires this
 import { RadarComponent } from 'echarts/components' // Phase 65: radar coordinate system for skill alignment
 import { MarkAreaComponent, MarkLineComponent } from 'echarts/components' // Phase 66: compensation chart bands/lines
+import { DataZoomComponent } from 'echarts/components' // Phase 67: Gantt chart Y-axis scrolling
 
 // ── Renderer ─────────────────────────────────────────────────────
 // SVG chosen over Canvas for better text rendering and smaller module size.
@@ -64,6 +65,7 @@ echarts.use([
   RadarComponent,
   MarkAreaComponent,
   MarkLineComponent,
+  DataZoomComponent,
   SVGRenderer,
 ])
 

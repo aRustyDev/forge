@@ -1,6 +1,6 @@
 # Forge MCP Server — Design Spec
 
-**Date:** 2026-04-03
+**Date:** 2026-04-03 (revised)
 **Status:** Draft
 **Package:** `@forge/mcp`
 **Transport:** STDIO (v1), SSE/Streamable HTTP (future)
@@ -13,6 +13,7 @@
 2. **AI reasoning stays with client** — MCP returns structured data. The calling AI does the thinking.
 3. **Programmatic alignment** — Embedding-based similarity for JD↔Resume matching. No LLM needed.
 4. **Resources for context, tools for actions** — Static/slow-changing reference data as resources; parameterized queries and mutations as tools.
+5. **No delete tools** — Destructive operations are intentionally omitted from the MCP surface. Humans delete via WebUI or CLI. This prevents AI agents from accidentally destroying provenance chains.
 
 ---
 
@@ -27,16 +28,33 @@ Resources provide ambient context that the AI client loads without explicit tool
 | `forge://domains` | `sdk.domains.list()` | Domain[] (skill domain taxonomy) | Config-level, rarely |
 | `forge://templates` | `sdk.templates.list()` | ResumeTemplate[] (section structures) | Occasionally |
 | `forge://resume/{id}` | `sdk.resumes.get(id)` | ResumeWithEntries (sections, entries, snapshots) | Per-session working state |
-| `forge://resume/{id}/chain` | `sdk.resumes.ir(id)` | ResumeDocument IR (compiled view) | Changes as entries are added |
+| `forge://resume/{id}/ir` | `sdk.resumes.ir(id)` | ResumeDocument IR (compiled view for rendering) | Changes as entries are added |
 | `forge://job/{id}` | `sdk.jobDescriptions.get(id)` | JobDescriptionWithOrg (title, raw_text, status) | Set once, read many |
 
-### Resource Subscriptions
+### Resource Subscriptions (SSE only — future)
 
-The MCP server should support `resources/subscribe` for `forge://resume/{id}` so the client gets notified when resume state changes (entries added/removed/reordered).
+Resource subscriptions (`resources/subscribe`) for `forge://resume/{id}` are deferred to the SSE transport phase. STDIO is request/response and does not support server-initiated push notifications reliably.
+
+**STDIO polling pattern:** After any mutating tool call that affects a resume (add/remove entry, reorder, update header), the AI client should re-read the `forge://resume/{id}` resource to get the updated state.
 
 ---
 
 ## MCP Tools
+
+### Tier 0: Diagnostics
+
+#### `forge_health`
+Check connectivity to the Forge HTTP server.
+```
+Parameters: none
+Returns: { server: 'ok', version: string } or descriptive error
+SDK: sdk.request('GET', '/api/health')
+Note: Call this at session start to verify the Forge server is running. If it returns
+  a connection error, the AI should tell the user to start the Forge server before
+  proceeding.
+```
+
+---
 
 ### Tier 1: Core Resume Workflow
 
@@ -47,11 +65,24 @@ Search experience sources by employer, type, date range, status.
 ```
 Parameters:
   source_type?: 'role' | 'project' | 'education' | 'clearance' | 'general'
-  status?: 'draft' | 'approved' | 'deriving'
+  status?: 'draft' | 'approved'
   search?: string (full-text on title + description)
+  offset?: number (default 0)
   limit?: number (default 20)
 Returns: Source[] with extension data (role/project/education/clearance fields)
 SDK: sdk.sources.list(filter)
+Note: Sources with status 'deriving' are locked by an in-progress AI derivation.
+  Do not call forge_derive_bullets on them. Use forge_review_pending to check
+  if derivation has completed.
+```
+
+#### `forge_get_source`
+Get a single source by ID with full extension data and associated bullets.
+```
+Parameters:
+  source_id: string (required)
+Returns: SourceWithBullets (source + extension fields + bullets[])
+SDK: sdk.sources.get(source_id)
 ```
 
 #### `forge_search_bullets`
@@ -62,9 +93,19 @@ Parameters:
   status?: 'draft' | 'pending_review' | 'approved' | 'rejected'
   source_id?: string
   search?: string (full-text on content)
+  offset?: number (default 0)
   limit?: number (default 20)
-Returns: Bullet[] with source titles and technologies
+Returns: Bullet[] where each bullet has sources: {id, title, is_primary}[] and technologies[]
 SDK: sdk.bullets.list(filter)
+```
+
+#### `forge_get_bullet`
+Get a single bullet by ID with relations.
+```
+Parameters:
+  bullet_id: string (required)
+Returns: BulletWithRelations (bullet + sources[] + technologies[])
+SDK: sdk.bullets.get(bullet_id)
 ```
 
 #### `forge_search_perspectives`
@@ -74,11 +115,21 @@ Parameters:
   archetype?: string
   domain?: string
   framing?: 'accomplishment' | 'responsibility' | 'context'
-  status?: 'approved' (typically only want approved for resume building)
+  status?: 'draft' | 'pending_review' | 'approved' | 'rejected'
   search?: string
+  offset?: number (default 0)
   limit?: number (default 20)
 Returns: Perspective[] with bullet and source chain
 SDK: sdk.perspectives.list(filter)
+```
+
+#### `forge_get_perspective`
+Get a single perspective by ID with full provenance chain.
+```
+Parameters:
+  perspective_id: string (required)
+Returns: PerspectiveWithChain {perspective, bullet, source}
+SDK: sdk.perspectives.get(perspective_id)
 ```
 
 #### `forge_derive_bullets`
@@ -88,7 +139,12 @@ Parameters:
   source_id: string (required)
 Returns: Bullet[] (newly derived, status=pending_review)
 SDK: sdk.sources.deriveBullets(source_id)
-Note: This calls Forge's AI module (Claude CLI). The MCP CLIENT is not doing the reasoning here — Forge's derivation service handles it. This is acceptable because bullet derivation is a structured extraction task, not a reasoning task that benefits from conversation context.
+Note: This calls Forge's AI module (Claude CLI). The MCP CLIENT is not doing the
+  reasoning here — Forge's derivation service handles it. This is acceptable because
+  bullet derivation is a structured extraction task, not a reasoning task that benefits
+  from conversation context.
+  The source must be in 'approved' or 'draft' status. If the source is 'deriving',
+  this call will return a CONFLICT error — wait and retry.
 ```
 
 #### `forge_derive_perspective`
@@ -98,9 +154,11 @@ Parameters:
   bullet_id: string (required)
   archetype: string (required — target archetype slug)
   domain: string (required — target domain slug)
+  framing: 'accomplishment' | 'responsibility' | 'context' (required)
 Returns: Perspective (newly derived, status=pending_review)
-SDK: sdk.bullets.derivePerspectives(bullet_id, {archetype, domain})
-Note: Same rationale as derive_bullets — structured reframing, not reasoning.
+SDK: sdk.bullets.derivePerspectives(bullet_id, {archetype, domain, framing})
+Note: The bullet must be in 'approved' status. Only approved bullets can derive
+  perspectives. Same AI module rationale as forge_derive_bullets.
 ```
 
 #### `forge_approve_bullet`
@@ -117,9 +175,9 @@ Reject a bullet with reason (pending_review → rejected).
 ```
 Parameters:
   bullet_id: string (required)
-  reason: string (required)
+  rejection_reason: string (required)
 Returns: Bullet (updated)
-SDK: sdk.bullets.reject(bullet_id, {reason})
+SDK: sdk.bullets.reject(bullet_id, {rejection_reason})
 ```
 
 #### `forge_approve_perspective`
@@ -136,9 +194,9 @@ Reject a perspective with reason.
 ```
 Parameters:
   perspective_id: string (required)
-  reason: string (required)
+  rejection_reason: string (required)
 Returns: Perspective (updated)
-SDK: sdk.perspectives.reject(perspective_id, {reason})
+SDK: sdk.perspectives.reject(perspective_id, {rejection_reason})
 ```
 
 #### `forge_create_resume`
@@ -150,8 +208,12 @@ Parameters:
   target_employer: string (required)
   archetype: string (required — archetype slug)
   template_id?: string (creates with predefined sections)
-Returns: Resume (or ResumeWithEntries if template used)
-SDK: sdk.templates.createResumeFromTemplate() or sdk.resumes.create()
+Returns: ResumeWithEntries (includes pre-populated sections if template used)
+SDK:
+  if template_id provided:
+    sdk.templates.createResumeFromTemplate({template_id, name, target_role, target_employer, archetype})
+  else:
+    sdk.resumes.create({name, target_role, target_employer, archetype})
 ```
 
 #### `forge_add_resume_entry`
@@ -159,11 +221,13 @@ Add an approved perspective to a resume section.
 ```
 Parameters:
   resume_id: string (required)
-  section_id: string (required)
-  perspective_id: string (required)
+  section_id: string (required — UUID FK to resume_sections)
+  perspective_id: string (required — must be status 'approved')
   position?: number
 Returns: ResumeEntry
 SDK: sdk.resumes.addEntry(resume_id, {section_id, perspective_id, position})
+Note: Only approved perspectives can be added. Attempting to add a non-approved
+  perspective returns a VALIDATION_ERROR.
 ```
 
 #### `forge_create_resume_section`
@@ -172,10 +236,12 @@ Create a section in a resume (experience, skills, education, etc).
 Parameters:
   resume_id: string (required)
   title: string (required — e.g., "Professional Experience", "Technical Skills")
-  entry_type: 'experience' | 'skills' | 'education' | 'projects' | 'certifications' | 'clearance' | 'presentations' | 'awards' | 'custom'
+  entry_type: 'experience' | 'skills' | 'education' | 'projects' | 'certifications' | 'clearance' | 'presentations' | 'awards' | 'freeform' (required)
   position?: number
 Returns: ResumeSectionEntity
 SDK: sdk.resumes.createSection(resume_id, {title, entry_type, position})
+Note: 'freeform' sections contain unstructured text content (user-defined sections
+  that don't fit the standard categories).
 ```
 
 #### `forge_gap_analysis`
@@ -183,8 +249,30 @@ Get domain coverage gaps for a resume vs. its archetype's expected domains.
 ```
 Parameters:
   resume_id: string (required)
-Returns: GapAnalysis {covered_domains, missing_domains, thin_domains, entry_count_by_domain}
+Returns: GapAnalysis {
+  covered_domains: string[],
+  missing_domains: string[],
+  thin_domains: string[],
+  entry_count_by_domain: Record<string, number>
+}
 SDK: sdk.resumes.gaps(resume_id)
+Note: A domain is "thin" if it has fewer than 2 approved perspectives covering it
+  (THIN_COVERAGE_THRESHOLD = 2 in core constants). Missing means zero perspectives
+  for a domain the archetype expects. Covered means >= 2 perspectives.
+
+Example response:
+  {
+    "covered_domains": ["infrastructure", "security", "ai_ml"],
+    "missing_domains": ["data_systems"],
+    "thin_domains": ["cloud"],
+    "entry_count_by_domain": {
+      "infrastructure": 4,
+      "security": 3,
+      "ai_ml": 2,
+      "cloud": 1,
+      "data_systems": 0
+    }
+  }
 ```
 
 #### `forge_export_resume`
@@ -193,8 +281,17 @@ Export resume in specified format.
 Parameters:
   resume_id: string (required)
   format: 'json' | 'markdown' | 'latex' | 'pdf'
-Returns: ResumeDocument (json) | string (markdown/latex) | Blob (pdf)
-SDK: sdk.export.resumeAsJson() or sdk.export.downloadResume()
+Returns:
+  json → ResumeDocument (full IR as JSON object)
+  markdown → string (markdown content)
+  latex → string (LaTeX source)
+  pdf → { file_path: string } (server writes PDF to disk, returns path)
+SDK:
+  json → sdk.export.resumeAsJson(resume_id)
+  markdown/latex → sdk.export.downloadResume(resume_id, format) → extract text
+  pdf → sdk.export.downloadResume(resume_id, 'pdf') → write to temp file, return path
+Note: For PDF, the MCP server writes the binary to a temp file and returns the path.
+  The AI client can then reference this path for the user to open.
 ```
 
 #### `forge_align_resume` (NEW — requires embedding service)
@@ -203,17 +300,36 @@ Programmatic JD↔Resume alignment using embedding similarity.
 Parameters:
   job_description_id: string (required)
   resume_id: string (required)
-Returns: AlignmentReport {
-  overall_score: number (0-1),
-  requirement_matches: Array<{
-    requirement: string,
-    best_match: {entry_id, perspective_content, similarity: number} | null,
-    verdict: 'strong' | 'adjacent' | 'gap',
-  }>,
-  unmatched_entries: Array<{entry_id, content}>,  // resume noise
-  summary: {matched: number, adjacent: number, gaps: number, total: number}
+  strong_threshold?: number (default 0.75 — similarity above this = 'strong' match)
+  adjacent_threshold?: number (default 0.50 — similarity between this and strong = 'adjacent')
+Returns: AlignmentReport (see Embedding Service section for full type)
+SDK: sdk.alignment.score(job_description_id, resume_id, {strong_threshold?, adjacent_threshold?})
+Route: GET /api/alignment/score?jd_id={jd_id}&resume_id={resume_id}&strong_threshold=0.75&adjacent_threshold=0.50
+Note: This is a programmatic embedding-similarity computation, not an AI call.
+  Requires the embedding service to have vectors for both the JD requirements and
+  the resume's perspective entries. If embeddings are missing, returns an error
+  indicating which entities need embedding.
+```
+
+#### `forge_match_requirements` (NEW — pre-resume discovery)
+Match JD requirements against the full bullet or perspective inventory, independent of any resume.
+```
+Parameters:
+  job_description_id: string (required)
+  entity_type: 'bullet' | 'perspective' (required)
+  threshold?: number (default 0.50)
+  limit?: number (default 10 matches per requirement)
+Returns: RequirementMatchReport {
+  job_description_id: string,
+  matches: Array<{
+    requirement_text: string,
+    candidates: Array<{entity_id: string, content: string, similarity: number}>
+  }>
 }
-SDK: sdk.alignment.score(jd_id, resume_id)  // NEW SDK method
+SDK: sdk.alignment.matchRequirements(job_description_id, entity_type, {threshold, limit})
+Route: GET /api/alignment/match?jd_id={jd_id}&entity_type=perspective&threshold=0.50
+Note: Use this BEFORE creating a resume to discover which approved perspectives
+  best match a JD. Helps the AI decide what content to pull into a new resume.
 ```
 
 ---
@@ -246,34 +362,98 @@ SDK: sdk.sources.create(input)
 ```
 
 #### `forge_create_organization`
-Create an organization (employer, school, project org).
+Create an organization (employer, school, etc).
 ```
 Parameters:
   name: string (required)
-  org_type: 'employer' | 'school' | 'project_org' | 'certification_body' | 'other' (required)
+  org_type: 'company' | 'nonprofit' | 'government' | 'military' | 'education' | 'volunteer' | 'freelance' | 'other' (required)
+  tags?: OrgTag[] (primary classification mechanism — e.g., ['employer', 'defense', 'remote'])
   industry?: string
   website?: string
   location?: string
-  status?: OrganizationStatus
+  status?: 'backlog' | 'researching' | 'exciting' | 'interested' | 'acceptable' | 'excluded' | null
   notes?: string
 Returns: Organization
 SDK: sdk.organizations.create(input)
 ```
 
 #### `forge_ingest_job_description`
-Create/store a job description.
+Create/store a job description. Triggers programmatic requirement parsing and embedding.
 ```
 Parameters:
   title: string (required)
   raw_text: string (required — full JD text)
   organization_id?: string
   url?: string
-  status?: 'interested' | 'analyzing' | 'applied' | ... (default 'interested')
+  status?: 'interested' | 'analyzing' | 'applied' | 'interviewing' | 'offered' | 'rejected' | 'withdrawn' | 'closed' (default 'interested')
   salary_range?: string
   location?: string
   notes?: string
-Returns: JobDescriptionWithOrg
+Returns: JobDescriptionWithOrg & {
+  embedding_status: {
+    requirements_parsed: number,
+    requirements_embedded: number,
+    ready_for_alignment: boolean,
+    parse_confidence: number  // 0.0-1.0, low = may need manual review
+  }
+}
 SDK: sdk.jobDescriptions.create(input)
+Note: After creation, the embedding service parses requirements from raw_text and
+  computes embeddings. The embedding_status in the return tells the AI whether the
+  JD is ready for alignment scoring. If parse_confidence is low (< 0.7), the AI
+  should suggest the user review the parsed requirements.
+```
+
+#### `forge_extract_jd_skills`
+Trigger AI-powered skill extraction from a job description.
+```
+Parameters:
+  job_description_id: string (required)
+Returns: Array<{skill_name: string, confidence: number, matched_skill_id?: string}>
+SDK: sdk.jobDescriptions.extractSkills(job_description_id)
+Note: Returns suggested skills with confidence scores. Skills that match existing
+  entries in the skills table include matched_skill_id. The AI can then use
+  forge_tag_jd_skill to confirm associations.
+```
+
+#### `forge_tag_jd_skill`
+Associate a skill with a job description (confirm an extracted skill).
+```
+Parameters:
+  job_description_id: string (required)
+  skill_id: string (required)
+Returns: void
+SDK: sdk.jobDescriptions.addSkill(job_description_id, skill_id)
+```
+
+#### `forge_untag_jd_skill`
+Remove a skill association from a job description.
+```
+Parameters:
+  job_description_id: string (required)
+  skill_id: string (required)
+Returns: void
+SDK: sdk.jobDescriptions.removeSkill(job_description_id, skill_id)
+```
+
+#### `forge_link_resume_to_jd`
+Link a resume to a job description (tracks which resume targets which job).
+```
+Parameters:
+  job_description_id: string (required)
+  resume_id: string (required)
+Returns: void
+SDK: sdk.jobDescriptions.linkResume(job_description_id, resume_id)
+```
+
+#### `forge_unlink_resume_from_jd`
+Remove the link between a resume and a job description.
+```
+Parameters:
+  job_description_id: string (required)
+  resume_id: string (required)
+Returns: void
+SDK: sdk.jobDescriptions.unlinkResume(job_description_id, resume_id)
 ```
 
 #### `forge_create_summary`
@@ -297,6 +477,22 @@ Parameters:
   category?: string
 Returns: Skill
 SDK: sdk.skills.create(input)
+```
+
+#### `forge_update_profile`
+Update the user profile (singleton).
+```
+Parameters:
+  name?: string
+  email?: string
+  phone?: string
+  location?: string
+  linkedin?: string
+  github?: string
+  website?: string
+  clearance?: string
+Returns: UserProfile
+SDK: sdk.profile.update(input)
 ```
 
 #### `forge_update_resume_header`
@@ -328,11 +524,13 @@ SDK: sdk.review.pending()
 ```
 
 #### `forge_check_drift`
-Detect stale content snapshots in the derivation chain.
+Detect stale content snapshots in the derivation chain and stale embeddings.
 ```
 Parameters: none
 Returns: DriftedEntity[] {entity_type, entity_id, snapshot_value, current_value}
 SDK: sdk.integrity.drift()
+Note: Includes both snapshot drift (source→bullet→perspective content changes)
+  and embedding drift (content changed since vector was computed).
 ```
 
 #### `forge_search_organizations`
@@ -340,8 +538,10 @@ Search organizations by name, type, status, tags.
 ```
 Parameters:
   search?: string
-  org_type?: string
-  status?: OrganizationStatus
+  org_type?: 'company' | 'nonprofit' | 'government' | 'military' | 'education' | 'volunteer' | 'freelance' | 'other'
+  status?: 'backlog' | 'researching' | 'exciting' | 'interested' | 'acceptable' | 'excluded'
+  tags?: string[] (filter by org tags)
+  offset?: number (default 0)
   limit?: number (default 20)
 Returns: Organization[]
 SDK: sdk.organizations.list(filter)
@@ -351,9 +551,10 @@ SDK: sdk.organizations.list(filter)
 Search job descriptions by status, organization.
 ```
 Parameters:
-  status?: JobDescriptionStatus
+  status?: 'interested' | 'analyzing' | 'applied' | 'interviewing' | 'offered' | 'rejected' | 'withdrawn' | 'closed'
   organization_id?: string
   search?: string
+  offset?: number (default 0)
   limit?: number (default 20)
 Returns: JobDescriptionWithOrg[]
 SDK: sdk.jobDescriptions.list(filter)
@@ -365,6 +566,7 @@ Search summaries.
 Parameters:
   is_template?: boolean
   search?: string
+  offset?: number (default 0)
   limit?: number (default 20)
 Returns: Summary[]
 SDK: sdk.summaries.list(filter)
@@ -400,6 +602,21 @@ Parameters:
   notes?: string
 Returns: Perspective
 SDK: sdk.perspectives.update(perspective_id, input)
+```
+
+#### `forge_update_resume_entry`
+Edit a resume entry's content (copy-on-write: override the perspective content for this specific resume).
+```
+Parameters:
+  resume_id: string (required)
+  entry_id: string (required)
+  content?: string (set to override perspective content for this resume; set to null to reset to perspective reference)
+  notes?: string
+Returns: ResumeEntry
+SDK: sdk.resumes.updateEntry(resume_id, entry_id, input)
+Note: This enables per-resume bullet customization without modifying the shared
+  perspective. The entry stores a local content override while preserving the
+  perspective_content_snapshot for drift detection.
 ```
 
 #### `forge_remove_resume_entry`
@@ -450,7 +667,7 @@ Reorder skills within a section.
 Parameters:
   resume_id: string (required)
   section_id: string (required)
-  skills: Array<{skill_id: string, position: number}>
+  skills: Array<{id: string, position: number}>
 Returns: void
 SDK: sdk.resumes.reorderSkills(resume_id, section_id, skills)
 ```
@@ -461,7 +678,7 @@ Get full provenance chain for a perspective (perspective → bullet → source).
 Parameters:
   perspective_id: string (required)
 Returns: PerspectiveWithChain {perspective, bullet, source}
-SDK: sdk.perspectives.get(perspective_id)  // returns chain by default
+SDK: sdk.perspectives.get(perspective_id)
 ```
 
 #### `forge_save_as_template`
@@ -480,11 +697,39 @@ Update JD status or content.
 ```
 Parameters:
   job_description_id: string (required)
-  status?: JobDescriptionStatus
+  status?: 'interested' | 'analyzing' | 'applied' | 'interviewing' | 'offered' | 'rejected' | 'withdrawn' | 'closed'
   raw_text?: string
   notes?: string
 Returns: JobDescriptionWithOrg
 SDK: sdk.jobDescriptions.update(id, input)
+```
+
+#### `forge_update_summary`
+Edit summary content.
+```
+Parameters:
+  summary_id: string (required)
+  title?: string
+  role?: string
+  tagline?: string
+  description?: string
+  is_template?: boolean
+Returns: Summary
+SDK: sdk.summaries.update(summary_id, input)
+```
+
+#### `forge_update_source`
+Update a source's content.
+```
+Parameters:
+  source_id: string (required)
+  title?: string
+  description?: string
+  notes?: string
+  start_date?: string
+  end_date?: string
+Returns: Source
+SDK: sdk.sources.update(id, input)
 ```
 
 #### `forge_reopen_bullet`
@@ -520,23 +765,61 @@ Attach a note to any entity.
 Parameters:
   title?: string
   content: string (required)
-  references?: Array<{entity_type, entity_id}>
-Returns: UserNote
-SDK: sdk.notes.create(input) + sdk.notes.addReference() for each ref
+  references?: Array<{entity_type: 'source' | 'bullet' | 'perspective' | 'resume_entry' | 'resume' | 'skill' | 'organization', entity_id: string}>
+Returns: UserNote (with references attached)
+SDK: sdk.notes.create({title, content, references})
+Note: References are created atomically with the note in a single API call.
+  If any reference entity_id is invalid, the entire creation fails (no orphaned notes).
+  This requires the HTTP endpoint to accept references in the create body.
 ```
 
-#### `forge_update_source`
-Update a source's content.
+#### `forge_search_notes`
+Search notes by content.
 ```
 Parameters:
-  source_id: string (required)
-  title?: string
-  description?: string
-  notes?: string
-  start_date?: string
-  end_date?: string
-Returns: Source
-SDK: sdk.sources.update(id, input)
+  search?: string (full-text on title + content)
+  offset?: number (default 0)
+  limit?: number (default 20)
+Returns: UserNote[]
+SDK: sdk.notes.list({search, offset, limit})
+```
+
+---
+
+## New HTTP Routes Required
+
+The following HTTP routes must be added to `@forge/core` to support MCP tools that don't have existing endpoints:
+
+### Alignment Routes (NEW)
+
+```
+GET  /api/alignment/score?jd_id=X&resume_id=Y&strong_threshold=0.75&adjacent_threshold=0.50
+  → EmbeddingService.alignResume(jdId, resumeId, {strong_threshold, adjacent_threshold})
+  → Returns AlignmentReport
+
+GET  /api/alignment/match?jd_id=X&entity_type=perspective&threshold=0.50&limit=10
+  → EmbeddingService.matchRequirements(jdId, entityType, {threshold, limit})
+  → Returns RequirementMatchReport
+```
+
+### SDK Alignment Resource (NEW)
+
+```typescript
+// packages/sdk/src/resources/alignment.ts
+class AlignmentResource {
+  score(jdId: string, resumeId: string, opts?: {strong_threshold?: number, adjacent_threshold?: number}):
+    Promise<Result<AlignmentReport>>
+
+  matchRequirements(jdId: string, entityType: 'bullet' | 'perspective', opts?: {threshold?: number, limit?: number}):
+    Promise<Result<RequirementMatchReport>>
+}
+```
+
+### Health Route (NEW)
+
+```
+GET  /api/health
+  → Returns { server: 'ok', version: string }
 ```
 
 ---
@@ -555,7 +838,11 @@ A new `EmbeddingService` in `@forge/core` that computes and stores vector embedd
 - Runs entirely local in Bun/Node — no API calls
 - ~50ms per embedding
 
-### Schema Addition (migration 017)
+### Schema Addition (migration 020+)
+
+> **Note:** Migrations 017-019 are reserved by E-series specs (JD skill extraction, JD-resume
+> linkage). The embeddings table must use migration 020 or later. Audit the full migration
+> sequence before assigning the final number.
 
 ```sql
 CREATE TABLE embeddings (
@@ -578,7 +865,7 @@ class EmbeddingService {
   // Embed and store a single entity
   embed(entityType: string, entityId: string, text: string): Promise<Result<void>>
 
-  // Embed on write — called automatically by bullet/perspective/JD services
+  // Embed on write — fire-and-forget, does not block the calling service
   onBulletCreated(bullet: Bullet): Promise<void>
   onPerspectiveCreated(perspective: Perspective): Promise<void>
   onJDCreated(jd: JobDescription, requirements: string[]): Promise<void>
@@ -588,11 +875,11 @@ class EmbeddingService {
     Promise<Result<Array<{entity_id: string, similarity: number}>>>
 
   // JD ↔ Resume alignment (the main API)
-  alignResume(jdId: string, resumeId: string):
+  alignResume(jdId: string, resumeId: string, opts?: {strong_threshold?: number, adjacent_threshold?: number}):
     Promise<Result<AlignmentReport>>
 
-  // JD ↔ Bullet/Perspective matching
-  matchRequirements(jdId: string, entityType: 'bullet' | 'perspective', threshold?: number):
+  // JD ↔ Bullet/Perspective matching (pre-resume discovery)
+  matchRequirements(jdId: string, entityType: 'bullet' | 'perspective', opts?: {threshold?: number, limit?: number}):
     Promise<Result<RequirementMatchReport>>
 
   // Staleness check (content changed since embedding)
@@ -602,6 +889,23 @@ class EmbeddingService {
   refreshStale(): Promise<Result<number>>  // returns count refreshed
 }
 ```
+
+### Embedding Lifecycle
+
+Embedding computation is **fire-and-forget** — it does not block the calling service's transaction:
+
+```
+BulletService.createBullet()
+  → bullet saved to DB (transaction committed)
+  → embeddingService.onBulletCreated(bullet)  // async, non-blocking
+  → if embedding fails, bullet still exists; checkStale() will detect it later
+```
+
+This means:
+- Bullet/perspective creation is never slowed by embedding computation
+- If the embedding model isn't loaded or OOM occurs, the entity is still usable
+- `checkStale()` and `refreshStale()` provide the recovery path
+- `forge_align_resume` returns a clear error if required embeddings are missing
 
 ### AlignmentReport Type
 
@@ -613,12 +917,13 @@ interface AlignmentReport {
   requirement_matches: RequirementMatch[]
   unmatched_entries: UnmatchedEntry[]  // resume entries with no requirement match (noise)
   summary: {
-    strong: number    // similarity > 0.75
-    adjacent: number  // 0.50 - 0.75
-    gaps: number      // < 0.50 or no match
+    strong: number    // similarity > strong_threshold (default 0.75)
+    adjacent: number  // between adjacent_threshold and strong_threshold
+    gaps: number      // below adjacent_threshold or no match
     total_requirements: number
     total_entries: number
   }
+  computed_at: string  // ISO timestamp
 }
 
 interface RequirementMatch {
@@ -638,25 +943,31 @@ interface UnmatchedEntry {
   perspective_content: string
   best_requirement_similarity: number  // highest similarity to any requirement
 }
+
+interface RequirementMatchReport {
+  job_description_id: string
+  matches: Array<{
+    requirement_text: string
+    candidates: Array<{entity_id: string, content: string, similarity: number}>
+  }>
+}
 ```
-
-### Integration Points
-
-- `BulletService.createBullet()` → calls `embeddingService.onBulletCreated()`
-- `PerspectiveService.createPerspective()` → calls `embeddingService.onPerspectiveCreated()`
-- `JobDescriptionService.create()` → calls `embeddingService.onJDCreated()`
-- `EmbeddingService.alignResume()` → called by MCP tool `forge_align_resume`
-- `IntegrityService.getDriftedEntities()` → extended to include stale embeddings
 
 ### JD Requirement Parsing
 
 For `onJDCreated`, the service needs to split raw JD text into individual requirements. For v1:
 
 ```typescript
-function parseRequirements(rawText: string): string[] {
+function parseRequirements(rawText: string): ParsedRequirements {
   // Split on bullet points, numbered lists, or line breaks in requirements/qualifications sections
-  // Return individual requirement strings
-  // Confidence score per requirement (is this actually a requirement or just prose?)
+  // Return individual requirement strings with confidence
+}
+
+interface ParsedRequirements {
+  requirements: Array<{text: string, confidence: number}>
+  overall_confidence: number  // average confidence
+  // Low confidence (< 0.7) = prose paragraphs, ambiguous structure
+  // High confidence (> 0.7) = structured lists, clear bullet points
 }
 ```
 
@@ -674,9 +985,10 @@ This is the component that gets the confidence-gated LLM fallback later:
 User provides raw JD text
   → forge_ingest_job_description(title, raw_text, org_id?, url?)
   → JD stored in job_descriptions table
-  → Programmatic requirement parser extracts requirement strings
-  → Each requirement embedded and stored in embeddings table
-  → Ready for alignment scoring
+  → Programmatic requirement parser extracts requirement strings (with confidence)
+  → Each requirement embedded and stored in embeddings table (fire-and-forget)
+  → Returns JD + embedding_status (parsed count, embedded count, confidence, ready flag)
+  → If ready_for_alignment = true, forge_align_resume and forge_match_requirements are available
 ```
 
 ### v2 (future): Crawl + Extract
@@ -714,11 +1026,12 @@ interface ScraperTemplate {
 
 | Tier | Count | Purpose |
 |---|---|---|
-| Tier 1: Core Workflow | 15 | Search, derive, approve, assemble, align, export |
-| Tier 2: Data Management | 13 | Create entities, review queue, drift check |
-| Tier 3: Refinement | 14 | Update, reorder, trace, clone, notes |
-| **Total** | **42** | |
-| Resources | **7** | Ambient context |
+| Tier 0: Diagnostics | 1 | Health check |
+| Tier 1: Core Workflow | 20 | Search, get, list, derive, approve, assemble, align, match, export |
+| Tier 2: Data Management | 18 | Create entities, JD skills, JD-resume linkage, profile, review, drift |
+| Tier 3: Refinement | 18 | Update, reorder, trace, clone, notes, search notes |
+| **Total** | **57** | |
+| Resources | **7** | Ambient context (STDIO: poll after mutations; SSE: subscribe) |
 
 ---
 
@@ -734,15 +1047,21 @@ import { ForgeClient } from '@forge/sdk'
 const sdk = new ForgeClient({ baseUrl: 'http://localhost:3000' })
 const server = new McpServer({ name: 'forge', version: '1.0.0' })
 
-// Register tools
+// Register tools with proper error handling
 server.tool('forge_search_sources', schema, async (params) => {
   const result = await sdk.sources.list(params)
-  return { content: [{ type: 'text', text: JSON.stringify(result) }] }
+  if (!result.ok) {
+    return { content: [{ type: 'text', text: result.error.message }], isError: true }
+  }
+  return { content: [{ type: 'text', text: JSON.stringify(result.data) }] }
 })
 
 // Register resources
 server.resource('forge://profile', async () => {
   const result = await sdk.profile.get()
+  if (!result.ok) {
+    return { contents: [{ uri: 'forge://profile', text: `Error: ${result.error.message}` }] }
+  }
   return { contents: [{ uri: 'forge://profile', text: JSON.stringify(result.data) }] }
 })
 
@@ -752,12 +1071,30 @@ await server.connect(transport)
 
 ### Prerequisite
 
-The Forge HTTP server (`@forge/core`) must be running for the MCP server to function, since the MCP server delegates through the SDK which calls the HTTP API.
+The Forge HTTP server (`@forge/core`) must be running for the MCP server to function, since the MCP server delegates through the SDK which calls the HTTP API. Use `forge_health` at session start to verify connectivity.
 
 ### Error Handling
 
-All SDK methods return `Result<T>`. The MCP server maps errors:
-- `NOT_FOUND` → tool returns error with descriptive message
-- `VALIDATION_ERROR` → tool returns error with field-level details
-- `CONFLICT` → tool returns error explaining the constraint
-- `AI_ERROR` / `GATEWAY_TIMEOUT` → tool returns error suggesting retry
+All SDK methods return `Result<T>`. The MCP server maps errors to MCP-level errors using `isError: true`:
+
+| SDK Error Code | MCP Behavior |
+|---|---|
+| `NOT_FOUND` | `isError: true` with "Entity not found: {type} {id}" |
+| `VALIDATION_ERROR` | `isError: true` with field-level details |
+| `CONFLICT` | `isError: true` with constraint explanation (e.g., "Source is locked for derivation") |
+| `AI_ERROR` | `isError: true` with "AI derivation failed — retry or check server logs" |
+| `GATEWAY_TIMEOUT` | `isError: true` with "AI call timed out — retry" |
+| `NETWORK_ERROR` | `isError: true` with "Cannot reach Forge server — is it running?" |
+
+### Dependencies
+
+This spec requires the following to exist before MCP implementation begins:
+
+1. **SDK alignment resource** — `AlignmentResource` class with `score()` and `matchRequirements()` methods
+2. **HTTP alignment routes** — `GET /api/alignment/score` and `GET /api/alignment/match`
+3. **HTTP health route** — `GET /api/health`
+4. **Embedding service** — `EmbeddingService` in `@forge/core` with migration 020+
+5. **SDK entry methods** — Confirm `addEntry`/`updateEntry`/`removeEntry`/`reorderEntries` exist (Phase 12 rename from `addPerspective`/etc.)
+6. **Atomic note creation** — HTTP endpoint accepts `references[]` in the create body
+7. **JD skill extraction endpoint** — `POST /api/job-descriptions/:id/extract-skills` (E-series spec)
+8. **JD-resume linkage endpoint** — `POST /api/job-descriptions/:id/resumes` (E-series spec)

@@ -51,6 +51,9 @@ export type PromptLogEntityType = 'bullet' | 'perspective'
 /** Valid source type discriminator values. */
 export type SourceType = 'role' | 'project' | 'education' | 'clearance' | 'general'
 
+/** Valid entity types for embedding vectors. */
+export type EmbeddingEntityType = 'bullet' | 'perspective' | 'jd_requirement' | 'source'
+
 /** Valid clearance level values. */
 export type ClearanceLevel = 'public' | 'confidential' | 'secret' | 'top_secret' | 'q' | 'l'
 
@@ -1073,6 +1076,57 @@ export interface LatexTemplate {
 export type LintResult =
   | { ok: true }
   | { ok: false; errors: string[] }
+
+// ── Embedding & Alignment Types ──────────────────────────────────────
+
+/** Report from aligning a resume against a job description. */
+export interface AlignmentReport {
+  job_description_id: string
+  resume_id: string
+  /** Mean of best_match.similarity per requirement. Gaps contribute 0.0. */
+  overall_score: number
+  matches: Array<{
+    requirement_text: string
+    classification: 'strong' | 'adjacent' | 'gap'
+    best_match: {
+      entity_id: string
+      similarity: number
+    } | null
+  }>
+  strong_count: number
+  adjacent_count: number
+  gap_count: number
+}
+
+/** A single requirement match with its candidate entities. */
+export interface RequirementMatch {
+  requirement_text: string
+  candidates: Array<{
+    entity_id: string
+    content: string
+    similarity: number
+  }>
+}
+
+/** An entity that exists in the inventory but was not matched to any requirement. */
+export interface UnmatchedEntry {
+  entity_id: string
+  content: string
+}
+
+/** Report from matching JD requirements against entity inventory. */
+export interface RequirementMatchReport {
+  job_description_id: string
+  matches: RequirementMatch[]
+}
+
+/** A stale embedding detected by checkStale(). */
+export interface StaleEmbedding {
+  entity_type: EmbeddingEntityType
+  entity_id: string
+  stored_hash: string | null
+  current_hash: string
+}
 
 // ── Export Types ────────────────────────────────────────────────────────
 

@@ -24,6 +24,7 @@ import { TemplateService } from './template-service'
 import { ExportService } from './export-service'
 import { SummaryService } from './summary-service'
 import { ContactService } from './contact-service'
+import { EmbeddingService } from './embedding-service'
 
 export interface Services {
   sources: SourceService
@@ -44,6 +45,7 @@ export interface Services {
   export: ExportService
   summaries: SummaryService
   contacts: ContactService
+  embedding?: EmbeddingService  // Optional: async-initialized, injected post-createServices()
 }
 
 /**
@@ -94,3 +96,4 @@ export { TemplateService } from './template-service'
 export { ExportService } from './export-service'
 export { SummaryService } from './summary-service'
 export { ContactService } from './contact-service'
+export { EmbeddingService } from './embedding-service'

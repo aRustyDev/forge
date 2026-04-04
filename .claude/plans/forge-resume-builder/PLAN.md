@@ -125,6 +125,11 @@ Forge is an AI-backed resume builder with a strict derivation chain (Source → 
 | [66](phase/66-jd-compensation.md) | JD Compensation Bullet Graph | Phases 49, 59 | Medium | Salary comparison chart, migration 021 |
 | [67](phase/67-gantt-chart.md) | Application Gantt Chart | Phases 59, 61 | Medium | Timeline on dashboard, mock data first |
 | [68](phase/68-choropleth-map.md) | Choropleth Map | Phases 49, 59 | Medium | US state heat map, GeoJSON, state resolver |
+| | **── MCP Server & Embeddings ──** | | | |
+| [69](phase/69-embedding-service.md) | Embedding Service Foundation | Phase 40 (stable schema) | Medium | Migration 020+; @xenova/transformers; ∥ Phases 42-68 |
+| [70](phase/70-alignment-api.md) | Alignment & Health API | Phase 69 | Short-Medium | HTTP routes + SDK AlignmentResource; ∥ UI phases |
+| [71](phase/71-mcp-server-foundation.md) | MCP Server Foundation + Tier 0-1 | Phase 70, Phase 5+ (SDK) | Medium-Long | STDIO transport, 7 resources, 21 tools |
+| [72](phase/72-mcp-server-completion.md) | MCP Server Completion + Tier 2-3 | Phase 71; soft: 60, 62 | Medium | 36 tools, feature flags, e2e workflow test |
 
 **Parallel execution warnings (Phases 17-19):**
 - Phases 17 and 18 both modify `packages/sdk/src/types.ts`. If running in parallel, coordinate merges.
@@ -263,6 +268,16 @@ Phase 38 (kanban complete)
 
 Phase 28 (stable)
   └──► Phase 41 (Bullet Detail Modal) ─── ∥ with Phases 29-40
+
+=== MCP Server & Embeddings (Phases 69-72 — sequential chain) ===
+
+Phase 40 (stable schema baseline)
+  └──► Phase 69 (Embedding Service: migration 020+, @xenova/transformers, JD parser)  ─── ∥ with Phases 42-68
+        └──► Phase 70 (Alignment API: HTTP routes, SDK AlignmentResource, health endpoint)
+              └──► Phase 71 (MCP Foundation: STDIO transport, 7 resources, Tier 0+1 tools)
+                    └──► Phase 72 (MCP Completion: Tier 2+3 tools, feature flags, e2e tests)
+                          ├── soft dep: Phase 60 (JD-Resume Linkage tools)
+                          └── soft dep: Phase 62 (JD Skill Extraction tools)
 ```
 
 ## Spec Numbering Index (Phases 29-37)
@@ -281,6 +296,7 @@ Phase 28 (stable)
 | Spec 10 | Organization Kanban Board | `refs/specs/2026-04-03-org-kanban-board.md` | Phase 38 |
 | Spec 11 | Organization Model Evolution | `refs/specs/2026-04-03-org-model-evolution.md` | Phases 39-40 |
 | Spec 12 | Bullet Detail Modal | `refs/specs/2026-04-03-bullet-detail-modal.md` | Phase 41 |
+| Spec 13 | MCP Server Design | `refs/specs/2026-04-03-mcp-server-design.md` | Phases 69-72 |
 
 ## Risk Gates
 
@@ -303,6 +319,13 @@ Phase 28 (stable)
 | Svelte 5 Set.add() reactivity | Accordion nav doesn't re-render | Use `$state<Record<string, boolean>>` instead of Set | Phase 32 |
 | parseHeader evolution (2 phases) | Signature changes across 29→30 | Sequential execution for compiler changes; intermediate signatures documented | Phases 29, 30 |
 | Summary data migration fragility | NULL target_role drops resume links | TypeScript migration helper with per-row UUID tracking | Phase 30 |
+| @xenova/transformers Bun compat | Embedding service blocked | Fallback to TF-IDF cosine similarity (zero deps) | Phase 69 |
+| Model download fails (network) | Embeddings unavailable | Skip embedding, log warning; checkStale() recovers later | Phase 69 |
+| Migration 020+ numbering conflict | Schema migration fails | Audit full migration sequence before assigning number | Phase 69 |
+| Embedding latency blocks entity creation | Slow bullet/perspective creation | Fire-and-forget (queueMicrotask); failures don't propagate | Phase 69 |
+| Phase 60/62 not complete when MCP ships | 6 tools missing (JD skills, JD-resume linkage) | Feature flags: detect SDK methods at startup, omit tools gracefully | Phase 72 |
+| PDF binary over MCP STDIO | Cannot serialize Blob to text | Write PDF to temp file, return file_path string | Phase 71 |
+| STDIO resource subscriptions | Push notifications unsupported | Document polling pattern: re-read resource after mutations | Phase 71 |
 
 ## Reference Materials
 

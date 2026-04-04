@@ -9,9 +9,24 @@ import type { Database } from 'bun:sqlite'
 import type { Source, SourceWithExtension, CreateSource, UpdateSource, Result, PaginatedResult } from '../types'
 import * as SourceRepo from '../db/repositories/source-repository'
 import type { SourceFilter } from '../db/repositories/source-repository'
+import type { EmbeddingService } from './embedding-service'
 
 export class SourceService {
+  private embeddingService: EmbeddingService | null = null
+
   constructor(private db: Database) {}
+
+  /**
+   * Set the embedding service for fire-and-forget hooks.
+   *
+   * NOTE (I6): Constructor injection would be preferred but requires careful
+   * ordering in createServices(). The setter pattern is used here because
+   * EmbeddingService initialization is async (model loading) and may complete
+   * after createServices(). This avoids circular dependency issues.
+   */
+  setEmbeddingService(svc: EmbeddingService): void {
+    this.embeddingService = svc
+  }
 
   createSource(input: CreateSource): Result<SourceWithExtension> {
     if (!input.title || input.title.trim().length === 0) {
@@ -22,6 +37,17 @@ export class SourceService {
     }
 
     const source = SourceRepo.create(this.db, input)
+
+    // Fire-and-forget embedding for source description
+    if (this.embeddingService) {
+      queueMicrotask(() =>
+        this.embeddingService!.onSourceCreated(source).catch(err =>
+          // TODO: Replace with structured logger (Phase 23)
+          console.error(`[SourceService] Embedding hook failed for source ${source.id}:`, err)
+        )
+      )
+    }
+
     return { ok: true, data: source }
   }
 

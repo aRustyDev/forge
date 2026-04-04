@@ -15,6 +15,8 @@ import type {
 } from '../types'
 import * as JDRepo from '../db/repositories/job-description-repository'
 import type { JobDescriptionFilter } from '../db/repositories/job-description-repository'
+import { parseRequirements } from '../lib/jd-parser'
+import type { EmbeddingService } from './embedding-service'
 
 const VALID_STATUSES = [
   'interested',
@@ -28,7 +30,21 @@ const VALID_STATUSES = [
 ]
 
 export class JobDescriptionService {
+  private embeddingService: EmbeddingService | null = null
+
   constructor(private db: Database) {}
+
+  /**
+   * Set the embedding service for fire-and-forget hooks.
+   *
+   * NOTE (I6): Constructor injection would be preferred but requires careful
+   * ordering in createServices(). The setter pattern is used here because
+   * EmbeddingService initialization is async (model loading) and may complete
+   * after createServices(). This avoids circular dependency issues.
+   */
+  setEmbeddingService(svc: EmbeddingService): void {
+    this.embeddingService = svc
+  }
 
   create(input: CreateJobDescription): Result<JobDescriptionWithOrg> {
     if (!input.title || input.title.trim().length === 0) {
@@ -60,6 +76,19 @@ export class JobDescriptionService {
     }
 
     const jd = JDRepo.create(this.db, input)
+
+    // Fire-and-forget requirement parsing and embedding
+    if (this.embeddingService) {
+      const parsed = parseRequirements(input.raw_text)
+      const requirementTexts = parsed.requirements.map(r => r.text)
+      queueMicrotask(() =>
+        this.embeddingService!.onJDCreated(jd, requirementTexts).catch(err =>
+          // TODO: Replace with structured logger (Phase 23)
+          console.error(`[JobDescriptionService] Embedding hook failed for JD ${jd.id}:`, err)
+        )
+      )
+    }
+
     return { ok: true, data: jd }
   }
 
@@ -149,6 +178,17 @@ export class JobDescriptionService {
         },
       }
     }
+
+    // If raw_text was updated, re-embed requirements
+    if (input.raw_text && this.embeddingService) {
+      queueMicrotask(() =>
+        this.embeddingService!.onJDUpdated(jd).catch(err =>
+          // TODO: Replace with structured logger (Phase 23)
+          console.error(`[JobDescriptionService] Re-embedding hook failed for JD ${jd.id}:`, err)
+        )
+      )
+    }
+
     return { ok: true, data: jd }
   }
 

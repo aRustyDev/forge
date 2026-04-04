@@ -29,12 +29,27 @@ import {
   SOURCE_TO_BULLET_TEMPLATE_VERSION,
   BULLET_TO_PERSPECTIVE_TEMPLATE_VERSION,
 } from '../ai'
+import type { EmbeddingService } from './embedding-service'
 
 export class DerivationService {
+  private embeddingService: EmbeddingService | null = null
+
   constructor(
     private db: Database,
     private derivingBullets: Set<string>,
   ) {}
+
+  /**
+   * Set the embedding service for fire-and-forget hooks.
+   *
+   * NOTE (I6): Constructor injection would be preferred but requires careful
+   * ordering in createServices(). The setter pattern is used here because
+   * EmbeddingService initialization is async (model loading) and may complete
+   * after createServices(). This avoids circular dependency issues.
+   */
+  setEmbeddingService(svc: EmbeddingService): void {
+    this.embeddingService = svc
+  }
 
   /**
    * Derive bullets from a source using AI.
@@ -115,6 +130,18 @@ export class DerivationService {
       })
 
       txn()
+
+      // Fire-and-forget embedding for each created bullet
+      if (this.embeddingService) {
+        for (const bullet of bullets) {
+          queueMicrotask(() =>
+            this.embeddingService!.onBulletCreated(bullet).catch(err =>
+              // TODO: Replace with structured logger (Phase 23)
+              console.error(`[DerivationService] Embedding hook failed for bullet ${bullet.id}:`, err)
+            )
+          )
+        }
+      }
 
       return { ok: true, data: bullets }
     } catch (err) {
@@ -240,6 +267,16 @@ export class DerivationService {
 
       txn()
       this.derivingBullets.delete(bulletId)
+
+      // Fire-and-forget embedding for the created perspective
+      if (this.embeddingService) {
+        queueMicrotask(() =>
+          this.embeddingService!.onPerspectiveCreated(perspective).catch(err =>
+            // TODO: Replace with structured logger (Phase 23)
+            console.error(`[DerivationService] Embedding hook failed for perspective ${perspective.id}:`, err)
+          )
+        )
+      }
 
       return { ok: true, data: perspective }
     } catch (err) {

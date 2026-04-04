@@ -6,6 +6,7 @@
   import SkillsTreemap from '$lib/components/charts/SkillsTreemap.svelte'
   import BulletsTreemap from '$lib/components/charts/BulletsTreemap.svelte'
   import DomainsTreemap from '$lib/components/charts/DomainsTreemap.svelte'
+  import ApplicationGantt from '$lib/components/charts/ApplicationGantt.svelte'
 
   let loading = $state(true)
   let error = $state<string | null>(null)
@@ -184,6 +185,14 @@
         <SkillsTreemap />
         <BulletsTreemap />
         <DomainsTreemap />
+      </div>
+    </section>
+
+    <!-- Application Timeline (Phase 67) -->
+    <section class="section">
+      <h2 class="section-title">Application Timeline</h2>
+      <div class="chart-card">
+        <ApplicationGantt />
       </div>
     </section>
   {/if}
@@ -376,5 +385,13 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+  }
+
+  /* Chart cards (Phase 67+) */
+  .chart-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
   }
 </style>

@@ -95,7 +95,7 @@ export function createApp(services: Services, db: Database) {
   // ── Health check ───────────────────────────────────────────────────
 
   const serverVersion = readServerVersion()
-  app.get('/health', (c) => c.json({ server: 'ok', version: serverVersion }))
+  app.get('/health', (c) => c.json({ data: { server: 'ok', version: serverVersion } }))
 
   // ── Routes ─────────────────────────────────────────────────────────
 

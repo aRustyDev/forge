@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { LoadingSpinner, EmptyState, ConfirmDialog, PageWrapper, SplitPanel, ListPanelHeader } from '$lib/components'
+  import { LoadingSpinner, EmptyState, ConfirmDialog, PageWrapper, SplitPanel, ListPanelHeader, EmptyPanel, ListSearchInput } from '$lib/components'
   import type { UserNote, NoteReference } from '@forge/sdk'
 
   const ENTITY_TYPES = ['source', 'bullet', 'perspective', 'resume_entry', 'resume', 'skill', 'organization']
@@ -175,12 +175,7 @@
       <ListPanelHeader title="Notes" onNew={startNew} />
 
     <div class="filter-bar">
-      <input
-        type="text"
-        class="search-input"
-        placeholder="Search notes..."
-        bind:value={searchQuery}
-      />
+      <ListSearchInput bind:value={searchQuery} placeholder="Search notes..." />
     </div>
 
     {#if loading}
@@ -225,9 +220,7 @@
     {/snippet}
     {#snippet detail()}
     {#if !selectedNote && !editing}
-      <div class="editor-empty">
-        <p>Select a note or create a new one.</p>
-      </div>
+      <EmptyPanel message="Select a note or create a new one." />
     {:else}
       <div class="editor-content">
         <h3 class="editor-heading">{editing ? 'New Note' : 'Edit Note'}</h3>
@@ -326,21 +319,6 @@
     border-bottom: 1px solid var(--color-border);
   }
 
-  .search-input {
-    width: 100%;
-    padding: 0.4rem 0.65rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-  }
-
-  .search-input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 2px var(--color-primary-subtle);
-  }
-
   .list-loading {
     display: flex;
     justify-content: center;
@@ -434,15 +412,6 @@
   .ref-resume { background: #fce7f3; color: #9d174d; } /* semantic: no token -- resume reference type color */
   .ref-skill { background: var(--color-tag-bg); color: var(--color-tag-text); }
   .ref-organization { background: var(--color-tag-neutral-bg); color: var(--color-tag-neutral-text); }
-
-  .editor-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--text-faint);
-    font-size: var(--text-base);
-  }
 
   .editor-content {
     max-width: 640px;

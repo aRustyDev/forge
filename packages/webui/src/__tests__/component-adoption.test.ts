@@ -58,28 +58,28 @@ const ANTI_PATTERNS: AntiPattern[] = [
     pattern: /\.page-title\s*\{/,
     allowedIn: ['PageHeader.svelte', 'base.css'],
     message: 'Use <PageHeader> instead of page-scoped .page-title styles',
-    expectedViolations: 13,
+    expectedViolations: 9,
   },
   {
     name: 'TabBar',
     pattern: /\.tab-btn\s*\{/,
     allowedIn: ['TabBar.svelte'],
     message: 'Use <TabBar> instead of page-scoped .tab-btn styles',
-    expectedViolations: 1,
+    expectedViolations: 0,
   },
   {
     name: 'EmptyPanel',
     pattern: /\.editor-empty\s*\{|\.empty-editor\s*\{/,
     allowedIn: ['EmptyPanel.svelte'],
     message: 'Use <EmptyPanel> instead of page-scoped .editor-empty / .empty-editor styles',
-    expectedViolations: 7,
+    expectedViolations: 6,
   },
   {
     name: 'ListSearchInput',
     pattern: /\.search-input\s*\{/,
     allowedIn: ['ListSearchInput.svelte'],
     message: 'Use <ListSearchInput> instead of page-scoped .search-input styles',
-    expectedViolations: 11,
+    expectedViolations: 10,
   },
 ]
 

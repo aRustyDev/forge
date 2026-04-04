@@ -105,9 +105,16 @@ describeFn('MCP Integration', () => {
     expect(result.isError).toBe(true)
   })
 
-  test('listTools returns all 21 registered tools', async () => {
+  test('listTools returns registered tools (21 base + up to 36 from Phase 72)', async () => {
     const tools = await client.listTools()
-    expect(tools.tools).toHaveLength(21)
+    // Minimum: 21 Tier 0+1 tools + 11 always-registered Tier 2 tools + 15 always-registered Tier 3 tools = 47
+    // Maximum: 57 (all feature-flagged tools available)
+    expect(tools.tools.length).toBeGreaterThanOrEqual(47)
+    expect(tools.tools.length).toBeLessThanOrEqual(57)
+    // Verify all tools have the forge_ prefix
+    for (const tool of tools.tools) {
+      expect(tool.name).toMatch(/^forge_/)
+    }
   })
 
   test('listResources returns registered resources', async () => {

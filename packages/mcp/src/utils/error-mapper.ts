@@ -1,4 +1,5 @@
 import type { Result, PaginatedResult } from '@forge/sdk'
+import { truncateResponse } from './truncation'
 
 /** MCP tool response content block. */
 interface McpToolContent {
@@ -15,13 +16,14 @@ interface McpToolResponse {
 /**
  * Map an SDK Result<T> to an MCP tool response.
  *
- * Success: JSON-serialized data as text content.
+ * Success: JSON-serialized data as text content, with truncation for large payloads.
  * Failure: Human-readable error message with isError: true.
  */
 export function mapResult<T>(result: Result<T>): McpToolResponse {
   if (result.ok) {
+    const { text } = truncateResponse(result.data)
     return {
-      content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }],
+      content: [{ type: 'text', text }],
     }
   }
 
@@ -35,18 +37,16 @@ export function mapResult<T>(result: Result<T>): McpToolResponse {
 /**
  * Map an SDK PaginatedResult<T> to an MCP tool response.
  *
- * Includes pagination metadata in the response.
+ * Includes pagination metadata in the response, with truncation for large payloads.
  */
 export function mapPaginatedResult<T>(result: PaginatedResult<T>): McpToolResponse {
   if (result.ok) {
+    const { text } = truncateResponse({
+      data: result.data,
+      pagination: result.pagination,
+    })
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          data: result.data,
-          pagination: result.pagination,
-        }, null, 2),
-      }],
+      content: [{ type: 'text', text }],
     }
   }
 

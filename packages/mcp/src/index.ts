@@ -1,11 +1,15 @@
 import { ForgeClient } from '@forge/sdk'
 import { createForgeServer } from './server'
+import { detectFeatures } from './utils/feature-flags'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 
 const baseUrl = process.env.FORGE_API_URL ?? 'http://localhost:3000'
 const sdk = new ForgeClient({ baseUrl })
 
-const server = createForgeServer(sdk)
+// Phase 72: Detect feature flags before server creation
+const flags = detectFeatures(sdk)
+
+const server = createForgeServer(sdk, flags)
 const transport = new StdioServerTransport()
 
 // Graceful shutdown

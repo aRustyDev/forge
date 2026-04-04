@@ -3,7 +3,17 @@
   import { addToast } from '$lib/stores/toast.svelte'
   import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog } from '$lib/components'
   import OrgCombobox from '$lib/components/OrgCombobox.svelte'
-  import type { Source, Organization } from '@forge/sdk'
+  import type { Source, Organization, ClearanceLevel, ClearancePolygraph, ClearanceStatus, ClearanceType, ClearanceAccessProgram } from '@forge/sdk'
+  import {
+    CLEARANCE_LEVELS,
+    CLEARANCE_POLYGRAPHS,
+    CLEARANCE_STATUSES,
+    CLEARANCE_TYPES,
+    CLEARANCE_ACCESS_PROGRAMS,
+    CLEARANCE_LEVEL_LABELS,
+    CLEARANCE_POLYGRAPH_LABELS,
+    CLEARANCE_ACCESS_PROGRAM_LABELS,
+  } from '@forge/sdk'
 
   const SOURCE_TABS = [
     { value: 'all', label: 'All' },
@@ -68,10 +78,13 @@
   let formProjectUrl = $state('')
 
   // Clearance extension fields
-  let formLevel = $state('')
-  let formPolygraph = $state('')
-  let formClearanceStatus = $state('')
-  let formSponsoringAgency = $state('')
+  let formLevel = $state<ClearanceLevel>('secret')
+  let formPolygraph = $state<ClearancePolygraph | ''>('')
+  let formClearanceStatus = $state<ClearanceStatus>('active')
+  let formClearanceType = $state<ClearanceType>('personnel')
+  let formSponsorOrgId = $state('')
+  let formContinuousInvestigation = $state(false)
+  let formAccessPrograms = $state<ClearanceAccessProgram[]>([])
 
   // Education grouping
   type GroupMode = 'flat' | 'by_type' | 'by_cert' | 'by_issuer'
@@ -260,10 +273,13 @@
     formEduDescription = ''
     formIsPersonal = false
     formProjectUrl = ''
-    formLevel = ''
+    formLevel = 'secret'
     formPolygraph = ''
-    formClearanceStatus = ''
-    formSponsoringAgency = ''
+    formClearanceStatus = 'active'
+    formClearanceType = 'personnel'
+    formSponsorOrgId = ''
+    formContinuousInvestigation = false
+    formAccessPrograms = []
 
     if (source.source_type === 'role' && source.role) {
       formOrgId = source.role.organization_id ?? null
@@ -299,8 +315,11 @@
     } else if (source.source_type === 'clearance' && source.clearance) {
       formLevel = source.clearance.level
       formPolygraph = source.clearance.polygraph ?? ''
-      formClearanceStatus = source.clearance.status ?? ''
-      formSponsoringAgency = source.clearance.sponsoring_agency ?? ''
+      formClearanceStatus = source.clearance.status
+      formClearanceType = source.clearance.type
+      formSponsorOrgId = source.clearance.sponsor_organization_id ?? ''
+      formContinuousInvestigation = !!source.clearance.continuous_investigation
+      formAccessPrograms = source.clearance.access_programs ?? []
     }
   }
 
@@ -334,10 +353,13 @@
     formEduDescription = ''
     formIsPersonal = false
     formProjectUrl = ''
-    formLevel = ''
+    formLevel = 'secret'
     formPolygraph = ''
-    formClearanceStatus = ''
-    formSponsoringAgency = ''
+    formClearanceStatus = 'active'
+    formClearanceType = 'personnel'
+    formSponsorOrgId = ''
+    formContinuousInvestigation = false
+    formAccessPrograms = []
   }
 
   async function selectSource(id: string) {
@@ -406,8 +428,11 @@
       basePayload.clearance = {
         level: formLevel,
         polygraph: formPolygraph || undefined,
-        status: formClearanceStatus || undefined,
-        sponsoring_agency: formSponsoringAgency || undefined,
+        status: formClearanceStatus,
+        type: formClearanceType,
+        sponsor_organization_id: formSponsorOrgId || undefined,
+        continuous_investigation: formContinuousInvestigation ? 1 : 0,
+        access_programs: formAccessPrograms,
       }
     }
 
@@ -953,21 +978,75 @@
 
         <!-- Clearance-specific fields -->
         {#if formSourceType === 'clearance'}
-          <div class="form-group">
-            <label for="clr-level">Level <span class="required">*</span></label>
-            <input id="clr-level" type="text" bind:value={formLevel} placeholder="e.g. TS/SCI" />
+          <div class="form-row">
+            <div class="form-group">
+              <label for="clearance-level">Level <span class="required">*</span></label>
+              <select id="clearance-level" bind:value={formLevel}>
+                {#each CLEARANCE_LEVELS as level}
+                  <option value={level}>{CLEARANCE_LEVEL_LABELS[level]}</option>
+                {/each}
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="clearance-status">Status</label>
+              <select id="clearance-status" bind:value={formClearanceStatus}>
+                {#each CLEARANCE_STATUSES as status}
+                  <option value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
+                {/each}
+              </select>
+            </div>
           </div>
-          <div class="form-group">
-            <label for="clr-polygraph">Polygraph</label>
-            <input id="clr-polygraph" type="text" bind:value={formPolygraph} placeholder="e.g. CI, Full Scope" />
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="clearance-polygraph">Polygraph</label>
+              <select id="clearance-polygraph" bind:value={formPolygraph}>
+                <option value="">-- None --</option>
+                {#each CLEARANCE_POLYGRAPHS as poly}
+                  <option value={poly}>{CLEARANCE_POLYGRAPH_LABELS[poly]}</option>
+                {/each}
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="clearance-type">Type</label>
+              <select id="clearance-type" bind:value={formClearanceType}>
+                {#each CLEARANCE_TYPES as ctype}
+                  <option value={ctype}>{ctype.charAt(0).toUpperCase() + ctype.slice(1)}</option>
+                {/each}
+              </select>
+            </div>
           </div>
+
           <div class="form-group">
-            <label for="clr-status">Status</label>
-            <input id="clr-status" type="text" bind:value={formClearanceStatus} placeholder="e.g. active, inactive" />
+            <label>Access Programs</label>
+            <div class="checkbox-group">
+              {#each CLEARANCE_ACCESS_PROGRAMS as prog}
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formAccessPrograms.includes(prog)}
+                    onchange={(e) => {
+                      if (e.currentTarget.checked) {
+                        formAccessPrograms = [...formAccessPrograms, prog]
+                      } else {
+                        formAccessPrograms = formAccessPrograms.filter(p => p !== prog)
+                      }
+                    }}
+                  />
+                  {CLEARANCE_ACCESS_PROGRAM_LABELS[prog]}
+                </label>
+              {/each}
+            </div>
           </div>
+
           <div class="form-group">
-            <label for="clr-agency">Sponsoring Agency</label>
-            <input id="clr-agency" type="text" bind:value={formSponsoringAgency} />
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                bind:checked={formContinuousInvestigation}
+              />
+              Continuous Investigation (CE/CV)
+            </label>
           </div>
         {/if}
 
@@ -1580,5 +1659,19 @@
     font-size: 0.65rem;
     font-weight: 600;
     text-transform: uppercase;
+  }
+
+  .checkbox-group {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    cursor: pointer;
   }
 </style>

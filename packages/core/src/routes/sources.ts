@@ -27,12 +27,23 @@ export function sourceRoutes(services: Services, db: Database) {
   app.post('/sources', async (c) => {
     const body = await c.req.json()
     // Spread nested SDK extension objects into flat structure for core
+    // Clearance needs explicit mapping: SDK uses status/type but core uses
+    // clearance_status/clearance_type to avoid collisions with base fields.
+    const clearanceFlat = body.clearance ? {
+      level: body.clearance.level,
+      polygraph: body.clearance.polygraph,
+      clearance_status: body.clearance.status,
+      clearance_type: body.clearance.type,
+      sponsor_organization_id: body.clearance.sponsor_organization_id,
+      continuous_investigation: body.clearance.continuous_investigation,
+      access_programs: body.clearance.access_programs,
+    } : {}
     const input: CreateSource = {
       ...body,
       ...(body.education ?? {}),
       ...(body.role ?? {}),
       ...(body.project ?? {}),
-      ...(body.clearance ?? {}),
+      ...clearanceFlat,
     }
     const result = services.sources.createSource(input)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
@@ -61,12 +72,23 @@ export function sourceRoutes(services: Services, db: Database) {
   app.patch('/sources/:id', async (c) => {
     const body = await c.req.json()
     // Spread nested SDK extension objects into flat structure for core
+    // Clearance needs explicit mapping: SDK uses status/type but core uses
+    // clearance_status/clearance_type to avoid collisions with base fields.
+    const clearanceFlat = body.clearance ? {
+      ...(body.clearance.level !== undefined ? { level: body.clearance.level } : {}),
+      ...(body.clearance.polygraph !== undefined ? { polygraph: body.clearance.polygraph } : {}),
+      ...(body.clearance.status !== undefined ? { clearance_status: body.clearance.status } : {}),
+      ...(body.clearance.type !== undefined ? { clearance_type: body.clearance.type } : {}),
+      ...(body.clearance.sponsor_organization_id !== undefined ? { sponsor_organization_id: body.clearance.sponsor_organization_id } : {}),
+      ...(body.clearance.continuous_investigation !== undefined ? { continuous_investigation: body.clearance.continuous_investigation } : {}),
+      ...(body.clearance.access_programs !== undefined ? { access_programs: body.clearance.access_programs } : {}),
+    } : {}
     const input: UpdateSource = {
       ...body,
       ...(body.education ?? {}),
       ...(body.role ?? {}),
       ...(body.project ?? {}),
-      ...(body.clearance ?? {}),
+      ...clearanceFlat,
     }
     const result = services.sources.updateSource(c.req.param('id'), input)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))

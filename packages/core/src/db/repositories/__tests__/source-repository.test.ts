@@ -92,15 +92,70 @@ describe('SourceRepository', () => {
         title: 'TS/SCI',
         description: 'Top Secret clearance.',
         source_type: 'clearance',
-        level: 'TS/SCI',
-        polygraph: 'CI',
+        level: 'top_secret',
+        polygraph: 'ci',
+        clearance_status: 'active',
+        clearance_type: 'personnel',
+        access_programs: ['sci'],
       })
 
       expect(source.source_type).toBe('clearance')
       expect(source.extension).not.toBeNull()
       const ext = source.extension as SourceClearance
-      expect(ext.level).toBe('TS/SCI')
-      expect(ext.polygraph).toBe('CI')
+      expect(ext.level).toBe('top_secret')
+      expect(ext.polygraph).toBe('ci')
+      expect(ext.status).toBe('active')
+      expect(ext.type).toBe('personnel')
+      expect(ext.access_programs).toEqual(['sci'])
+      expect(ext.continuous_investigation).toBe(0)
+      expect(ext.sponsor_organization_id).toBeNull()
+    })
+
+    test('creates a clearance source with defaults when fields omitted', () => {
+      const source = SourceRepo.create(db, {
+        title: 'Default Clearance',
+        description: 'Clearance with defaults.',
+        source_type: 'clearance',
+      })
+
+      const ext = source.extension as SourceClearance
+      expect(ext.level).toBe('secret')
+      expect(ext.status).toBe('active')
+      expect(ext.type).toBe('personnel')
+      expect(ext.continuous_investigation).toBe(0)
+      expect(ext.access_programs).toEqual([])
+      expect(ext.polygraph).toBeNull()
+      expect(ext.sponsor_organization_id).toBeNull()
+    })
+
+    test('creates a clearance source with sponsor organization', () => {
+      const orgId = seedOrganization(db, { name: 'DoD', orgType: 'government' })
+      const source = SourceRepo.create(db, {
+        title: 'DoD Clearance',
+        description: 'DoD sponsored clearance.',
+        source_type: 'clearance',
+        level: 'secret',
+        sponsor_organization_id: orgId,
+      })
+
+      const ext = source.extension as SourceClearance
+      expect(ext.sponsor_organization_id).toBe(orgId)
+    })
+
+    test('creates a clearance with multiple access programs', () => {
+      const source = SourceRepo.create(db, {
+        title: 'Full Access',
+        description: 'All access programs.',
+        source_type: 'clearance',
+        level: 'top_secret',
+        access_programs: ['sci', 'sap', 'nato'],
+      })
+
+      const ext = source.extension as SourceClearance
+      expect(ext.access_programs).toHaveLength(3)
+      expect(ext.access_programs).toContain('sci')
+      expect(ext.access_programs).toContain('sap')
+      expect(ext.access_programs).toContain('nato')
     })
 
     test('sets default source_type to general when not specified', () => {
@@ -384,6 +439,79 @@ describe('SourceRepository', () => {
       const updated = SourceRepo.update(db, source.id, { edu_description: null })
       const ext = updated!.extension as SourceEducation
       expect(ext.edu_description).toBeNull()
+    })
+
+    test('updates clearance level', () => {
+      const source = SourceRepo.create(db, {
+        title: 'Clearance',
+        description: 'Test clearance.',
+        source_type: 'clearance',
+        level: 'secret',
+      })
+
+      const updated = SourceRepo.update(db, source.id, { level: 'top_secret' })
+      const ext = updated!.extension as SourceClearance
+      expect(ext.level).toBe('top_secret')
+    })
+
+    test('updates clearance access programs (replace)', () => {
+      const source = SourceRepo.create(db, {
+        title: 'Clearance',
+        description: 'Test clearance.',
+        source_type: 'clearance',
+        level: 'top_secret',
+        access_programs: ['sci'],
+      })
+
+      const updated = SourceRepo.update(db, source.id, { access_programs: ['sci', 'sap'] })
+      const ext = updated!.extension as SourceClearance
+      expect(ext.access_programs).toHaveLength(2)
+      expect(ext.access_programs).toContain('sci')
+      expect(ext.access_programs).toContain('sap')
+    })
+
+    test('updates clearance access programs to empty', () => {
+      const source = SourceRepo.create(db, {
+        title: 'Clearance',
+        description: 'Test clearance.',
+        source_type: 'clearance',
+        level: 'top_secret',
+        access_programs: ['sci', 'sap'],
+      })
+
+      const updated = SourceRepo.update(db, source.id, { access_programs: [] })
+      const ext = updated!.extension as SourceClearance
+      expect(ext.access_programs).toEqual([])
+    })
+
+    test('updates clearance status and type', () => {
+      const source = SourceRepo.create(db, {
+        title: 'Clearance',
+        description: 'Test clearance.',
+        source_type: 'clearance',
+        level: 'secret',
+      })
+
+      const updated = SourceRepo.update(db, source.id, {
+        clearance_status: 'inactive',
+        clearance_type: 'facility',
+        continuous_investigation: 1,
+      })
+      const ext = updated!.extension as SourceClearance
+      expect(ext.status).toBe('inactive')
+      expect(ext.type).toBe('facility')
+      expect(ext.continuous_investigation).toBe(1)
+    })
+
+    test('CHECK constraint rejects invalid clearance level', () => {
+      expect(() => {
+        SourceRepo.create(db, {
+          title: 'Bad Clearance',
+          description: 'Invalid.',
+          source_type: 'clearance',
+          level: 'invalid' as any,
+        })
+      }).toThrow()
     })
 
     test('returns null for nonexistent ID', () => {

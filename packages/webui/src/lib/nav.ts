@@ -38,6 +38,7 @@ export const navigation: NavEntry[] = [
     children: [
       { href: '/data/bullets', label: 'Bullets' },
       { href: '/data/skills', label: 'Skills' },
+      { href: '/data/contacts', label: 'Contacts' },
       { href: '/data/organizations', label: 'Organizations' },
       { href: '/data/domains', label: 'Domains' },
       { href: '/data/notes', label: 'Notes' },

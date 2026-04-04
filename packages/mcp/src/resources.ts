@@ -21,7 +21,7 @@ export function registerResources(server: McpServer, sdk: ForgeClient): void {
   server.resource(
     'forge-profile',
     'forge://profile',
-    'User profile: name, contact info, clearance level',
+    { description: 'User profile: name, contact info, clearance level' },
     async (uri) => {
       const result = await sdk.profile.get()
       if (!result.ok) {
@@ -46,7 +46,7 @@ export function registerResources(server: McpServer, sdk: ForgeClient): void {
   server.resource(
     'forge-archetypes',
     'forge://archetypes',
-    'Career archetypes with domain associations (e.g., platform-engineer, security-engineer)',
+    { description: 'Career archetypes with domain associations (e.g., platform-engineer, security-engineer)' },
     async (uri) => {
       const result = await sdk.archetypes.list()
       if (!result.ok) {
@@ -71,7 +71,7 @@ export function registerResources(server: McpServer, sdk: ForgeClient): void {
   server.resource(
     'forge-domains',
     'forge://domains',
-    'Skill domain taxonomy (e.g., infrastructure, security, ai_ml, cloud)',
+    { description: 'Skill domain taxonomy (e.g., infrastructure, security, ai_ml, cloud)' },
     async (uri) => {
       const result = await sdk.domains.list()
       if (!result.ok) {
@@ -96,7 +96,7 @@ export function registerResources(server: McpServer, sdk: ForgeClient): void {
   server.resource(
     'forge-templates',
     'forge://templates',
-    'Resume templates with section structures',
+    { description: 'Resume templates with section structures' },
     async (uri) => {
       const result = await sdk.templates.list()
       if (!result.ok) {
@@ -123,7 +123,7 @@ export function registerResources(server: McpServer, sdk: ForgeClient): void {
   server.resource(
     'forge-resume',
     'forge://resume/{id}',
-    'Resume with sections and entries. Re-read after any mutating tool call.',
+    { description: 'Resume with sections and entries. Re-read after any mutating tool call.' },
     async (uri, params) => {
       const id = params.id as string
       const result = await sdk.resumes.get(id)
@@ -149,7 +149,7 @@ export function registerResources(server: McpServer, sdk: ForgeClient): void {
   server.resource(
     'forge-resume-ir',
     'forge://resume/{id}/ir',
-    'Compiled resume intermediate representation (IR) for rendering to Markdown/LaTeX/PDF',
+    { description: 'Compiled resume intermediate representation (IR) for rendering to Markdown/LaTeX/PDF' },
     async (uri, params) => {
       const id = params.id as string
       const result = await sdk.resumes.ir(id)
@@ -175,7 +175,7 @@ export function registerResources(server: McpServer, sdk: ForgeClient): void {
   server.resource(
     'forge-job',
     'forge://job/{id}',
-    'Job description with organization details, raw text, and status',
+    { description: 'Job description with organization details, raw text, and status' },
     async (uri, params) => {
       const id = params.id as string
       const result = await sdk.jobDescriptions.get(id)

@@ -91,15 +91,13 @@
 
 <style>
   .column {
-    flex: 1;
+    flex: 0 0 auto;
+    width: 280px;
     min-width: 220px;
     max-width: 320px;
-    display: flex;
-    flex-direction: column;
     border-top: 3px solid;
     background: var(--color-surface-raised, #f9fafb);
     border-radius: var(--radius-md, 6px);
-    min-height: 0;
   }
 
   .column-header {
@@ -109,7 +107,10 @@
     padding: var(--space-3, 0.6rem) var(--space-3, 0.75rem);
     background: var(--color-surface, #fff);
     border-bottom: 1px solid var(--color-border, #e5e7eb);
-    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-radius: var(--radius-md, 6px) var(--radius-md, 6px) 0 0;
   }
 
   .column-label {

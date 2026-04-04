@@ -126,25 +126,23 @@
     <p>{emptyMessage}</p>
   </div>
 {:else}
-  <div class="board-wrapper">
-    {#if filterBar}
-      <div class="board-filter-bar">
-        {@render filterBar()}
-      </div>
-    {/if}
-
-    <div class="board-columns">
-      {#each columns as col (col.key)}
-        <GenericKanbanColumn
-          column={col}
-          items={columnState.get(col.key) ?? []}
-          {cardContent}
-          collapsed={collapsedColumns[col.key] ?? false}
-          onToggleCollapse={() => toggleCollapse(col.key)}
-          onDrop={(itemId) => handleDrop(col.key, itemId)}
-        />
-      {/each}
+  {#if filterBar}
+    <div class="board-filter-bar">
+      {@render filterBar()}
     </div>
+  {/if}
+
+  <div class="board-columns">
+    {#each columns as col (col.key)}
+      <GenericKanbanColumn
+        column={col}
+        items={columnState.get(col.key) ?? []}
+        {cardContent}
+        collapsed={collapsedColumns[col.key] ?? false}
+        onToggleCollapse={() => toggleCollapse(col.key)}
+        onDrop={(itemId) => handleDrop(col.key, itemId)}
+      />
+    {/each}
   </div>
 {/if}
 
@@ -172,17 +170,9 @@
     margin: 0;
   }
 
-  .board-wrapper {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-  }
-
   .board-filter-bar {
     padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
     border-bottom: 1px solid var(--color-border, #e5e7eb);
-    flex-shrink: 0;
   }
 
   .board-columns {
@@ -191,8 +181,6 @@
     padding: var(--space-4, 1rem);
     flex: 1;
     overflow-x: auto;
-    overflow-y: hidden;
-    align-items: stretch;
-    min-height: 0;
+    align-items: flex-start;
   }
 </style>

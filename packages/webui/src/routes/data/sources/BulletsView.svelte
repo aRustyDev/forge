@@ -2,6 +2,7 @@
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
   import { StatusBadge, LoadingSpinner, EmptyState } from '$lib/components'
+  import BulletDetailModal from '$lib/components/BulletDetailModal.svelte'
   import type { Bullet, Perspective } from '@forge/sdk'
 
   type ContentType = 'bullet' | 'perspective'
@@ -12,15 +13,8 @@
   let searchQuery = $state('')
   let statusFilter = $state('all')
 
-  // Derive perspective modal
-  let deriveModal = $state({
-    open: false,
-    bulletId: '',
-    archetype: 'agentic-ai',
-    domain: 'ai_ml',
-    framing: 'accomplishment' as 'accomplishment' | 'responsibility' | 'context',
-    submitting: false,
-  })
+  // Bullet detail modal
+  let detailBulletId = $state<string | null>(null)
 
   // Reject modal
   let rejectModal = $state<{
@@ -142,42 +136,10 @@
     }
   }
 
-  function openDeriveModal(bulletId: string) {
-    deriveModal = {
-      open: true,
-      bulletId,
-      archetype: 'agentic-ai',
-      domain: 'ai_ml',
-      framing: 'accomplishment',
-      submitting: false,
-    }
-  }
-
-  async function submitDerive() {
-    deriveModal.submitting = true
-
-    const res = await forge.bullets.derivePerspectives(deriveModal.bulletId, {
-      archetype: deriveModal.archetype,
-      domain: deriveModal.domain,
-      framing: deriveModal.framing,
-    })
-    if (res.ok) {
-      addToast({ message: 'Perspective derived successfully', type: 'success' })
-      deriveModal.open = false
-    } else {
-      addToast({ message: `Derive failed: ${res.error.message}`, type: 'error' })
-    }
-
-    deriveModal.submitting = false
-  }
-
   function truncate(text: string, max: number = 200): string {
     if (text.length <= max) return text
     return text.slice(0, max) + '...'
   }
-
-  const ARCHETYPES = ['agentic-ai', 'infrastructure', 'security-engineer', 'solutions-architect', 'public-sector', 'hft']
-  const DOMAINS = ['systems_engineering', 'software_engineering', 'security', 'devops', 'ai_ml', 'leadership']
 </script>
 
 <div class="bullets-page">
@@ -230,7 +192,7 @@
   {:else}
     <div class="item-list">
       {#each filteredItems as item (item.id)}
-        <div class="item-card">
+        <div class="item-card" style="cursor: pointer;" onclick={() => detailBulletId = item.id}>
           <div class="item-header">
             <p class="item-content">{truncate(item.content, 200)}</p>
             <StatusBadge status={item.status} />
@@ -277,16 +239,11 @@
           <!-- Inline actions -->
           <div class="item-actions">
             {#if item.status === 'pending_review'}
-              <button class="btn btn-approve" onclick={() => approveItem(item.id)}>Approve</button>
-              <button class="btn btn-reject" onclick={() => openReject(item.id)}>Reject</button>
+              <button class="btn btn-approve" onclick={(e) => { e.stopPropagation(); approveItem(item.id) }}>Approve</button>
+              <button class="btn btn-reject" onclick={(e) => { e.stopPropagation(); openReject(item.id) }}>Reject</button>
             {/if}
             {#if item.status === 'rejected'}
-              <button class="btn btn-reopen" onclick={() => reopenItem(item.id)}>Reopen</button>
-            {/if}
-            {#if contentType === 'bullet' && item.status === 'approved'}
-              <button class="btn btn-derive-action" onclick={() => openDeriveModal(item.id)}>
-                Derive Perspective
-              </button>
+              <button class="btn btn-reopen" onclick={(e) => { e.stopPropagation(); reopenItem(item.id) }}>Reopen</button>
             {/if}
           </div>
         </div>
@@ -324,50 +281,12 @@
   </div>
 {/if}
 
-<!-- Derive Perspective Modal -->
-{#if deriveModal.open}
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="modal-overlay" onclick={() => deriveModal.open = false} role="presentation">
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Derive Perspective">
-      <div class="modal-header">
-        <h3>Derive Perspective</h3>
-        <button class="btn btn-ghost" onclick={() => deriveModal.open = false}>Close</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label for="derive-archetype">Target Archetype</label>
-          <select id="derive-archetype" bind:value={deriveModal.archetype}>
-            {#each ARCHETYPES as arch}
-              <option value={arch}>{arch}</option>
-            {/each}
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="derive-domain">Domain</label>
-          <select id="derive-domain" bind:value={deriveModal.domain}>
-            {#each DOMAINS as dom}
-              <option value={dom}>{dom.replace(/_/g, ' ')}</option>
-            {/each}
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="derive-framing">Framing</label>
-          <select id="derive-framing" bind:value={deriveModal.framing}>
-            <option value="accomplishment">Accomplishment</option>
-            <option value="responsibility">Responsibility</option>
-            <option value="context">Context</option>
-          </select>
-        </div>
-        <div class="modal-actions">
-          <button class="btn btn-ghost" onclick={() => deriveModal.open = false}>Cancel</button>
-          <button class="btn btn-primary" onclick={submitDerive} disabled={deriveModal.submitting}>
-            {deriveModal.submitting ? 'Deriving...' : 'Derive'}
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
+{#if detailBulletId}
+  <BulletDetailModal
+    bulletId={detailBulletId}
+    onclose={() => detailBulletId = null}
+    onupdate={() => loadItems()}
+  />
 {/if}
 
 <style>
@@ -585,8 +504,6 @@
   .btn-reject:hover { background: #fecaca; }
   .btn-reopen { background: #fef3c7; color: #92400e; }
   .btn-reopen:hover { background: #fde68a; }
-  .btn-derive-action { background: #eef2ff; color: #4f46e5; }
-  .btn-derive-action:hover { background: #dbeafe; }
   .btn-primary { background: #6c63ff; color: #fff; }
   .btn-primary:hover:not(:disabled) { background: #5a52e0; }
   .btn-ghost { background: transparent; color: #6b7280; }

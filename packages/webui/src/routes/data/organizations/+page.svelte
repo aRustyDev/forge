@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { LoadingSpinner, EmptyState, ConfirmDialog } from '$lib/components'
+  import { LoadingSpinner, EmptyState, ConfirmDialog, PageWrapper, SplitPanel, ListPanelHeader } from '$lib/components'
   import type { Organization, OrgTag, OrgCampus } from '@forge/sdk'
 
   const ORG_TYPES = ['company', 'nonprofit', 'government', 'military', 'education', 'volunteer', 'freelance', 'other']
@@ -433,13 +433,10 @@
   }
 </script>
 
-<div class="orgs-page">
-  <!-- Left panel: Org list -->
-  <div class="list-panel">
-    <div class="list-header">
-      <h2>All Organizations</h2>
-      <button class="btn-new" onclick={startNew}>+ New</button>
-    </div>
+<PageWrapper>
+  <SplitPanel listWidth={340}>
+    {#snippet list()}
+      <ListPanelHeader title="All Organizations" onNew={startNew} />
 
     <div class="filter-bar">
       <input class="search-input" type="text" placeholder="Search..." bind:value={searchQuery} />
@@ -549,10 +546,8 @@
         {/each}
       </ul>
     {/if}
-  </div>
-
-  <!-- Right panel: Editor -->
-  <div class="editor-panel">
+    {/snippet}
+    {#snippet detail()}
     {#if !selectedOrg && !editing}
       <div class="editor-empty">
         <p>Select an organization or create a new one.</p>
@@ -875,8 +870,9 @@
         </div>
       </div>
     {/if}
-  </div>
-</div>
+    {/snippet}
+  </SplitPanel>
+</PageWrapper>
 
 <ConfirmDialog
   open={confirmDeleteOpen}
@@ -889,13 +885,6 @@
 />
 
 <style>
-  .orgs-page { display: flex; gap: 0; height: calc(100vh - 4rem); margin: -2rem; }
-  .list-panel { width: 340px; flex-shrink: 0; border-right: 1px solid var(--color-border); background: var(--color-surface); display: flex; flex-direction: column; overflow: hidden; }
-  .list-header { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1rem; border-bottom: 1px solid var(--color-border); }
-  .list-header h2 { font-size: var(--text-xl); font-weight: var(--font-semibold); color: var(--text-primary); margin: 0; }
-  .btn-new { padding: 0.35rem 0.75rem; background: var(--color-primary); color: var(--text-inverse); border: none; border-radius: var(--radius-md); font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; }
-  .btn-new:hover { background: var(--color-primary-hover); }
-
   .filter-bar { display: flex; gap: 0.5rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--color-border); }
   .search-input { flex: 1; padding: 0.35rem 0.5rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-size: var(--text-sm); }
   .search-input:focus { outline: none; border-color: var(--color-border-focus); }
@@ -922,7 +911,6 @@
   .meta-item { font-size: var(--text-xs); color: var(--text-muted); }
 
   /* Editor */
-  .editor-panel { flex: 1; overflow-y: auto; background: var(--color-surface); }
   .editor-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-faint); font-size: var(--text-base); }
   .editor-content { max-width: 640px; padding: 2rem; }
   .editor-heading { font-size: var(--text-xl); font-weight: var(--font-semibold); color: var(--text-primary); margin-bottom: 1.5rem; }

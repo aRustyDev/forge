@@ -7,7 +7,7 @@
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
   import { page } from '$app/state'
-  import { LoadingSpinner, EmptyState } from '$lib/components'
+  import { LoadingSpinner, EmptyState, PageWrapper, SplitPanel, ListPanelHeader } from '$lib/components'
   import ViewToggle from '$lib/components/ViewToggle.svelte'
   import GenericKanban from '$lib/components/kanban/GenericKanban.svelte'
   import JDKanbanCard from '$lib/components/kanban/JDKanbanCard.svelte'
@@ -210,21 +210,17 @@
   }
 </script>
 
-<div class="jd-page">
+<PageWrapper>
   {#if loading}
     <div class="loading-container">
       <LoadingSpinner />
     </div>
   {:else}
-    <div class="page-header">
-      <h2 class="panel-title">Job Descriptions</h2>
-      <div class="header-actions">
-        <button class="btn-new" onclick={startCreate} type="button">
-          + New JD
-        </button>
+    <ListPanelHeader title="Job Descriptions" onNew={startCreate} newLabel="+ New JD">
+      {#snippet actions()}
         <ViewToggle mode={viewMode} onchange={(m) => viewMode = m} />
-      </div>
-    </div>
+      {/snippet}
+    </ListPanelHeader>
 
     {#if viewMode === 'board'}
       <div class="board-container">
@@ -247,9 +243,8 @@
         </GenericKanban>
       </div>
     {:else}
-      <div class="split-panel">
-        <!-- List Panel -->
-        <div class="list-panel">
+      <SplitPanel>
+        {#snippet list()}
           <div class="list-filters">
             <select
               class="status-filter"
@@ -296,10 +291,8 @@
               {/each}
             {/if}
           </div>
-        </div>
-
-        <!-- Editor Panel -->
-        <div class="editor-panel">
+        {/snippet}
+        {#snippet detail()}
           {#if createMode}
             <JDEditor
               jd={null}
@@ -328,20 +321,13 @@
               />
             </div>
           {/if}
-        </div>
-      </div>
+        {/snippet}
+      </SplitPanel>
     {/if}
   {/if}
-</div>
+</PageWrapper>
 
 <style>
-  .jd-page {
-    height: calc(100vh - 4rem);
-    margin: -2rem;
-    display: flex;
-    flex-direction: column;
-  }
-
   .loading-container {
     display: flex;
     justify-content: center;
@@ -349,62 +335,11 @@
     height: 300px;
   }
 
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .header-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .panel-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
-  }
-
-  .btn-new {
-    padding: 0.35rem 0.75rem;
-    background: var(--color-info);
-    color: var(--color-surface);
-    border: none;
-    border-radius: 0.375rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .btn-new:hover {
-    background: var(--color-info-text);
-  }
-
   .board-container {
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    overflow: hidden;
-  }
-
-  .split-panel {
-    display: flex;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .list-panel {
-    width: 320px;
-    min-width: 280px;
-    border-right: 1px solid var(--color-border);
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
   }
 
@@ -472,12 +407,6 @@
     color: var(--text-faint);
     padding: 2rem 1rem;
     font-size: 0.85rem;
-  }
-
-  .editor-panel {
-    flex: 1;
-    overflow-y: auto;
-    min-width: 0;
   }
 
   .empty-editor {

@@ -4,7 +4,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { LoadingSpinner, EmptyState } from '$lib/components'
+  import { LoadingSpinner, EmptyState, PageWrapper, SplitPanel, ListPanelHeader } from '$lib/components'
   import ContactCard from '$lib/components/contacts/ContactCard.svelte'
   import ContactEditor from '$lib/components/contacts/ContactEditor.svelte'
   import type { ContactWithOrg, Organization } from '@forge/sdk'
@@ -84,21 +84,15 @@
   }
 </script>
 
-<div class="contacts-page">
+<PageWrapper>
   {#if loading}
     <div class="loading-container">
       <LoadingSpinner />
     </div>
   {:else}
-    <div class="split-panel">
-      <!-- List Panel -->
-      <div class="list-panel">
-        <div class="list-header">
-          <h2 class="panel-title">Contacts</h2>
-          <button class="btn-new" onclick={startCreate} type="button">
-            + New Contact
-          </button>
-        </div>
+    <SplitPanel>
+      {#snippet list()}
+        <ListPanelHeader title="Contacts" onNew={startCreate} newLabel="+ New Contact" />
 
         <div class="list-filters">
           <input
@@ -122,10 +116,8 @@
             {/each}
           {/if}
         </div>
-      </div>
-
-      <!-- Editor Panel -->
-      <div class="editor-panel">
+      {/snippet}
+      {#snippet detail()}
         {#if createMode}
           <ContactEditor
             contact={null}
@@ -154,69 +146,17 @@
             />
           </div>
         {/if}
-      </div>
-    </div>
+      {/snippet}
+    </SplitPanel>
   {/if}
-</div>
+</PageWrapper>
 
 <style>
-  .contacts-page {
-    height: calc(100vh - 4rem);
-    margin: -2rem;
-    display: flex;
-    flex-direction: column;
-  }
-
   .loading-container {
     display: flex;
     justify-content: center;
     align-items: center;
     height: 300px;
-  }
-
-  .split-panel {
-    display: flex;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .list-panel {
-    width: 320px;
-    min-width: 280px;
-    border-right: 1px solid var(--color-border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .list-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .panel-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
-  }
-
-  .btn-new {
-    padding: 0.35rem 0.75rem;
-    background: var(--color-info);
-    color: var(--text-inverse);
-    border: none;
-    border-radius: 0.375rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .btn-new:hover {
-    background: var(--color-primary-hover);
   }
 
   .list-filters {
@@ -251,12 +191,6 @@
     color: var(--text-faint);
     padding: 2rem 1rem;
     font-size: 0.85rem;
-  }
-
-  .editor-panel {
-    flex: 1;
-    overflow-y: auto;
-    min-width: 0;
   }
 
   .empty-editor {

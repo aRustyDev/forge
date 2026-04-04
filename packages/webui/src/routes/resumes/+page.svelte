@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { forge, friendlyError } from '$lib/sdk'
-  import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog } from '$lib/components'
+  import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog, PageWrapper } from '$lib/components'
   import { addToast } from '$lib/stores/toast.svelte'
   import type { Resume, ResumeWithEntries, ResumeEntry, Perspective, GapAnalysis, ResumeDocument, Archetype, ResumeTemplate } from '@forge/sdk'
   import { debugState } from '$lib/debug.svelte'
@@ -749,6 +749,7 @@
   }
 </script>
 
+<PageWrapper overflow="auto">
 {#if viewMode === 'board' && !selectedResumeId && !showCreateForm}
   <div class="resumes-board-header">
     <h1 class="page-title">Resumes</h1>
@@ -1123,6 +1124,7 @@
   </div>
 </div>
 {/if}
+</PageWrapper>
 
 <!-- Skills picker modal -->
 {#if skillsPickerSectionId && selectedResumeId}
@@ -1315,7 +1317,6 @@
   .resumes-page {
     display: flex;
     gap: 1.5rem;
-    min-height: calc(100vh - 4rem);
   }
 
   .left-panel {

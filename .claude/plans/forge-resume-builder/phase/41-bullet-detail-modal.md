@@ -18,6 +18,7 @@ Add a detail modal for bullets on `/data/bullets`. Clicking a bullet card opens 
 - Bulk bullet operations
 - Reordering perspectives within the bullet
 - Source editing from the bullet modal (sources are read-only context)
+- Editing the `metrics` field from the bullet modal (metrics data is set during AI derivation and not typically user-edited)
 
 ## Context
 
@@ -50,6 +51,8 @@ This phase addresses all of these gaps: extending the update input, adding bulle
 |------|-------------|
 | `packages/webui/src/lib/components/BulletDetailModal.svelte` | Bullet detail/edit modal with all fields, skill picker, tech input, sources list, perspectives list, status actions, save/delete |
 | `packages/webui/src/lib/components/DerivePerspectivesDialog.svelte` | AI derivation parameter dialog with archetype/domain/framing dropdowns loaded from API |
+
+Note: Do NOT add `BulletDetailModal` or `DerivePerspectivesDialog` to `$lib/components/index.ts`. They are imported directly by path from BulletsView and internally.
 
 ## Files to Modify
 
@@ -213,6 +216,15 @@ Add a `submitBullet(id)` method that transitions a bullet from `draft` to `pendi
 **Add after `reopenBullet` method (after line 86):**
 ```typescript
   submitBullet(id: string): Result<Bullet> {
+    // Guard: only draft bullets can be submitted for review.
+    // Note: transition() checks VALID_TRANSITIONS, but VALID_TRANSITIONS
+    // allows rejected -> pending_review. submitBullet is semantically
+    // for draft -> pending_review only. Use reopenBullet for rejected bullets.
+    const bullet = BulletRepository.get(this.db, id)
+    if (!bullet) return { ok: false, error: { code: 'NOT_FOUND', message: 'Bullet not found' } }
+    if (bullet.status !== 'draft') {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'Only draft bullets can be submitted for review' } }
+    }
     return this.transition(id, 'pending_review')
   }
 ```
@@ -221,15 +233,18 @@ Add a `submitBullet(id)` method that transitions a bullet from `draft` to `pendi
 - `service.submitBullet(id)` on a `draft` bullet returns `{ ok: true, data: { status: 'pending_review' } }`.
 - `service.submitBullet(id)` on a `pending_review` bullet returns `{ ok: false, error: { code: 'VALIDATION_ERROR', message: "Cannot transition from 'pending_review' to 'pending_review'" } }`.
 - `service.submitBullet(id)` on an `approved` bullet returns a VALIDATION_ERROR.
+- `service.submitBullet(id)` on a `rejected` bullet returns VALIDATION_ERROR -- only `draft` bullets can be submitted for review. `reopenBullet()` is the correct action for rejected bullets.
 - `service.submitBullet(id)` on a non-existent bullet returns NOT_FOUND.
 
 **Failure criteria:**
-- `submitBullet` allows transitions from non-draft statuses.
-- `submitBullet` does not reuse the existing `transition()` method.
+- `submitBullet` allows transitions from non-draft statuses (e.g., rejected bullets pass through because `VALID_TRANSITIONS` permits `rejected -> pending_review`).
+- `submitBullet` does not reuse the existing `transition()` method for the actual transition after the guard check.
 
 ---
 
 ### T41.3: Add Bullet Skills, Sources, and Submit Routes
+
+**Prerequisite:** Verify `bullet_skills` table exists: `SELECT name FROM sqlite_master WHERE type='table' AND name='bullet_skills'`. This table was created in migration 001. If missing, check that all migrations have been applied.
 
 **File:** `packages/core/src/routes/bullets.ts`
 
@@ -382,6 +397,8 @@ export function bulletRoutes(services: Services, db: Database) {
 
   // ── Bullet Sources ──────────────────────────────────────────────────
 
+  // NOTE: `is_primary` is returned as `0` or `1` (SQLite INTEGER).
+  // The UI uses truthiness check (`{#if src.is_primary}`) which works for both number and boolean.
   app.get('/bullets/:id/sources', (c) => {
     const rows = db.query(
       `SELECT s.*, bs.is_primary
@@ -396,6 +413,8 @@ export function bulletRoutes(services: Services, db: Database) {
   return app
 }
 ```
+
+- [ ] **Also update `server.ts`:** Change `bulletRoutes(services)` to `bulletRoutes(services, db)` at the mounting line. This is a one-line change but critical -- without it, the `db` parameter is undefined in the new skill/source endpoints.
 
 **File:** `packages/core/src/routes/server.ts`
 
@@ -532,11 +551,13 @@ export class BulletsResource {
 
   // ── Bullet Sources ──────────────────────────────────────────────────
 
-  listSources(bulletId: string): Promise<Result<Array<Source & { is_primary: boolean }>>> {
-    return this.request<Array<Source & { is_primary: boolean }>>('GET', `/api/bullets/${bulletId}/sources`)
+  listSources(bulletId: string): Promise<Result<Array<Source & { is_primary: number }>>> {
+    return this.request<Array<Source & { is_primary: number }>>('GET', `/api/bullets/${bulletId}/sources`)
   }
 }
 ```
+
+Note: `UpdateBullet` in `packages/sdk/src/types.ts` already includes `notes`, `domain`, and `technologies` fields -- no type changes needed in the SDK types file. Only the `BulletsResource` methods need updating.
 
 **Acceptance criteria:**
 - `forge.bullets.submit(id)` sends `PATCH /api/bullets/:id/submit` and returns `Result<Bullet>`.
@@ -576,9 +597,13 @@ This is the main modal component. It loads all bullet data on mount, provides ed
 
   // ── State ────────────────────────────────────────────────────────────
 
+  // Note: `forge.bullets.get()` returns `BulletWithRelations` in the SDK type but the
+  // actual API response is `Bullet` (no `perspective_count`). The modal uses `Bullet`
+  // state type, so this is handled correctly. `perspective_count` is derived from the
+  // perspectives list length.
   let bullet = $state<Bullet | null>(null)
   let bulletSkills = $state<Skill[]>([])
-  let bulletSources = $state<Array<Source & { is_primary: boolean }>>([])
+  let bulletSources = $state<Array<Source & { is_primary: number }>>([])
   let perspectives = $state<Perspective[]>([])
   let loading = $state(true)
   let saving = $state(false)
@@ -641,9 +666,9 @@ This is the main modal component. It loads all bullet data on mount, provides ed
       forge.bullets.get(bulletId),
       forge.bullets.listSkills(bulletId),
       forge.bullets.listSources(bulletId),
-      forge.perspectives.list({ bullet_id: bulletId, limit: 200 }),
-      forge.skills.list(),
-      forge.domains.list(),
+      forge.perspectives.list({ bullet_id: bulletId, limit: 200 }), // If `limit` is not part of `PerspectiveFilter`, pass it as a second pagination argument: `forge.perspectives.list({ bullet_id: bulletId }, { limit: 200 })`
+      forge.skills.list({ limit: 500 }), // Pass limit: 500 to avoid silent truncation on large skill sets
+      forge.domains.list({ limit: 200 }),
     ])
 
     if (bulletRes.ok) {
@@ -675,7 +700,7 @@ This is the main modal component. It loads all bullet data on mount, provides ed
 
     const res = await forge.bullets.update(bulletId, {
       content: editContent,
-      notes: editNotes || null,
+      notes: editNotes || null, // Normalize empty string to null for notes (avoid storing empty strings in DB)
       domain: editDomain,
       technologies: editTechnologies,
     })
@@ -1513,6 +1538,7 @@ This is the main modal component. It loads all bullet data on mount, provides ed
 - Technologies display as tag pills with remove button; text input adds on Enter (lowercased).
 - Sources are read-only with primary source marked by a star.
 - Perspectives list shows archetype/domain/framing + status badge.
+- Perspective items are rendered as non-interactive divs (no click handler). Clicking a perspective does nothing in this phase.
 - Status actions match the transition table (draft: Submit, pending_review: Approve/Reject, rejected: Reopen, approved: none).
 - Reject shows inline input for reason before confirming.
 - Save sends content, notes, domain, technologies via `forge.bullets.update`.
@@ -1579,8 +1605,8 @@ A dialog overlay for selecting archetype, domain, and framing before triggering 
     loadingOptions = true
 
     const [archetypeRes, domainRes] = await Promise.all([
-      forge.archetypes.list(),
-      forge.domains.list(),
+      forge.archetypes.list({ limit: 200 }),
+      forge.domains.list({ limit: 200 }),
     ])
 
     if (archetypeRes.ok) {
@@ -1907,7 +1933,9 @@ Add click handler to bullet cards to open `BulletDetailModal`. Remove the existi
         <div class="item-card" style="cursor: pointer;" onclick={() => detailBulletId = item.id}>
 ```
 
-8. Remove the card-level "Derive Perspective" button (lines 286-289):
+8. Add `e.stopPropagation()` to all existing action buttons inside bullet cards (Approve, Reject, Reopen, Derive) to prevent the card click handler from also triggering. Example: change `onclick={() => approveBullet(item.id)}` to `onclick={(e) => { e.stopPropagation(); approveBullet(item.id) }}`.
+
+9. Remove the card-level "Derive Perspective" button (lines 286-289):
 ```svelte
             {#if contentType === 'bullet' && item.status === 'approved'}
               <button class="btn btn-derive-action" onclick={() => openDeriveModal(item.id)}>
@@ -1916,9 +1944,9 @@ Add click handler to bullet cards to open `BulletDetailModal`. Remove the existi
             {/if}
 ```
 
-9. Remove the entire Derive Perspective Modal template (lines 327-371) -- the `{#if deriveModal.open}...{/if}` block.
+10. Remove the entire Derive Perspective Modal template (lines 327-371) -- the `{#if deriveModal.open}...{/if}` block.
 
-10. Add `BulletDetailModal` mount after the closing `</div>` of the `.bullets-page` container:
+11. Add `BulletDetailModal` mount after the closing `</div>` of the `.bullets-page` container:
 ```svelte
 {#if detailBulletId}
   <BulletDetailModal
@@ -1929,11 +1957,14 @@ Add click handler to bullet cards to open `BulletDetailModal`. Remove the existi
 {/if}
 ```
 
-11. Remove unused CSS classes: `.btn-derive-action` and `.btn-derive-action:hover`.
+12. Remove unused CSS classes: `.btn-derive-action` and `.btn-derive-action:hover`.
+
+**Design note:** The card-level Approve/Reject/Reopen buttons are intentionally RETAINED in BulletsView for quick status actions without opening the modal. The modal provides the same status actions for users who prefer the detail view. Both UX paths coexist -- the modal is not the only way to change status. This is an intentional design choice, not a conflict.
 
 **Acceptance criteria:**
 - Clicking a bullet card sets `detailBulletId` and opens `BulletDetailModal`.
 - The card-level "Derive Perspective" button is removed from all bullet cards.
+- The card-level Approve/Reject/Reopen buttons are retained for quick review workflows.
 - The inline derive modal (with hardcoded `ARCHETYPES`/`DOMAINS`) is completely removed.
 - The reject modal still works as before (it is independent of these changes).
 - After the modal triggers `onupdate`, the bullet list refreshes.
@@ -1981,7 +2012,7 @@ ctx.db.run('INSERT INTO bullet_skills (bullet_id, skill_id) VALUES (?, ?)', [bul
 
 ### Integration Tests
 
-**File:** `packages/core/src/routes/__tests__/bullets.test.ts` (add tests)
+**File:** `packages/core/src/routes/__tests__/bullets.test.ts` (new file). Use `packages/core/src/routes/__tests__/sources.test.ts` as the structural template.
 
 | Test | Route | Assertion |
 |------|-------|-----------|
@@ -2038,7 +2069,7 @@ These are manual acceptance checks or future browser automation tests.
 | SDK `BulletsResource.submit` exists | `forge.bullets.submit(id)` compiles and calls correct endpoint |
 | SDK `BulletsResource.listSkills` returns `Skill[]` | Return type matches `Result<Skill[]>` |
 | SDK `BulletsResource.addSkill` accepts both input shapes | `{ skill_id }` and `{ name }` both compile |
-| SDK `BulletsResource.listSources` returns sources with `is_primary` | Return type matches `Result<Array<Source & { is_primary: boolean }>>` |
+| SDK `BulletsResource.listSources` returns sources with `is_primary` | Return type matches `Result<Array<Source & { is_primary: number }>>` |
 
 ---
 
@@ -2057,7 +2088,7 @@ These are manual acceptance checks or future browser automation tests.
 **Within this phase:**
 - T41.1 (repository) and T41.2 (service) are independent of each other -- they modify different files with no cross-dependencies. They can be developed in parallel.
 - T41.3 (routes + server.ts) depends on T41.2 (needs `submitBullet` on the service) and T41.1 (needs the extended `UpdateBulletInput` to flow through the PATCH handler). Implement T41.1 and T41.2 first, then T41.3.
-- T41.4 (SDK) is independent of backend tasks -- it only adds method signatures and HTTP calls. It can be developed in parallel with T41.1-T41.3, but it must be committed alongside or after them so runtime calls succeed.
+- T41.4 (SDK) CAN be developed and committed in parallel with T41.1-T41.3 (no build-time dependency). However, end-to-end testing of the SDK methods requires the backend endpoints from T41.1-T41.3 to be complete.
 - T41.5 (BulletDetailModal) and T41.6 (DerivePerspectivesDialog) can be developed in parallel -- T41.5 imports T41.6 but only conditionally renders it. Both depend on T41.4 (SDK methods must exist for the UI to call them).
 - T41.7 (BulletsView integration) depends on T41.5 (imports BulletDetailModal). It should be the last UI task.
 

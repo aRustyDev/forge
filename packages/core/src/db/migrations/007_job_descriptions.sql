@@ -1,10 +1,10 @@
 -- Forge Resume Builder -- Job Descriptions Entity
--- Migration: 005_job_descriptions
+-- Migration: 007_job_descriptions
 -- Date: 2026-03-30
 --
 -- Adds a table for storing job descriptions linked to organizations.
 -- Rebuilds note_references to add 'job_description' to entity_type CHECK.
--- NOTE: Numbered 005 for local dev; will rename to 007 when 005/006 land.
+-- Renumbered from 005 to 007 to fit sequential migration ordering.
 
 -- Step 1: Create job_descriptions table
 CREATE TABLE job_descriptions (
@@ -54,4 +54,4 @@ CREATE INDEX idx_note_refs_entity ON note_references(entity_type, entity_id);
 PRAGMA foreign_keys = ON;
 
 -- Step 5: Register migration
-INSERT INTO _migrations (name) VALUES ('005_job_descriptions');
+INSERT INTO _migrations (name) VALUES ('007_job_descriptions');

@@ -1,3 +1,5 @@
+import type { GraphFilterState } from './graph.filters'
+
 /**
  * Generic graph node. The `type` field drives color/shape mapping via the
  * config's colorMap. Custom metadata can be attached via the index signature
@@ -71,4 +73,6 @@ export interface GraphViewProps {
   onEdgeClick?: (edgeId: string, data: GraphEdge) => void
   onEdgeHover?: (edgeId: string | null) => void
   onStageClick?: () => void
+  /** Optional filter state. When provided, nodes failing the filter are dimmed. */
+  filterState?: GraphFilterState
 }

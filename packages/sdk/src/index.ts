@@ -219,6 +219,23 @@ export type {
 // Export types
 export type { DataExportBundle } from './types'
 
+// Alignment constants
+export {
+  STRONG_THRESHOLD_DEFAULT,
+  ADJACENT_THRESHOLD_DEFAULT,
+} from './types'
+
+// Alignment types
+export type {
+  MatchVerdict,
+  RequirementMatch,
+  UnmatchedEntry,
+  AlignmentReport,
+  RequirementMatchReport,
+  AlignmentScoreOptions,
+  MatchRequirementsOptions,
+} from './types'
+
 // Resource classes (for advanced use / testing)
 export { SourcesResource } from './resources/sources'
 export { BulletsResource } from './resources/bullets'
@@ -237,3 +254,4 @@ export { TemplatesResource } from './resources/templates'
 export { SummariesResource } from './resources/summaries'
 export { ExportResource } from './resources/export'
 export { ContactsResource } from './resources/contacts'
+export { AlignmentResource } from './resources/alignment'

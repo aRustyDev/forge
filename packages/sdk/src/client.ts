@@ -1,3 +1,4 @@
+import { AlignmentResource } from './resources/alignment'
 import { ArchetypesResource } from './resources/archetypes'
 import { BulletsResource } from './resources/bullets'
 import { DebugStore } from './debug'
@@ -74,6 +75,8 @@ export class ForgeClient {
   public summaries: SummariesResource
   /** Contact CRUD + relationship management. */
   public contacts: ContactsResource
+  /** Alignment scoring & requirement matching (Phase 70+). */
+  public alignment?: AlignmentResource
 
   constructor(options: ForgeClientOptions) {
     // Strip trailing slash so callers can pass "http://localhost:3000/" without
@@ -107,6 +110,7 @@ export class ForgeClient {
     this.export = new ExportResource(req, this.baseUrl)
     this.summaries = new SummariesResource(req, reqList)
     this.contacts = new ContactsResource(req, reqList)
+    this.alignment = new AlignmentResource(req)
   }
 
   // -------------------------------------------------------------------------

@@ -105,8 +105,6 @@ export interface Organization {
   size: string | null
   worked: number
   employment_type: string | null
-  location: string | null
-  headquarters: string | null
   website: string | null
   linkedin_url: string | null
   glassdoor_url: string | null
@@ -224,8 +222,6 @@ export interface SourceEducation {
   // Shared
   organization_id: string | null
   campus_id: string | null
-  /** @deprecated Use organization_id + join. Kept for legacy data reads. */
-  institution: string | null
   edu_description: string | null
   location: string | null
   start_date: string | null
@@ -241,8 +237,6 @@ export interface SourceEducation {
   certificate_subtype: CertificateSubtype | null
   credential_id: string | null
   expiration_date: string | null
-  /** @deprecated Use organization_id + join. Kept for legacy data reads. */
-  issuing_body: string | null
 }
 
 /** Clearance-specific details for a source with source_type='clearance'. */
@@ -549,12 +543,10 @@ export interface CreateSource {
   education_type?: EducationType
   education_organization_id?: string
   campus_id?: string
-  institution?: string
   field?: string
   is_in_progress?: number
   credential_id?: string
   expiration_date?: string
-  issuing_body?: string
   degree_level?: DegreeLevelType
   degree_type?: string
   certificate_subtype?: CertificateSubtype
@@ -593,12 +585,10 @@ export interface UpdateSource {
   education_type?: EducationType
   education_organization_id?: string | null
   campus_id?: string | null
-  institution?: string | null
   field?: string | null
   is_in_progress?: number
   credential_id?: string | null
   expiration_date?: string | null
-  issuing_body?: string | null
   degree_level?: DegreeLevelType | null
   degree_type?: string | null
   certificate_subtype?: CertificateSubtype | null

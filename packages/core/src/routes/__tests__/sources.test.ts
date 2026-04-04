@@ -114,7 +114,6 @@ describe('Source Routes', () => {
         education_type: 'degree',
         degree_level: 'doctoral',
         degree_type: 'PhD',
-        institution: 'Caltech',
         field: 'Physics',
         gpa: '4.0/4.0',
         location: 'Pasadena, CA',
@@ -163,7 +162,6 @@ describe('Source Routes', () => {
       source_type: 'education',
       education: {
         education_type: 'course',
-        institution: 'SANS',
         location: 'Virtual',
         edu_description: 'Security training.',
       },

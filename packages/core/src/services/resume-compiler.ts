@@ -317,7 +317,7 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
         p.content AS perspective_content,
         bs.source_id,
         se.education_type,
-        COALESCE(o.name, se.institution) AS institution,
+        o.name AS institution,
         se.field,
         se.end_date,
         se.degree_level,
@@ -325,7 +325,7 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
         se.gpa,
         se.location,
         se.credential_id,
-        COALESCE(o.name, se.issuing_body) AS issuing_body,
+        o.name AS issuing_body,
         se.certificate_subtype,
         se.edu_description,
         se.organization_id,
@@ -572,7 +572,7 @@ function buildCertificationItems(db: Database, sectionId: string): Certification
         p.content AS perspective_content,
         bs.source_id,
         s.title AS source_title,
-        se.institution,
+        o.name AS institution,
         se.field,
         se.credential_id,
         se.end_date
@@ -581,6 +581,7 @@ function buildCertificationItems(db: Database, sectionId: string): Certification
       JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
       JOIN sources s ON s.id = bs.source_id
       LEFT JOIN source_education se ON se.source_id = s.id
+      LEFT JOIN organizations o ON o.id = se.organization_id
       WHERE re.section_id = ?
       ORDER BY re.position ASC`
     )

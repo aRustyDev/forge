@@ -110,12 +110,10 @@ function updateExtension(
     if ('education_type' in input) { sets.push('education_type = ?'); params.push(input.education_type) }
     if ('education_organization_id' in input) { sets.push('organization_id = ?'); params.push(input.education_organization_id ?? null) }
     if ('campus_id' in input) { sets.push('campus_id = ?'); params.push(input.campus_id ?? null) }
-    if ('institution' in input) { sets.push('institution = ?'); params.push(input.institution ?? null) }
     if ('field' in input) { sets.push('field = ?'); params.push(input.field ?? null) }
     if ('is_in_progress' in input) { sets.push('is_in_progress = ?'); params.push(input.is_in_progress ?? 0) }
     if ('credential_id' in input) { sets.push('credential_id = ?'); params.push(input.credential_id ?? null) }
     if ('expiration_date' in input) { sets.push('expiration_date = ?'); params.push(input.expiration_date ?? null) }
-    if ('issuing_body' in input) { sets.push('issuing_body = ?'); params.push(input.issuing_body ?? null) }
     if ('url' in input) { sets.push('url = ?'); params.push(input.url ?? null) }
     if ('start_date' in input) { sets.push('start_date = ?'); params.push(input.start_date ?? null) }
     if ('end_date' in input) { sets.push('end_date = ?'); params.push(input.end_date ?? null) }
@@ -225,23 +223,21 @@ export function create(db: Database, input: CreateSource): SourceWithExtension {
     } else if (sourceType === 'education') {
       db.run(
         `INSERT INTO source_education (
-          source_id, education_type, organization_id, campus_id, institution, field, start_date, end_date,
-          is_in_progress, credential_id, expiration_date, issuing_body, url,
+          source_id, education_type, organization_id, campus_id, field, start_date, end_date,
+          is_in_progress, credential_id, expiration_date, url,
           degree_level, degree_type, certificate_subtype, gpa, location, edu_description
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           input.education_type ?? 'certificate',
           input.education_organization_id ?? null,
           input.campus_id ?? null,
-          input.institution ?? null,
           input.field ?? null,
           input.start_date ?? null,
           input.end_date ?? null,
           input.is_in_progress ?? 0,
           input.credential_id ?? null,
           input.expiration_date ?? null,
-          input.issuing_body ?? null,
           input.url ?? null,
           input.degree_level ?? null,
           input.degree_type ?? null,

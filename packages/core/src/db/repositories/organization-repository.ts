@@ -6,7 +6,7 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import type { Organization, OrgTag } from '../../types'
+import type { Organization, OrganizationStatus, OrgTag } from '../../types'
 
 // ---------------------------------------------------------------------------
 // Input types
@@ -20,16 +20,20 @@ export interface CreateOrganizationInput {
   size?: string
   worked?: number
   employment_type?: string
-  location?: string
-  headquarters?: string
   website?: string
   linkedin_url?: string
   glassdoor_url?: string
   glassdoor_rating?: number
   reputation_notes?: string
   notes?: string
-  status?: string
+  status?: OrganizationStatus | null
 }
+
+// NOTE: org_type is the "primary classification" (company, education, etc.).
+// Tags (via org_tags junction table) are supplementary labels (vendor, platform, etc.).
+// org_type seeds the initial tag set on create: tags default to [org_type].
+// The two are intentionally not 1:1 (org_type='education' maps to tag='university').
+// See spec: 2026-04-03-org-model-evolution.md, Part B item 6.
 
 // ---------------------------------------------------------------------------
 // Filter types
@@ -92,8 +96,8 @@ export function create(db: Database, input: CreateOrganizationInput): Organizati
   const id = crypto.randomUUID()
   const row = db
     .query(
-      `INSERT INTO organizations (id, name, org_type, industry, size, worked, employment_type, location, headquarters, website, linkedin_url, glassdoor_url, glassdoor_rating, reputation_notes, notes, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO organizations (id, name, org_type, industry, size, worked, employment_type, website, linkedin_url, glassdoor_url, glassdoor_rating, reputation_notes, notes, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
@@ -104,8 +108,6 @@ export function create(db: Database, input: CreateOrganizationInput): Organizati
       input.size ?? null,
       input.worked ?? 0,
       input.employment_type ?? null,
-      input.location ?? null,
-      input.headquarters ?? null,
       input.website ?? null,
       input.linkedin_url ?? null,
       input.glassdoor_url ?? null,
@@ -210,8 +212,6 @@ export function update(
   if (input.size !== undefined) { sets.push('size = ?'); params.push(input.size) }
   if (input.worked !== undefined) { sets.push('worked = ?'); params.push(input.worked) }
   if (input.employment_type !== undefined) { sets.push('employment_type = ?'); params.push(input.employment_type) }
-  if (input.location !== undefined) { sets.push('location = ?'); params.push(input.location) }
-  if (input.headquarters !== undefined) { sets.push('headquarters = ?'); params.push(input.headquarters) }
   if (input.website !== undefined) { sets.push('website = ?'); params.push(input.website) }
   if (input.linkedin_url !== undefined) { sets.push('linkedin_url = ?'); params.push(input.linkedin_url) }
   if (input.glassdoor_url !== undefined) { sets.push('glassdoor_url = ?'); params.push(input.glassdoor_url) }

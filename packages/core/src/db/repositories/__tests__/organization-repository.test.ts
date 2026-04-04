@@ -46,8 +46,6 @@ describe('OrganizationRepository', () => {
       size: '10000+',
       worked: 1,
       employment_type: 'civilian',
-      location: 'Arlington, VA',
-      headquarters: 'Washington, DC',
       website: 'https://securegov.example.com',
       linkedin_url: 'https://linkedin.com/company/securegov',
       glassdoor_url: 'https://glassdoor.com/securegov',
@@ -61,8 +59,6 @@ describe('OrganizationRepository', () => {
     expect(org.size).toBe('10000+')
     expect(org.worked).toBe(1)
     expect(org.employment_type).toBe('civilian')
-    expect(org.location).toBe('Arlington, VA')
-    expect(org.headquarters).toBe('Washington, DC')
     expect(org.website).toBe('https://securegov.example.com')
     expect(org.linkedin_url).toBe('https://linkedin.com/company/securegov')
     expect(org.glassdoor_url).toBe('https://glassdoor.com/securegov')

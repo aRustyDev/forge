@@ -70,21 +70,20 @@ describe('SourceRepository', () => {
     })
 
     test('creates an education source with extension', () => {
+      const orgId = seedOrganization(db, { name: 'Amazon Web Services' })
       const source = SourceRepo.create(db, {
         title: 'AWS Solutions Architect',
         description: 'Cloud certification.',
         source_type: 'education',
         education_type: 'certificate',
-        institution: 'AWS',
-        issuing_body: 'Amazon Web Services',
+        education_organization_id: orgId,
       })
 
       expect(source.source_type).toBe('education')
       expect(source.extension).not.toBeNull()
       const ext = source.extension as SourceEducation
       expect(ext.education_type).toBe('certificate')
-      expect(ext.institution).toBe('AWS')
-      expect(ext.issuing_body).toBe('Amazon Web Services')
+      expect(ext.organization_id).toBe(orgId)
     })
 
     test('creates a clearance source with extension', () => {
@@ -167,6 +166,7 @@ describe('SourceRepository', () => {
     })
 
     test('creates a degree education source with sub-type fields', () => {
+      const orgId = seedOrganization(db, { name: 'MIT' })
       const source = SourceRepo.create(db, {
         title: 'MS Computer Science',
         description: 'Graduate degree in CS.',
@@ -174,7 +174,7 @@ describe('SourceRepository', () => {
         education_type: 'degree',
         degree_level: 'masters',
         degree_type: 'MS',
-        institution: 'MIT',
+        education_organization_id: orgId,
         field: 'Computer Science',
         gpa: '3.9/4.0',
         location: 'Cambridge, MA',
@@ -188,41 +188,45 @@ describe('SourceRepository', () => {
       expect(ext.education_type).toBe('degree')
       expect(ext.degree_level).toBe('masters')
       expect(ext.degree_type).toBe('MS')
+      expect(ext.organization_id).toBe(orgId)
       expect(ext.gpa).toBe('3.9/4.0')
       expect(ext.location).toBe('Cambridge, MA')
       expect(ext.edu_description).toBe('Focus on distributed systems.')
     })
 
     test('creates a certificate source with certificate_subtype', () => {
+      const orgId = seedOrganization(db, { name: 'Amazon Web Services' })
       const source = SourceRepo.create(db, {
         title: 'AWS SAA',
         description: 'Cloud cert.',
         source_type: 'education',
         education_type: 'certificate',
         certificate_subtype: 'vendor',
-        issuing_body: 'Amazon Web Services',
+        education_organization_id: orgId,
         credential_id: 'ABC-123',
       })
 
       const ext = source.extension as SourceEducation
       expect(ext.certificate_subtype).toBe('vendor')
-      expect(ext.issuing_body).toBe('Amazon Web Services')
+      expect(ext.organization_id).toBe(orgId)
       expect(ext.credential_id).toBe('ABC-123')
     })
 
     test('creates a course source with location', () => {
+      const orgId = seedOrganization(db, { name: 'SANS Institute' })
       const source = SourceRepo.create(db, {
         title: 'SANS SEC504',
         description: 'Hacker Tools.',
         source_type: 'education',
         education_type: 'course',
-        institution: 'SANS Institute',
+        education_organization_id: orgId,
         location: 'Las Vegas, NV',
         edu_description: 'Hands-on incident response training.',
       })
 
       const ext = source.extension as SourceEducation
       expect(ext.education_type).toBe('course')
+      expect(ext.organization_id).toBe(orgId)
       expect(ext.location).toBe('Las Vegas, NV')
       expect(ext.edu_description).toBe('Hands-on incident response training.')
     })

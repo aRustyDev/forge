@@ -151,8 +151,6 @@ export interface SourceEducation {
   // Shared
   organization_id: string | null
   campus_id: string | null
-  /** @deprecated Use organization_id. Kept for legacy reads. */
-  institution: string | null
   edu_description: string | null
   location: string | null
   start_date: string | null
@@ -168,8 +166,6 @@ export interface SourceEducation {
   certificate_subtype: CertificateSubtype | null
   credential_id: string | null
   expiration_date: string | null
-  /** @deprecated Use organization_id. Kept for legacy reads. */
-  issuing_body: string | null
 }
 
 export interface SourceClearance {
@@ -275,8 +271,6 @@ export interface Organization {
   size: string | null
   worked: boolean
   employment_type: 'civilian' | 'contractor' | 'military_active' | 'military_reserve' | 'volunteer' | 'intern' | null
-  location: string | null
-  headquarters: string | null
   website: string | null
   linkedin_url: string | null
   glassdoor_url: string | null
@@ -982,8 +976,6 @@ export interface CreateOrganization {
   size?: string
   worked?: boolean
   employment_type?: string
-  location?: string
-  headquarters?: string
   website?: string
   linkedin_url?: string
   glassdoor_url?: string
@@ -1000,8 +992,6 @@ export interface UpdateOrganization {
   size?: string
   worked?: boolean
   employment_type?: string | null
-  location?: string | null
-  headquarters?: string | null
   website?: string | null
   linkedin_url?: string | null
   glassdoor_url?: string | null

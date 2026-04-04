@@ -3,6 +3,11 @@
   import { addToast } from '$lib/stores/toast.svelte'
   import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog } from '$lib/components'
   import OrgCombobox from '$lib/components/OrgCombobox.svelte'
+  import ViewToggle from '$lib/components/ViewToggle.svelte'
+  import GenericKanban from '$lib/components/kanban/GenericKanban.svelte'
+  import SourceKanbanCard from '$lib/components/kanban/SourceKanbanCard.svelte'
+  import SourceFilterBar from '$lib/components/filters/SourceFilterBar.svelte'
+  import { getViewMode, setViewMode } from '$lib/stores/viewMode.svelte'
   import type { Source, Organization, ClearanceLevel, ClearancePolygraph, ClearanceStatus, ClearanceType, ClearanceAccessProgram } from '@forge/sdk'
   import {
     CLEARANCE_LEVELS,
@@ -33,6 +38,47 @@
   let saving = $state(false)
   let deriving = $state(false)
   let confirmDeleteOpen = $state(false)
+
+  // View mode: list or board
+  let viewMode = $state<'list' | 'board'>(getViewMode('sources'))
+
+  function handleViewChange(mode: 'list' | 'board') {
+    viewMode = mode
+    setViewMode('sources', mode)
+  }
+
+  // Column definitions for sources kanban
+  // Note: 'deriving' items appear in the Approved column
+  const SOURCE_COLUMNS = [
+    { key: 'draft', label: 'Draft', statuses: ['draft'], accent: '#a5b4fc' },
+    { key: 'in_review', label: 'In Review', statuses: ['in_review'], accent: '#fbbf24' },
+    { key: 'approved', label: 'Approved', statuses: ['approved', 'deriving'], dropStatus: 'approved', accent: '#22c55e' },
+    { key: 'rejected', label: 'Rejected', statuses: ['rejected'], accent: '#ef4444' },
+    { key: 'archived', label: 'Archived', statuses: ['archived'], accent: '#d1d5db' },
+  ]
+
+  // Board filter state
+  let sourceBoardFilters = $state<{ organization?: string; source_type?: string; search?: string }>({})
+
+  let boardFilteredSources = $derived.by(() => {
+    let result = sources
+    if (sourceBoardFilters.source_type) result = result.filter(s => s.source_type === sourceBoardFilters.source_type)
+    if (sourceBoardFilters.search) {
+      const q = sourceBoardFilters.search.toLowerCase()
+      result = result.filter(s => s.title.toLowerCase().includes(q) || s.description.toLowerCase().includes(q))
+    }
+    return result
+  })
+
+  async function handleSourceBoardDrop(itemId: string, newStatus: string) {
+    const result = await forge.sources.update(itemId, { status: newStatus } as any)
+    if (!result.ok) {
+      addToast({ type: 'error', message: friendlyError(result.error, 'Status update failed') })
+      throw new Error('Status update failed')
+    }
+    sources = sources.map(s => s.id === itemId ? { ...s, ...result.data } : s)
+    addToast({ type: 'success', message: `Source moved to ${newStatus.replace('_', ' ')}` })
+  }
 
   // Base form fields
   let formTitle = $state('')
@@ -605,6 +651,29 @@
   </button>
 {/snippet}
 
+<div class="sources-view-toggle-bar">
+  <ViewToggle mode={viewMode} onchange={handleViewChange} />
+</div>
+
+{#if viewMode === 'board'}
+  <GenericKanban
+    columns={SOURCE_COLUMNS}
+    items={boardFilteredSources}
+    onDrop={handleSourceBoardDrop}
+    {loading}
+    emptyMessage="No sources yet. Create your first source to get started."
+    defaultCollapsed="archived"
+    sortItems={(a, b) => a.title.localeCompare(b.title)}
+  >
+    {#snippet filterBar()}
+      <SourceFilterBar bind:filters={sourceBoardFilters} onchange={() => {}} />
+    {/snippet}
+
+    {#snippet cardContent(source)}
+      <SourceKanbanCard {source} onclick={() => selectSource(source.id)} />
+    {/snippet}
+  </GenericKanban>
+{:else}
 <div class="sources-page">
   <!-- Left panel: Source list -->
   <div class="list-panel">
@@ -1098,6 +1167,7 @@
     {/if}
   </div>
 </div>
+{/if}
 
 <ConfirmDialog
   open={confirmDeleteOpen}
@@ -1164,6 +1234,13 @@
 {/if}
 
 <style>
+  .sources-view-toggle-bar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+  }
+
   .sources-page {
     display: flex;
     gap: 0;

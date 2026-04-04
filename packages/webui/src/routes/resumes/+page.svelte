@@ -12,6 +12,11 @@
   import SkillsPicker from '$lib/components/resume/SkillsPicker.svelte'
   import SourcePicker from '$lib/components/resume/SourcePicker.svelte'
   import SummaryPicker from '$lib/components/SummaryPicker.svelte'
+  import ViewToggle from '$lib/components/ViewToggle.svelte'
+  import GenericKanban from '$lib/components/kanban/GenericKanban.svelte'
+  import ResumeKanbanCard from '$lib/components/kanban/ResumeKanbanCard.svelte'
+  import ResumeFilterBar from '$lib/components/filters/ResumeFilterBar.svelte'
+  import { getViewMode, setViewMode } from '$lib/stores/viewMode.svelte'
 
   type ViewTab = 'dnd' | 'markdown' | 'latex' | 'pdf'
 
@@ -53,6 +58,45 @@
   let loading = $state(true)
   let detailLoading = $state(false)
   let gapLoading = $state(false)
+
+  // View mode: list or board
+  let viewMode = $state<'list' | 'board'>(getViewMode('resumes'))
+
+  function handleViewChange(mode: 'list' | 'board') {
+    viewMode = mode
+    setViewMode('resumes', mode)
+  }
+
+  const RESUME_COLUMNS = [
+    { key: 'draft', label: 'Draft', statuses: ['draft'], accent: '#a5b4fc' },
+    { key: 'in_review', label: 'In Review', statuses: ['in_review'], accent: '#fbbf24' },
+    { key: 'approved', label: 'Approved', statuses: ['approved'], accent: '#22c55e' },
+    { key: 'rejected', label: 'Rejected', statuses: ['rejected'], accent: '#ef4444' },
+    { key: 'archived', label: 'Archived', statuses: ['archived'], accent: '#d1d5db' },
+  ]
+
+  let resumeBoardFilters = $state<{ archetype?: string; target_employer?: string; search?: string }>({})
+
+  let boardFilteredResumes = $derived.by(() => {
+    let result = resumes
+    if (resumeBoardFilters.archetype) result = result.filter(r => r.archetype === resumeBoardFilters.archetype)
+    if (resumeBoardFilters.target_employer) result = result.filter(r => r.target_employer === resumeBoardFilters.target_employer)
+    if (resumeBoardFilters.search) {
+      const q = resumeBoardFilters.search.toLowerCase()
+      result = result.filter(r => r.name.toLowerCase().includes(q) || r.target_role.toLowerCase().includes(q))
+    }
+    return result
+  })
+
+  async function handleResumeBoardDrop(itemId: string, newStatus: string) {
+    const result = await forge.resumes.update(itemId, { status: newStatus as any })
+    if (!result.ok) {
+      addToast({ type: 'error', message: friendlyError(result.error, 'Status update failed') })
+      throw new Error('Status update failed')
+    }
+    resumes = resumes.map(r => r.id === itemId ? { ...r, status: newStatus as any } : r)
+    addToast({ type: 'success', message: `Resume moved to ${newStatus.replace('_', ' ')}` })
+  }
 
   // Create form
   let showCreateForm = $state(false)
@@ -706,6 +750,34 @@
   }
 </script>
 
+{#if viewMode === 'board' && !selectedResumeId && !showCreateForm}
+  <div class="resumes-board-header">
+    <h1 class="page-title">Resumes</h1>
+    <div class="board-header-actions">
+      <button class="btn btn-primary" onclick={() => { showCreateForm = true; viewMode = 'list'; loadTemplates() }}>
+        + New Resume
+      </button>
+      <ViewToggle mode={viewMode} onchange={handleViewChange} />
+    </div>
+  </div>
+  <GenericKanban
+    columns={RESUME_COLUMNS}
+    items={boardFilteredResumes}
+    onDrop={handleResumeBoardDrop}
+    {loading}
+    emptyMessage="No resumes yet. Create your first resume to get started."
+    defaultCollapsed="archived"
+    sortItems={(a, b) => a.name.localeCompare(b.name)}
+  >
+    {#snippet filterBar()}
+      <ResumeFilterBar bind:filters={resumeBoardFilters} onchange={() => {}} />
+    {/snippet}
+
+    {#snippet cardContent(resume)}
+      <ResumeKanbanCard {resume} onclick={() => selectResume(resume.id)} />
+    {/snippet}
+  </GenericKanban>
+{:else}
 <div class="resumes-page">
   <!-- Left Panel -->
   <div class="left-panel">
@@ -718,9 +790,12 @@
       <!-- Resume List View -->
       <div class="panel-header">
         <h1 class="page-title">Resumes</h1>
-        <button class="btn btn-primary" onclick={() => { showCreateForm = true; loadTemplates() }}>
-          + New Resume
-        </button>
+        <div class="board-header-actions">
+          <button class="btn btn-primary" onclick={() => { showCreateForm = true; loadTemplates() }}>
+            + New Resume
+          </button>
+          <ViewToggle mode={viewMode} onchange={handleViewChange} />
+        </div>
       </div>
 
       {#if resumes.length === 0}
@@ -1050,6 +1125,7 @@
     {/if}
   </div>
 </div>
+{/if}
 
 <!-- Skills picker modal -->
 {#if skillsPickerSectionId && selectedResumeId}
@@ -1224,6 +1300,20 @@
 />
 
 <style>
+  .resumes-board-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+  }
+
+  .board-header-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
   /* ---- Layout ---- */
   .resumes-page {
     display: flex;

@@ -99,7 +99,7 @@
     border-top: 3px solid;
     background: var(--color-surface-raised, #f9fafb);
     border-radius: var(--radius-md, 6px);
-    overflow: hidden;
+    overflow-y: auto;
   }
 
   .column-header {

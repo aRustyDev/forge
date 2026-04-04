@@ -96,9 +96,10 @@ export function resolveState(location: string | null | undefined): string | null
   const trimmed = location.trim()
   if (!trimmed) return null
 
-  // Skip obvious non-geographic values
+  // Check for purely remote values (no geographic info embedded)
   const lower = trimmed.toLowerCase()
-  if (lower === 'remote' || lower === 'doe' || lower === 'anywhere') return null
+  const PURE_REMOTE = ['remote', 'doe', 'anywhere', 'work from home', 'wfh', 'remote (us)', 'remote - us', 'fully remote']
+  if (PURE_REMOTE.includes(lower)) return 'REMOTE'
 
   // Pattern 1: "City, ST" or "City, ST 12345"
   // Context-aware regex: match state abbreviation only after a comma
@@ -127,6 +128,9 @@ export function resolveState(location: string | null | undefined): string | null
       return state
     }
   }
+
+  // If no state found but location mentions remote, classify as remote
+  if (lower.includes('remote')) return 'REMOTE'
 
   return null
 }

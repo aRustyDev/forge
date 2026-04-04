@@ -19,6 +19,8 @@ export function registerTier3UpdateTools(
     {
       bullet_id: z.string().describe('Bullet ID'),
       content: z.string().optional().describe('Updated bullet text'),
+      technologies: z.array(z.string()).optional()
+        .describe('Technology tags (e.g., ["Python", "Kubernetes", "AWS"])'),
       metrics: z.string().nullable().optional()
         .describe('Quantifiable metrics (set null to clear)'),
       domain: z.string().nullable().optional()

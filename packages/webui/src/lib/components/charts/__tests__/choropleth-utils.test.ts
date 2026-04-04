@@ -117,6 +117,10 @@ describe('buildChoroplethOption', () => {
   it('produces valid map series option', () => {
     const data = {
       stateCounts: [{ name: 'California', value: 3, jds: [] as string[] }],
+      remoteCount: 1,
+      remoteJDs: [] as string[],
+      unknownCount: 0,
+      unknownJDs: [] as string[],
       unresolvedCount: 1,
       unresolvedJDs: [] as string[],
       totalJDs: 4,
@@ -133,6 +137,10 @@ describe('buildChoroplethOption', () => {
         { name: 'California', value: 5, jds: [] as string[] },
         { name: 'Texas', value: 3, jds: [] as string[] },
       ],
+      remoteCount: 0,
+      remoteJDs: [] as string[],
+      unknownCount: 0,
+      unknownJDs: [] as string[],
       unresolvedCount: 0,
       unresolvedJDs: [] as string[],
       totalJDs: 8,
@@ -143,9 +151,13 @@ describe('buildChoroplethOption', () => {
     expect(option.visualMap.max).toBe(5)
   })
 
-  it('subtitle shows total and unresolved counts', () => {
+  it('subtitle shows total, remote, and unknown counts', () => {
     const data = {
       stateCounts: [] as any[],
+      remoteCount: 2,
+      remoteJDs: [] as string[],
+      unknownCount: 1,
+      unknownJDs: [] as string[],
       unresolvedCount: 3,
       unresolvedJDs: [] as string[],
       totalJDs: 10,
@@ -153,6 +165,7 @@ describe('buildChoroplethOption', () => {
     }
     const option = buildChoroplethOption(data) as any
     expect(option.title.subtext).toContain('10 total')
-    expect(option.title.subtext).toContain('3 remote/unknown')
+    expect(option.title.subtext).toContain('2 remote')
+    expect(option.title.subtext).toContain('1 unknown')
   })
 })

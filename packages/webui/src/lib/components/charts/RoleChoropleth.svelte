@@ -130,10 +130,16 @@
       </div>
     {/if}
 
-    {#if data.unresolvedCount > 0}
-      <div class="unresolved-badge">
-        <span class="unresolved-count">{data.unresolvedCount}</span>
-        Remote / Unknown location
+    {#if data.remoteCount > 0}
+      <div class="unresolved-badge remote-badge">
+        <span class="unresolved-count">{data.remoteCount}</span>
+        Remote
+      </div>
+    {/if}
+    {#if data.unknownCount > 0}
+      <div class="unresolved-badge unknown-badge">
+        <span class="unresolved-count">{data.unknownCount}</span>
+        Unknown location
       </div>
     {/if}
   </div>
@@ -181,7 +187,6 @@
 
   .unresolved-badge {
     position: absolute;
-    bottom: 60px;
     right: 20px;
     background: var(--color-ghost);
     border: 1px solid var(--color-border);
@@ -189,6 +194,14 @@
     padding: 4px 10px;
     font-size: 11px;
     color: var(--text-muted);
+  }
+
+  .remote-badge {
+    bottom: 85px;
+  }
+
+  .unknown-badge {
+    bottom: 60px;
   }
 
   .unresolved-count {

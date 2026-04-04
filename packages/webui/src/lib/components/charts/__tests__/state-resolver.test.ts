@@ -46,12 +46,12 @@ describe('resolveState', () => {
   })
 
   // Null/empty/non-geographic
-  it('returns null for "Remote"', () => {
-    expect(resolveState('Remote')).toBeNull()
+  it('returns REMOTE for "Remote"', () => {
+    expect(resolveState('Remote')).toBe('REMOTE')
   })
 
-  it('returns null for "DOE"', () => {
-    expect(resolveState('DOE')).toBeNull()
+  it('returns REMOTE for "DOE"', () => {
+    expect(resolveState('DOE')).toBe('REMOTE')
   })
 
   it('returns null for empty string', () => {
@@ -66,8 +66,8 @@ describe('resolveState', () => {
     expect(resolveState(undefined)).toBeNull()
   })
 
-  it('returns null for "Anywhere"', () => {
-    expect(resolveState('Anywhere')).toBeNull()
+  it('returns REMOTE for "Anywhere"', () => {
+    expect(resolveState('Anywhere')).toBe('REMOTE')
   })
 
   // False positive protection
@@ -75,8 +75,8 @@ describe('resolveState', () => {
     expect(resolveState('AI Engineer')).toBeNull()
   })
 
-  it('returns null for "Remote OK" (should NOT match Oklahoma)', () => {
-    expect(resolveState('Remote OK')).toBeNull()
+  it('returns REMOTE for "Remote OK" (should NOT match Oklahoma)', () => {
+    expect(resolveState('Remote OK')).toBe('REMOTE')
   })
 
   // Standalone abbreviation edge case

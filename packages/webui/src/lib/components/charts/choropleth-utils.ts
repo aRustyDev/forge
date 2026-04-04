@@ -24,8 +24,12 @@ export interface StateCount {
  */
 export interface ChoroplethData {
   stateCounts: StateCount[]
-  unresolvedCount: number
-  unresolvedJDs: string[]   // titles of JDs with unresolvable locations
+  remoteCount: number
+  remoteJDs: string[]       // titles of explicitly remote JDs
+  unknownCount: number
+  unknownJDs: string[]      // titles of JDs with truly unresolvable locations
+  unresolvedCount: number   // remote + unknown combined (backward compat)
+  unresolvedJDs: string[]   // all unresolved titles (backward compat)
   totalJDs: number
   /** Precomputed top-5 organizations per state for O(1) tooltip lookups. */
   stateOrgsMap: Map<string, Array<{ name: string; count: number }>>
@@ -52,11 +56,12 @@ interface JDLike {
 export function aggregateByState(jds: JDLike[]): ChoroplethData {
   const stateMap = new Map<string, { count: number; jds: string[] }>()
   const stateOrgCountMap = new Map<string, Map<string, number>>()
-  const unresolvedJDs: string[] = []
+  const remoteJDs: string[] = []
+  const unknownJDs: string[] = []
 
   for (const jd of jds) {
     const state = resolveState(jd.location)
-    if (state) {
+    if (state && state !== 'REMOTE') {
       const existing = stateMap.get(state) ?? { count: 0, jds: [] }
       existing.count++
       existing.jds.push(jd.title)
@@ -67,8 +72,10 @@ export function aggregateByState(jds: JDLike[]): ChoroplethData {
       const orgMap = stateOrgCountMap.get(state)!
       const orgName = jd.organization_name ?? 'Unknown'
       orgMap.set(orgName, (orgMap.get(orgName) ?? 0) + 1)
+    } else if (state === 'REMOTE') {
+      remoteJDs.push(jd.title)
     } else {
-      unresolvedJDs.push(jd.title)
+      unknownJDs.push(jd.title)
     }
   }
 
@@ -90,8 +97,14 @@ export function aggregateByState(jds: JDLike[]): ChoroplethData {
     stateOrgsMap.set(state, orgs)
   }
 
+  const unresolvedJDs = [...remoteJDs, ...unknownJDs]
+
   return {
     stateCounts,
+    remoteCount: remoteJDs.length,
+    remoteJDs,
+    unknownCount: unknownJDs.length,
+    unknownJDs,
     unresolvedCount: unresolvedJDs.length,
     unresolvedJDs,
     totalJDs: jds.length,
@@ -145,7 +158,7 @@ export function buildChoroplethOption(
   return {
     title: {
       text: 'JD Distribution by State',
-      subtext: `${data.totalJDs} total \u2022 ${data.unresolvedCount} remote/unknown`,
+      subtext: `${data.totalJDs} total \u2022 ${data.remoteCount} remote \u2022 ${data.unknownCount} unknown`,
       left: 'center',
       top: 10,
     },

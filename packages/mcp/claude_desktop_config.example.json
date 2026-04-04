@@ -1,0 +1,13 @@
+{
+  "_comment": "Add this to your Claude Desktop config (~/Library/Application Support/Claude/claude_desktop_config.json) or Claude Code config (.claude/settings.json)",
+  "_comment_2": "FORGE_API_URL defaults to http://localhost:3000 if not specified",
+  "mcpServers": {
+    "forge": {
+      "command": "bun",
+      "args": ["run", "/ABSOLUTE/PATH/TO/packages/mcp/src/index.ts"],
+      "env": {
+        "FORGE_API_URL": "http://localhost:3000"
+      }
+    }
+  }
+}

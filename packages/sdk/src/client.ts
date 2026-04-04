@@ -113,6 +113,11 @@ export class ForgeClient {
     this.alignment = new AlignmentResource(req)
   }
 
+  /** Check connectivity to the Forge HTTP server. */
+  async health(): Promise<Result<{ server: string; version: string }>> {
+    return this.request<{ server: string; version: string }>('GET', '/api/health')
+  }
+
   // -------------------------------------------------------------------------
   // Internal helpers — public so resource sub-clients can call them via
   // bound references, but they are NOT re-exported from the barrel (index.ts).

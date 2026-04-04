@@ -1,4 +1,5 @@
 import type {
+  Resume,
   ResumeTemplate,
   CreateResumeTemplate,
   UpdateResumeTemplate,
@@ -48,6 +49,26 @@ export class TemplatesResource {
 
   delete(id: string): Promise<Result<void>> {
     return this.request<void>('DELETE', `/api/templates/${id}`)
+  }
+
+  /**
+   * Create a new resume from a template.
+   *
+   * The server clones the template's section structure into a new resume.
+   */
+  async createResumeFromTemplate(input: {
+    template_id: string
+    name: string
+    target_role: string
+    target_employer: string
+    archetype: string
+  }): Promise<Result<Resume>> {
+    return this.request<Resume>('POST', `/api/templates/${input.template_id}/create-resume`, {
+      name: input.name,
+      target_role: input.target_role,
+      target_employer: input.target_employer,
+      archetype: input.archetype,
+    })
   }
 
   /**

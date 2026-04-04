@@ -5,11 +5,13 @@ set dotenv-load := true
 # Resolve DB path relative to workspace root (bun --filter changes CWD to package dir)
 export FORGE_DB_PATH := absolute_path(env("FORGE_DB_PATH", "./data/forge.db"))
 
-# Start core API + webui together
+# Start core API + MCP server + webui together
 dev:
-    @echo "Starting Forge API (:3000) + WebUI (:5173)..."
+    @echo "Starting Forge API (:3000) + MCP (:5174) + WebUI (:5173)..."
     @echo "Database: {{FORGE_DB_PATH}}"
     bun run --filter '@forge/core' dev &
+    sleep 1
+    bun run --filter '@forge/mcp' dev &
     sleep 1
     bun run --filter '@forge/webui' dev
 

@@ -46,7 +46,20 @@ export type ResumeSection =
 export type OrganizationStatus = 'backlog' | 'researching' | 'exciting' | 'interested' | 'acceptable' | 'excluded'
 
 /** Valid entity types for prompt logs. */
-export type PromptLogEntityType = 'bullet' | 'perspective'
+export type PromptLogEntityType = 'bullet' | 'perspective' | 'job_description'
+
+/** A skill extracted from a JD by AI, pending human review. */
+export interface ExtractedSkill {
+  name: string
+  category: string
+  confidence: number
+}
+
+/** Result of AI skill extraction from a JD. */
+export interface SkillExtractionResult {
+  skills: ExtractedSkill[]
+  warnings: string[]
+}
 
 /** Valid source type discriminator values. */
 export type SourceType = 'role' | 'project' | 'education' | 'clearance' | 'general'
@@ -124,8 +137,9 @@ export interface Organization {
 
 /** Valid statuses for a JobDescription record. */
 export type JobDescriptionStatus =
-  | 'interested'
+  | 'discovered'
   | 'analyzing'
+  | 'applying'
   | 'applied'
   | 'interviewing'
   | 'offered'
@@ -142,6 +156,8 @@ export interface JobDescription {
   raw_text: string
   status: JobDescriptionStatus
   salary_range: string | null
+  salary_min: number | null
+  salary_max: number | null
   location: string | null
   notes: string | null
   created_at: string
@@ -194,6 +210,8 @@ export interface CreateJobDescription {
   raw_text: string
   status?: JobDescriptionStatus
   salary_range?: string
+  salary_min?: number
+  salary_max?: number
   location?: string
   notes?: string
 }
@@ -206,6 +224,8 @@ export interface UpdateJobDescription {
   raw_text?: string
   status?: JobDescriptionStatus
   salary_range?: string | null
+  salary_min?: number | null
+  salary_max?: number | null
   location?: string | null
   notes?: string | null
 }
@@ -626,6 +646,9 @@ export interface UserProfile {
   github: string | null
   website: string | null
   clearance: string | null
+  salary_minimum: number | null
+  salary_target: number | null
+  salary_stretch: number | null
   created_at: string
   updated_at: string
 }

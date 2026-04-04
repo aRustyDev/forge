@@ -7,7 +7,10 @@
   import { addToast } from '$lib/stores/toast.svelte'
   import { ConfirmDialog } from '$lib/components'
   import JDSkillPicker from './JDSkillPicker.svelte'
+  import JDSkillExtraction from './JDSkillExtraction.svelte'
   import JDLinkedResumes from './JDLinkedResumes.svelte'
+  import JDSkillRadar from '$lib/components/charts/JDSkillRadar.svelte'
+  import CompensationBulletGraph from '$lib/components/charts/CompensationBulletGraph.svelte'
   import type { JobDescriptionWithOrg, Organization, Skill } from '@forge/sdk'
 
   let {
@@ -29,9 +32,11 @@
   // Form state
   let title = $state('')
   let organizationId = $state<string | null>(null)
-  let status = $state('interested')
+  let status = $state('discovered')
   let location = $state('')
   let salaryRange = $state('')
+  let salaryMin = $state<number | null>(null)
+  let salaryMax = $state<number | null>(null)
   let url = $state('')
   let rawText = $state('')
   let notes = $state('')
@@ -48,6 +53,8 @@
       organizationId !== (jd.organization_id ?? null) ||
       location !== (jd.location ?? '') ||
       salaryRange !== (jd.salary_range ?? '') ||
+      salaryMin !== (jd.salary_min ?? null) ||
+      salaryMax !== (jd.salary_max ?? null) ||
       url !== (jd.url ?? '') ||
       rawText !== jd.raw_text ||
       notes !== (jd.notes ?? '')
@@ -62,6 +69,8 @@
       status = jd.status
       location = jd.location ?? ''
       salaryRange = jd.salary_range ?? ''
+      salaryMin = jd.salary_min ?? null
+      salaryMax = jd.salary_max ?? null
       url = jd.url ?? ''
       rawText = jd.raw_text
       notes = jd.notes ?? ''
@@ -69,9 +78,11 @@
     } else if (createMode) {
       title = ''
       organizationId = null
-      status = 'interested'
+      status = 'discovered'
       location = ''
       salaryRange = ''
+      salaryMin = null
+      salaryMax = null
       url = ''
       rawText = ''
       notes = ''
@@ -120,6 +131,8 @@
       status: status as any,
       location: location.trim() || null,
       salary_range: salaryRange.trim() || null,
+      salary_min: salaryMin ?? null,
+      salary_max: salaryMax ?? null,
       url: url.trim() || null,
       raw_text: rawText.trim(),
       notes: notes.trim() || null,
@@ -177,8 +190,9 @@
   <div class="field">
     <label for="jd-status">Status</label>
     <select id="jd-status" value={status} onchange={handleStatusChange}>
-      <option value="interested">Interested</option>
+      <option value="discovered">Discovered</option>
       <option value="analyzing">Analyzing</option>
+      <option value="applying">Applying</option>
       <option value="applied">Applied</option>
       <option value="interviewing">Interviewing</option>
       <option value="offered">Offered</option>
@@ -194,8 +208,19 @@
       <input id="jd-location" type="text" bind:value={location} placeholder="Remote, San Francisco, CA" />
     </div>
     <div class="field half">
-      <label for="jd-salary">Salary Range</label>
+      <label for="jd-salary">Salary Range (text)</label>
       <input id="jd-salary" type="text" bind:value={salaryRange} placeholder="$150k-$200k" />
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field half">
+      <label for="jd-salary-min">Min ($)</label>
+      <input id="jd-salary-min" type="number" bind:value={salaryMin} placeholder="150000" step="1000" />
+    </div>
+    <div class="field half">
+      <label for="jd-salary-max">Max ($)</label>
+      <input id="jd-salary-max" type="number" bind:value={salaryMax} placeholder="200000" step="1000" />
     </div>
   </div>
 
@@ -226,7 +251,21 @@
     <div class="field">
       <label>Required Skills</label>
       <JDSkillPicker jdId={jd.id} bind:jdSkills />
+      <JDSkillExtraction
+        jdId={jd.id}
+        {jdSkills}
+        {forge}
+        onSkillsChanged={() => loadSkills(jd.id)}
+      />
     </div>
+
+    <JDSkillRadar jdId={jd.id} />
+
+    <CompensationBulletGraph
+      jdTitle={jd.title}
+      salaryMin={salaryMin}
+      salaryMax={salaryMax}
+    />
 
     <div class="field">
       <JDLinkedResumes jdId={jd.id} />
@@ -302,6 +341,7 @@
 
   input[type="text"],
   input[type="url"],
+  input[type="number"],
   select,
   textarea {
     padding: 0.5rem 0.6rem;

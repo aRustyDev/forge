@@ -12,7 +12,8 @@
  * Import pattern for consumers:
  *   import { echarts } from '$lib/components/charts/echarts-registry'
  *
- * Registered chart types: Pie, Sunburst, Treemap, Custom (Gantt), Map (Choropleth)
+ * Registered chart types: Pie, Sunburst, Treemap, Custom (Gantt), Map (Choropleth),
+ *   Radar (Phase 65 JD skill alignment), Bar (Phase 65 fallback + Phase 66 compensation)
  * Renderer: SVG (crisper text, smaller module, sufficient for Forge's data volumes)
  */
 import * as echarts from 'echarts/core'
@@ -23,6 +24,8 @@ import { SunburstChart } from 'echarts/charts'
 import { TreemapChart } from 'echarts/charts'
 import { CustomChart } from 'echarts/charts'
 import { MapChart } from 'echarts/charts'
+import { RadarChart } from 'echarts/charts'
+import { BarChart } from 'echarts/charts'
 
 // ── Components ───────────────────────────────────────────────────
 import { TooltipComponent } from 'echarts/components'
@@ -33,6 +36,8 @@ import { VisualMapComponent } from 'echarts/components'
 import { DatasetComponent } from 'echarts/components'
 import { TransformComponent } from 'echarts/components'
 import { GraphicComponent } from 'echarts/components' // Phase 63's sunburst center-text label requires this
+import { RadarComponent } from 'echarts/components' // Phase 65: radar coordinate system for skill alignment
+import { MarkAreaComponent, MarkLineComponent } from 'echarts/components' // Phase 66: compensation chart bands/lines
 
 // ── Renderer ─────────────────────────────────────────────────────
 // SVG chosen over Canvas for better text rendering and smaller module size.
@@ -46,6 +51,8 @@ echarts.use([
   TreemapChart,
   CustomChart,
   MapChart,
+  RadarChart,
+  BarChart,
   TooltipComponent,
   LegendComponent,
   TitleComponent,
@@ -54,6 +61,9 @@ echarts.use([
   DatasetComponent,
   TransformComponent,
   GraphicComponent,
+  RadarComponent,
+  MarkAreaComponent,
+  MarkLineComponent,
   SVGRenderer,
 ])
 

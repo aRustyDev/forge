@@ -18,6 +18,11 @@
     clearance: null,
   })
 
+  // Salary expectation fields (numeric, separate from the text form)
+  let salaryMinimum = $state<number | null>(null)
+  let salaryTarget = $state<number | null>(null)
+  let salaryStretch = $state<number | null>(null)
+
   let saveTimeout: ReturnType<typeof setTimeout> | null = null
 
   onDestroy(() => {
@@ -39,6 +44,9 @@
         website: result.data.website,
         clearance: result.data.clearance,
       }
+      salaryMinimum = result.data.salary_minimum ?? null
+      salaryTarget = result.data.salary_target ?? null
+      salaryStretch = result.data.salary_stretch ?? null
     } else {
       addToast({ message: friendlyError(result.error), type: 'error' })
     }
@@ -59,12 +67,23 @@
         }
       }
 
+      // Check salary expectation changes separately (numeric, not string)
+      if (profile && salaryMinimum !== (profile.salary_minimum ?? null)) {
+        (patch as any).salary_minimum = salaryMinimum
+      }
+      if (profile && salaryTarget !== (profile.salary_target ?? null)) {
+        (patch as any).salary_target = salaryTarget
+      }
+      if (profile && salaryStretch !== (profile.salary_stretch ?? null)) {
+        (patch as any).salary_stretch = salaryStretch
+      }
+
       if (Object.keys(patch).length === 0) {
         saving = false
         return
       }
 
-      const result = await forge.profile.update(patch)
+      const result = await forge.profile.update(patch as any)
       if (result.ok) {
         profile = result.data
         addToast({ message: 'Profile saved', type: 'success' })
@@ -153,6 +172,30 @@
       </div>
     </div>
 
+    <h3 class="section-heading">Salary Expectations</h3>
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="pf-sal-min">Minimum Acceptable ($)</label>
+        <input id="pf-sal-min" type="number" bind:value={salaryMinimum}
+               placeholder="120000" step="1000"
+               oninput={scheduleAutosave} />
+      </div>
+
+      <div class="form-field">
+        <label for="pf-sal-target">Target ($)</label>
+        <input id="pf-sal-target" type="number" bind:value={salaryTarget}
+               placeholder="160000" step="1000"
+               oninput={scheduleAutosave} />
+      </div>
+
+      <div class="form-field">
+        <label for="pf-sal-stretch">Stretch ($)</label>
+        <input id="pf-sal-stretch" type="number" bind:value={salaryStretch}
+               placeholder="200000" step="1000"
+               oninput={scheduleAutosave} />
+      </div>
+    </div>
+
     <div class="form-actions">
       <button class="btn btn-primary" type="submit" disabled={saving}>
         {saving ? 'Saving...' : 'Save Profile'}
@@ -196,6 +239,16 @@
 
   .full-width {
     grid-column: 1 / -1;
+  }
+
+  .section-heading {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
   }
 
   .form-field label {

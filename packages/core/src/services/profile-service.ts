@@ -38,6 +38,39 @@ export class ProfileService {
         error: { code: 'VALIDATION_ERROR', message: 'Name must not be empty' },
       }
     }
+
+    // Validate salary expectation ordering when multiple tiers are provided
+    const salMin = patch.salary_minimum
+    const salTarget = patch.salary_target
+    const salStretch = patch.salary_stretch
+    if (
+      salMin != null && salTarget != null &&
+      salMin > salTarget
+    ) {
+      return {
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'salary_minimum must not exceed salary_target' },
+      }
+    }
+    if (
+      salTarget != null && salStretch != null &&
+      salTarget > salStretch
+    ) {
+      return {
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'salary_target must not exceed salary_stretch' },
+      }
+    }
+    if (
+      salMin != null && salStretch != null &&
+      salMin > salStretch
+    ) {
+      return {
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'salary_minimum must not exceed salary_stretch' },
+      }
+    }
+
     const updated = ProfileRepository.update(this.db, patch)
     if (!updated) {
       return { ok: false, error: { code: 'NOT_FOUND', message: 'Profile not found' } }

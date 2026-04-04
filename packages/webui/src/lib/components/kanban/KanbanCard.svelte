@@ -7,9 +7,9 @@
   } = $props()
 
   const INTEREST_STYLES: Record<string, { bg: string; border: string; badge: string; label: string }> = {
-    exciting: { bg: '#f0fdf4', border: '#22c55e', badge: '#16a34a', label: 'EXCITING' },
-    interested: { bg: '#eff6ff', border: '#3b82f6', badge: '#2563eb', label: 'INTERESTED' },
-    acceptable: { bg: '#fafafa', border: '#9ca3af', badge: '#6b7280', label: 'ACCEPTABLE' },
+    exciting: { bg: 'var(--color-success-subtle)', border: 'var(--color-success)', badge: 'var(--color-success-strong)', label: 'EXCITING' },
+    interested: { bg: 'var(--color-info-subtle)', border: 'var(--color-info)', badge: 'var(--color-info)', label: 'INTERESTED' },
+    acceptable: { bg: 'var(--color-surface-raised)', border: 'var(--text-faint)', badge: 'var(--text-muted)', label: 'ACCEPTABLE' },
   }
 
   let interest = $derived(INTEREST_STYLES[org.status ?? ''] ?? null)
@@ -20,8 +20,8 @@
 <div
   class="kanban-card"
   class:excluded={isExcluded}
-  style:background={interest?.bg ?? '#ffffff'}
-  style:border-left={interest ? `4px solid ${interest.border}` : '1px solid #e5e7eb'}
+  style:background={interest?.bg ?? 'var(--color-surface)'}
+  style:border-left={interest ? `4px solid ${interest.border}` : `1px solid var(--color-border)`}
   onclick={onclick}
   role="button"
   tabindex="0"
@@ -37,7 +37,7 @@
   {#if org.tags && org.tags.length > 0}
     <div class="tag-pills">
       {#each org.tags as tag}
-        <span class="tag-pill">{tag}</span>
+        <span class="pill">{tag}</span>
       {/each}
     </div>
   {/if}
@@ -52,7 +52,7 @@
   </div>
 
   {#if interest}
-    <span class="interest-badge" style:background={interest.badge}>
+    <span class="badge" style:background={interest.badge}>
       {interest.label}
     </span>
   {/if}
@@ -61,15 +61,15 @@
 <style>
   .kanban-card {
     padding: 0.6rem 0.75rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     cursor: grab;
     transition: box-shadow 0.12s, opacity 0.12s;
     margin-bottom: 0.35rem;
   }
 
   .kanban-card:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow-sm);
   }
 
   .kanban-card:active {
@@ -89,8 +89,8 @@
 
   .card-name {
     font-size: 0.82rem;
-    font-weight: 600;
-    color: #1a1a2e;
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -100,17 +100,17 @@
 
   .card-name.strike {
     text-decoration: line-through;
-    color: #6b7280;
+    color: var(--text-muted);
   }
 
   .worked-badge {
     display: inline-block;
     padding: 0.08em 0.35em;
-    background: #d1fae5;
-    color: #065f46;
-    border-radius: 3px;
+    background: var(--color-success-subtle);
+    color: var(--color-success-text);
+    border-radius: var(--radius-sm);
     font-size: 0.6rem;
-    font-weight: 600;
+    font-weight: var(--font-semibold);
     text-transform: uppercase;
     flex-shrink: 0;
   }
@@ -122,17 +122,6 @@
     margin-bottom: 0.2rem;
   }
 
-  .tag-pill {
-    display: inline-block;
-    padding: 0.05em 0.3em;
-    background: #e0e7ff;
-    color: #3730a3;
-    border-radius: 3px;
-    font-size: 0.58rem;
-    font-weight: 500;
-    text-transform: lowercase;
-  }
-
   .card-meta {
     display: flex;
     gap: 0.4rem;
@@ -140,18 +129,7 @@
   }
 
   .meta-text {
-    font-size: 0.7rem;
-    color: #6b7280;
-  }
-
-  .interest-badge {
-    display: inline-block;
-    margin-top: 0.3rem;
-    padding: 0.1em 0.4em;
-    color: #fff;
-    border-radius: 3px;
-    font-size: 0.58rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
   }
 </style>

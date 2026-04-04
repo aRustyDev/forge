@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { LoadingSpinner, EmptyState, ConfirmDialog, PageWrapper } from '$lib/components'
+  import { LoadingSpinner, EmptyState, ConfirmDialog, PageWrapper, SplitPanel, ListPanelHeader } from '$lib/components'
   import type { UserNote, NoteReference } from '@forge/sdk'
 
   const ENTITY_TYPES = ['source', 'bullet', 'perspective', 'resume_entry', 'resume', 'skill', 'organization']
@@ -170,13 +170,9 @@
 </script>
 
 <PageWrapper>
-  <div class="notes-page">
-  <!-- Left panel -->
-  <div class="list-panel">
-    <div class="list-header">
-      <h2>Notes</h2>
-      <button class="btn-new" onclick={startNew}>+ New</button>
-    </div>
+  <SplitPanel>
+    {#snippet list()}
+      <ListPanelHeader title="Notes" onNew={startNew} />
 
     <div class="filter-bar">
       <input
@@ -226,10 +222,8 @@
         {/each}
       </ul>
     {/if}
-  </div>
-
-  <!-- Right panel -->
-  <div class="editor-panel">
+    {/snippet}
+    {#snippet detail()}
     {#if !selectedNote && !editing}
       <div class="editor-empty">
         <p>Select a note or create a new one.</p>
@@ -312,8 +306,8 @@
         </div>
       </div>
     {/if}
-  </div>
-  </div>
+    {/snippet}
+  </SplitPanel>
 </PageWrapper>
 
 <ConfirmDialog
@@ -327,52 +321,6 @@
 />
 
 <style>
-  .notes-page {
-    display: flex;
-    gap: 0;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .list-panel {
-    width: 320px;
-    flex-shrink: 0;
-    border-right: 1px solid var(--color-border);
-    background: var(--color-surface);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .list-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.25rem 1rem;
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .list-header h2 {
-    font-size: var(--text-xl);
-    font-weight: var(--font-semibold);
-    color: var(--text-primary);
-  }
-
-  .btn-new {
-    padding: 0.35rem 0.75rem;
-    background: var(--color-primary);
-    color: var(--color-surface);
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    cursor: pointer;
-    transition: background 0.15s;
-    white-space: nowrap;
-  }
-
-  .btn-new:hover { background: var(--color-primary-hover); }
-
   .filter-bar {
     padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--color-border);
@@ -486,13 +434,6 @@
   .ref-resume { background: #fce7f3; color: #9d174d; } /* semantic: no token -- resume reference type color */
   .ref-skill { background: var(--color-tag-bg); color: var(--color-tag-text); }
   .ref-organization { background: var(--color-tag-neutral-bg); color: var(--color-tag-neutral-text); }
-
-  /* Editor */
-  .editor-panel {
-    flex: 1;
-    overflow-y: auto;
-    background: var(--color-surface);
-  }
 
   .editor-empty {
     display: flex;

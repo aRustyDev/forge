@@ -37,14 +37,14 @@ const ANTI_PATTERNS: AntiPattern[] = [
     pattern: /\.list-panel\s*\{/,
     allowedIn: ['SplitPanel.svelte', 'base.css'],
     message: 'Use <SplitPanel> instead of inline .list-panel CSS',
-    expectedViolations: 7,
+    expectedViolations: 6,
   },
   {
     name: 'ListPanelHeader',
     pattern: /\.btn-new\s*\{/,
     allowedIn: ['ListPanelHeader.svelte'],
     message: 'Use <ListPanelHeader> instead of inline .btn-new CSS',
-    expectedViolations: 7,
+    expectedViolations: 6,
   },
   {
     name: 'GlobalButtonCSS',

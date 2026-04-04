@@ -13,6 +13,8 @@
   import { onDestroy } from 'svelte'
   import Graph from 'graphology'
   import type { GraphNode, GraphEdge, GraphViewProps } from './graph.types'
+  import { nodePassesFilter } from './graph.filters'
+  import type { GraphFilterState } from './graph.filters'
   import { mergeConfig } from './graph.config'
   import type { GraphConfig } from './graph.types'
   import {
@@ -40,6 +42,7 @@
     onEdgeClick = undefined,
     onEdgeHover = undefined,
     onStageClick = undefined,
+    filterState = undefined,
   }: GraphViewProps = $props()
 
   // ---------------------------------------------------------------------------
@@ -200,7 +203,6 @@
               if (drawLabelFn) {
                 drawLabelFn(context, data, settings)
               } else {
-                // Inline fallback if sigma/rendering import failed
                 const size = settings.labelSize || 14
                 const font = settings.labelFont || 'sans-serif'
                 const weight = settings.labelWeight || 'normal'
@@ -211,7 +213,7 @@
             }
           },
 
-          // --- Node reducer: selection + edge-hover highlighting ---
+          // --- Node reducer: selection + edge-hover + filter dimming ---
           nodeReducer: (node: string, data: Record<string, any>) => {
             // Selection highlighting takes priority
             if (selectedNodeId) {
@@ -222,7 +224,6 @@
                 graph!.hasEdge(selectedNodeId, node)
                 || graph!.hasEdge(node, selectedNodeId)
               ) {
-                // Neighbor of selected node: show label
                 return { ...data, forceLabel: true, zIndex: Z_FOREGROUND }
               }
               return { ...data, color: DIM_NODE_COLOR, label: '', zIndex: Z_BACKGROUND }
@@ -237,8 +238,17 @@
                 }
                 return { ...data, color: DIM_NODE_COLOR, label: '', zIndex: Z_BACKGROUND }
               } catch {
-                // Invalid edge ID — return unmodified data
                 return data
+              }
+            }
+
+            // Filter dimming via attribute (set by filter $effect)
+            if (data.hidden) {
+              return {
+                ...data,
+                color: DIM_NODE_COLOR,
+                label: '',
+                zIndex: Z_BACKGROUND,
               }
             }
 
@@ -390,6 +400,45 @@
   })
 
   // ---------------------------------------------------------------------------
+  // Filter $effect: attribute-based filtering (Phase 53)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Reacts to filterState changes, sets hidden attribute on graphology nodes.
+   * The nodeReducer reads data.hidden and dims accordingly.
+   * This avoids stale closures -- the reducer does not read filterState directly.
+   */
+  $effect(() => {
+    if (!graph) return
+
+    // When filterState is undefined (not provided or cleared), iterate all
+    // nodes and set hidden = false to clear previously-applied filters.
+    if (!filterState) {
+      graph.forEachNode((nodeId) => {
+        graph!.setNodeAttribute(nodeId, 'hidden', false)
+      })
+      sigmaInstance?.refresh()
+      return
+    }
+
+    const _filter = filterState  // track reactive dependency
+
+    // CRITICAL: Pass `{ ...attrs, type: attrs.nodeType ?? attrs.type }` to
+    // `nodePassesFilter`. The graphology `type` attribute is `'circle'` (Sigma
+    // node program), not the entity type. The entity classification is stored
+    // as `nodeType` on graphology nodes (set in Phase 48's node construction).
+    graph.forEachNode((nodeId, attrs) => {
+      const passes = nodePassesFilter(
+        { ...attrs, type: attrs.nodeType ?? attrs.type } as GraphNode,
+        _filter,
+      )
+      graph!.setNodeAttribute(nodeId, 'hidden', !passes)
+    })
+
+    sigmaInstance?.refresh()
+  })
+
+  // ---------------------------------------------------------------------------
   // Backup cleanup: onDestroy for abrupt component unmount
   // ---------------------------------------------------------------------------
 
@@ -428,21 +477,25 @@
   }
 
   /**
-   * Programmatically focus on a node: select it and animate the camera to it.
-   * Used by H6 search results to navigate to a found node.
+   * Animate camera to center on a specific node.
+   * Returns false if the node doesn't exist or Sigma is not initialized.
    */
-  export function focusNode(nodeId: string): void {
-    if (!graph?.hasNode(nodeId) || !sigmaInstance) return
+  export function focusNode(
+    nodeId: string,
+    ratio = 0.3,
+    duration = 400
+  ): boolean {
+    if (!sigmaInstance || !graph?.hasNode(nodeId)) return false
     selectedNodeId = nodeId
     const displayData = sigmaInstance.getNodeDisplayData(nodeId)
-    if (displayData) {
-      sigmaInstance.getCamera().animate(
-        { x: displayData.x, y: displayData.y, ratio: 0.3 },
-        { duration: 300 },
-      )
-    }
+    if (!displayData) return false
+    sigmaInstance.getCamera().animate(
+      { x: displayData.x, y: displayData.y, ratio },
+      { duration },
+    )
     const attrs = graph.getNodeAttributes(nodeId)
     onNodeClick?.(nodeId, attrs as GraphNode)
+    return true
   }
 </script>
 

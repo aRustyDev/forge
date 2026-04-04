@@ -443,8 +443,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 0.75rem;
-    border-bottom: 1px solid #d1d5db;
-    background: #f6f8fa;
+    border-bottom: 1px solid var(--color-border-strong);
+    background: var(--color-surface-raised);
   }
 
   .tab-group {
@@ -460,20 +460,20 @@
     background: transparent;
     font-size: 0.85rem;
     font-weight: 500;
-    color: #57606a;
+    color: var(--text-muted);
     cursor: pointer;
     margin-bottom: -1px;
     font-family: inherit;
   }
 
   .tab:hover {
-    color: #1a1a2e;
+    color: var(--text-primary);
   }
 
   .tab.active {
-    background: #fff;
-    border-color: #d1d5db;
-    color: #1a1a2e;
+    background: var(--color-surface);
+    border-color: var(--color-border-strong);
+    color: var(--text-primary);
   }
 
   .tab-actions {
@@ -500,7 +500,7 @@
     font-family: Georgia, 'Times New Roman', serif;
     font-size: 0.9rem;
     line-height: 1.6;
-    background: #fff;
+    background: var(--color-surface);
   }
 
   .preview-pane :global(.latex-section) {
@@ -508,11 +508,11 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    border-bottom: 1px solid #1a1a2e;
+    border-bottom: 1px solid var(--text-primary);
     padding-bottom: 0.15rem;
     margin-top: 0.75rem;
     margin-bottom: 0.35rem;
-    color: #1a1a2e;
+    color: var(--text-primary);
   }
 
   .preview-pane :global(.latex-subheading) {
@@ -571,9 +571,9 @@
   }
 
   .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .btn-primary { background: #6c63ff; color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: #5a52e0; }
-  .btn-secondary { background: #e5e7eb; color: #374151; }
-  .btn-secondary:hover:not(:disabled) { background: #d1d5db; }
-  .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.75rem; }
+  .btn-primary { background: var(--color-primary); color: var(--text-inverse); }
+  .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
+  .btn-secondary { background: var(--color-border); color: var(--text-secondary); }
+  .btn-secondary:hover:not(:disabled) { background: var(--color-border-strong); }
+  .btn-sm { padding: 0.3rem 0.6rem; font-size: var(--text-xs); }
 </style>

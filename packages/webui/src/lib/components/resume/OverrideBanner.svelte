@@ -46,28 +46,28 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: var(--space-4);
     padding: 0.6rem 0.75rem;
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
     border-bottom: 1px solid;
   }
 
   .override-banner.stale {
-    background: #fffbeb;
-    border-color: #fde68a;
-    color: #92400e;
+    background: var(--color-warning-subtle);
+    border-color: var(--color-warning-border);
+    color: var(--color-warning-text);
   }
 
   .override-banner.current {
-    background: #eff6ff;
-    border-color: #bfdbfe;
-    color: #1e40af;
+    background: var(--color-info-subtle);
+    border-color: var(--color-info-border);
+    color: var(--color-info-text);
   }
 
   .banner-message {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--space-2);
   }
 
   .banner-icon {
@@ -82,38 +82,38 @@
 
   .banner-actions {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--space-2);
     flex-shrink: 0;
   }
 
   .banner-btn {
     padding: 0.25rem 0.5rem;
     border: 1px solid;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 500;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
     cursor: pointer;
     font-family: inherit;
     transition: background 0.1s;
   }
 
   .banner-regenerate {
-    background: #6c63ff;
-    border-color: #6c63ff;
-    color: #fff;
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--text-inverse);
   }
 
   .banner-regenerate:hover {
-    background: #5a52e0;
+    background: var(--color-primary-hover);
   }
 
   .banner-reset {
     background: transparent;
-    border-color: #d1d5db;
-    color: #6b7280;
+    border-color: var(--color-border-strong);
+    color: var(--text-muted);
   }
 
   .banner-reset:hover {
-    background: #f3f4f6;
+    background: var(--color-ghost);
   }
 </style>

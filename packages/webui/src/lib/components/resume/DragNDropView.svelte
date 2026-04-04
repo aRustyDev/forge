@@ -496,8 +496,8 @@
     cursor: text;
     font-size: 0.85rem;
     font-weight: 700;
-    color: #1a1a2e;
-    border-bottom: 2px solid #1a1a2e;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--text-primary);
     padding-bottom: 0.25rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
@@ -509,24 +509,24 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    border: 1px solid #6c63ff;
-    border-radius: 4px;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-sm);
     padding: 0.15rem 0.35rem;
     font-family: inherit;
-    color: #1a1a2e;
+    color: var(--text-primary);
   }
 
   .section-title-input:focus {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+    box-shadow: 0 0 0 2px var(--color-primary-subtle);
   }
 
   .entry-type-badge {
     font-size: 0.6rem;
     padding: 0.1em 0.4em;
-    background: #e0e7ff;
-    color: #3730a3;
-    border-radius: 3px;
+    background: var(--color-tag-bg);
+    color: var(--color-tag-text);
+    border-radius: var(--radius-sm);
     font-weight: 600;
     text-transform: uppercase;
     white-space: nowrap;
@@ -538,8 +538,8 @@
     flex-shrink: 0;
   }
 
-  .btn-section-delete { color: #dc2626; }
-  .btn-section-delete:hover { background: #fef2f2; }
+  .btn-section-delete { color: var(--color-danger-text); }
+  .btn-section-delete:hover { background: var(--color-danger-subtle); }
 
   .experience-group {
     margin-bottom: 1rem;
@@ -548,7 +548,7 @@
   .org-name {
     font-size: 0.95rem;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--text-primary);
     margin-bottom: 0.25rem;
   }
 
@@ -568,12 +568,12 @@
     font-weight: 600;
     font-style: italic;
     font-size: 0.875rem;
-    color: #374151;
+    color: var(--text-secondary);
   }
 
   .date-range {
     font-size: 0.8rem;
-    color: #6b7280;
+    color: var(--text-muted);
     flex-shrink: 0;
   }
 
@@ -590,23 +590,23 @@
     margin-bottom: 0.15rem;
     border-radius: 4px;
     font-size: 0.825rem;
-    color: #374151;
+    color: var(--text-secondary);
     line-height: 1.5;
     cursor: grab;
     transition: background 0.1s;
   }
 
   .bullet-item:hover {
-    background: #f9fafb;
+    background: var(--color-surface-raised);
   }
 
   .bullet-item.cloned {
-    border-left: 3px solid #f59e0b;
+    border-left: 3px solid var(--color-warning);
     padding-left: 0.35rem;
   }
 
   .drag-handle {
-    color: #d1d5db;
+    color: var(--color-border-strong);
     cursor: grab;
     user-select: none;
     flex-shrink: 0;
@@ -634,9 +634,9 @@
   .clone-badge {
     display: inline-block;
     padding: 0.1em 0.3em;
-    background: #fef3c7;
-    color: #92400e;
-    border-radius: 3px;
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+    border-radius: var(--radius-sm);
     font-size: 0.6rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -645,10 +645,10 @@
   .bullet-edit-textarea {
     width: 100%;
     padding: 0.5rem 0.65rem;
-    border: 1px solid #6c63ff;
-    border-radius: 6px;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-md);
     font-size: 0.825rem;
-    color: #1a1a1a;
+    color: var(--text-primary);
     font-family: inherit;
     line-height: 1.5;
     resize: vertical;
@@ -657,7 +657,7 @@
 
   .bullet-edit-textarea:focus {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+    box-shadow: 0 0 0 2px var(--color-primary-subtle);
   }
 
   .bullet-edit-actions {
@@ -673,7 +673,7 @@
 
   .skill-category {
     font-size: 0.825rem;
-    color: #374151;
+    color: var(--text-secondary);
     line-height: 1.6;
     margin-bottom: 0.15rem;
   }
@@ -691,23 +691,23 @@
   .edu-institution {
     font-weight: 700;
     font-size: 0.875rem;
-    color: #1a1a2e;
+    color: var(--text-primary);
   }
 
   .edu-date {
     font-size: 0.8rem;
-    color: #6b7280;
+    color: var(--text-muted);
   }
 
   .edu-degree {
     font-size: 0.825rem;
-    color: #374151;
+    color: var(--text-secondary);
     font-style: italic;
   }
 
   .cert-category {
     font-size: 0.825rem;
-    color: #374151;
+    color: var(--text-secondary);
     line-height: 1.6;
     margin-bottom: 0.15rem;
   }
@@ -726,24 +726,24 @@
   .project-name {
     font-weight: 700;
     font-size: 0.875rem;
-    color: #1a1a2e;
+    color: var(--text-primary);
   }
 
   .project-date {
     font-size: 0.8rem;
-    color: #6b7280;
+    color: var(--text-muted);
   }
 
   .summary-text {
     font-size: 0.85rem;
-    color: #374151;
+    color: var(--text-secondary);
     line-height: 1.6;
     font-family: Georgia, 'Times New Roman', serif;
   }
 
   .generic-item {
     font-size: 0.825rem;
-    color: #374151;
+    color: var(--text-secondary);
     line-height: 1.6;
     margin-bottom: 0.25rem;
   }
@@ -751,9 +751,9 @@
   /* Provenance tooltip */
   .provenance-tooltip {
     position: fixed;
-    z-index: 10000;
-    background: #1a1a2e;
-    color: #e0e0e0;
+    z-index: var(--z-modal);
+    background: var(--color-sidebar-bg);
+    color: var(--color-sidebar-text-hover);
     padding: 0.5rem 0.75rem;
     border-radius: 6px;
     font-size: 0.7rem;
@@ -826,12 +826,12 @@
   .delete-modal h4 {
     margin: 0 0 0.5rem 0;
     font-size: 1rem;
-    color: #1a1a2e;
+    color: var(--text-primary);
   }
 
   .delete-modal p {
     font-size: 0.85rem;
-    color: #6b7280;
+    color: var(--text-muted);
     margin-bottom: 1rem;
   }
 
@@ -882,7 +882,7 @@
     margin-top: 0.5rem;
     border: 1px dashed #d1d5db;
     background: transparent;
-    color: #6b7280;
+    color: var(--text-muted);
     width: 100%;
     padding: 0.4rem;
     border-radius: 6px;

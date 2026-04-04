@@ -70,10 +70,10 @@
   .btn-add-section {
     width: 100%;
     padding: 0.6rem;
-    border: 2px dashed #d1d5db;
+    border: 2px dashed var(--color-border-strong);
     background: transparent;
-    color: #6b7280;
-    border-radius: 8px;
+    color: var(--text-muted);
+    border-radius: var(--radius-lg);
     cursor: pointer;
     font-size: 0.85rem;
     font-weight: 500;
@@ -82,9 +82,9 @@
   }
 
   .btn-add-section:hover {
-    border-color: #6c63ff;
-    color: #6c63ff;
-    background: #f5f3ff;
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: var(--color-primary-subtle);
   }
 
   .add-section-dropdown {
@@ -92,12 +92,12 @@
     bottom: 100%;
     left: 0;
     right: 0;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
     margin-bottom: 0.25rem;
-    z-index: 100;
+    z-index: var(--z-dropdown);
     max-height: 300px;
     overflow-y: auto;
   }
@@ -110,7 +110,7 @@
     padding: 0.5rem 0.75rem;
     border: none;
     background: transparent;
-    color: #374151;
+    color: var(--text-secondary);
     font-size: 0.825rem;
     cursor: pointer;
     font-family: inherit;
@@ -118,17 +118,17 @@
   }
 
   .dropdown-item:hover {
-    background: #f5f3ff;
-    color: #6c63ff;
+    background: var(--color-primary-subtle);
+    color: var(--color-primary);
   }
 
   .dropdown-item.existing {
-    color: #9ca3af;
+    color: var(--text-faint);
   }
 
   .existing-badge {
     font-size: 0.6rem;
-    color: #9ca3af;
+    color: var(--text-faint);
     font-style: italic;
   }
 </style>

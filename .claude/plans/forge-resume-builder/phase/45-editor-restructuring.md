@@ -847,3 +847,4 @@ No unit tests. The codebase does not have a component testing framework for Svel
 - Phase 44 (IR Data Quality) changes the data flowing into `ResumeDocument` but does not change the IR type structure. SourceView consumes the IR for content generation, so Phase 44 improvements will automatically appear in the Source tab.
 - Phase 46 (LaTeX/XeTeX Docs) is documentation-only.
 - Phase 47 (Clearance Structured Data) has no UI overlap with this phase.
+- SourceView.svelte should use design tokens from Phase 42 (`var(--color-surface)`, `var(--color-border)`, etc.) instead of hardcoded hex values. If Phase 42 has not landed yet, use hardcoded values with a TODO comment for token migration.

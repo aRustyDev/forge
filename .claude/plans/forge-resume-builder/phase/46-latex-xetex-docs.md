@@ -61,6 +61,8 @@ None. This is a documentation-only phase.
 
 **File:** `docs/latex-xetex-compatibility.md`
 
+Create `docs/` directory if it does not exist (`mkdir -p docs`).
+
 Create the full compatibility reference document.
 
 ```markdown

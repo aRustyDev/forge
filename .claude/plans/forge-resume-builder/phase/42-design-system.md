@@ -86,7 +86,7 @@ The existing component inventory under `$lib/components/` includes: `StatusBadge
 ## Fallback Strategies
 
 - **`$lib/styles/` import resolution:** If SvelteKit's `$lib` alias does not resolve CSS imports from `<script>` blocks, use relative paths (`../../styles/tokens.css`). Verify with `bun run check` before committing.
-- **`$state` in `.svelte.ts` files:** The theme store uses module-level `$state` runes in a `.svelte.ts` file. If the Svelte compiler does not process `.svelte.ts` files in the project's current config, rename to a plain `.ts` file and use a simple variable with manual reactivity (no runes). Test with `bun run check`.
+- **`$state` in `.svelte.ts` files:** The theme store uses module-level `$state` runes in a `.svelte.ts` file. File must be `.svelte.ts` for Svelte 5 module-level runes. If the Svelte compiler does not process `.svelte.ts` files in the project's current config, rename to a plain `.ts` file and use a simple variable with manual reactivity (no runes). Test with `bun run check`.
 - **CSS specificity conflicts:** If global `.btn` from `base.css` collides with component-scoped `.btn`, Svelte's scoped styles have higher specificity by default. If not, prefix base classes with `.forge-` (e.g., `.forge-btn`). Check by inspecting rendered elements in DevTools.
 - **Dark theme contrast:** If dark theme values produce insufficient contrast (< 4.5:1 WCAG AA), adjust individual token values. The spec values are hand-picked but may need fine-tuning.
 - **Import order sensitivity:** `tokens.css` must be imported before `base.css` because `base.css` references custom properties. If Vite reorders imports, use a single combined `design-system.css` that concatenates both.
@@ -952,7 +952,7 @@ Import the design system files and theme store. Remove the `:global()` reset and
 <script lang="ts">
   import '$lib/styles/tokens.css'
   import '$lib/styles/base.css'
-  import '$lib/stores/theme.svelte'  // initializes theme on import
+  import '$lib/stores/theme.svelte.ts'  // initializes theme on import
   import { page } from '$app/state'
   import { ToastContainer } from '$lib/components'
   // ... rest of existing imports unchanged
@@ -1484,6 +1484,7 @@ After all component updates, run a final verification:
 - `bun run check` passes.
 - `bun run build` passes.
 - Dark mode renders correctly across all shared components.
+- All token color pairs (text on surface, text on sidebar, badge text on badge bg) meet WCAG AA 4.5:1 minimum contrast ratio.
 
 **Failure criteria:**
 - Hardcoded hex values found in component styles.
@@ -1567,5 +1568,6 @@ No automated visual testing infrastructure exists. For a future spec, Playwright
 **Cross-phase:**
 - This phase has no dependencies on other phases.
 - Phase 43 (Generic Kanban) and any UI phase can run in parallel, but implementers should use tokens and base classes from this phase rather than introducing new hardcoded values.
+- StatusBadge.svelte is also modified by Phase 43 (adds `in_review`/`archived` entries). Sequence: Phase 42 tokenizes existing entries first, then Phase 43 adds new ones. Do not parallelize StatusBadge changes.
 - Spec B (page-level CSS sweep) depends on this phase completing first.
 - Spec C (profile menu/theme toggle) depends on this phase for `setTheme()` from the theme store.

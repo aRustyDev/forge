@@ -2065,10 +2065,10 @@ sourceRepo.create({ title: 'Deriving source', status: 'deriving', ... })
 - T43.6 (service updates) depends on T43.5 (repositories).
 - T43.7 (route handlers) depends on T43.4 (constants).
 - T43.8 (GenericKanban) and T43.9 (GenericKanbanColumn) can be developed in parallel with T43.1-T43.7 (no DB dependency for UI components).
-- T43.10 (ViewToggle) and T43.11 (viewMode store) are independent of all other tasks.
+- T43.10 (ViewToggle) and T43.11 (viewMode store) are independent of all other tasks. T43.11 creates `viewMode.svelte.ts` -- a prerequisite for the view toggle on all entity pages.
 - T43.12 (card components) depends on T43.3 (SDK types for imports).
 - T43.13 (filter bars) depends on T43.12 (card components used in preview).
-- T43.14 (page integration) depends on T43.8, T43.9, T43.10, T43.11, T43.12, T43.13 (imports all).
+- T43.14 (page integration) depends on T43.8, T43.9, T43.10, T43.11, T43.12, T43.13 (imports all). T43.14 integrates GenericKanban into the 4 entity pages (bullets, sources, resumes, perspectives).
 - T43.15 (StatusBadge) is independent.
 - T43.16 (dashboard) depends on T43.1 (migration, status rename).
 
@@ -2086,4 +2086,5 @@ sourceRepo.create({ title: 'Deriving source', status: 'deriving', ... })
 - This phase is independent of Phase 42 (Design System) at the functionality level, but benefits from it aesthetically (token vars vs hardcoded hex). The kanban card components use CSS `var()` with fallback values so they work with or without Phase 42.
 - The existing org kanban (Phase 38) is untouched by this phase.
 - Spec E3 (JD Kanban Pipeline) depends on this phase for the GenericKanban component.
-- Migration 017 must be numbered after the highest existing migration. Verify no conflict with migrations from other in-progress phases.
+- Migration 017 is reserved for this phase. Phase 47 (Clearance) uses 018.
+- StatusBadge changes must apply AFTER Phase 42 tokenizes existing entries.

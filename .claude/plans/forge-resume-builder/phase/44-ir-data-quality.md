@@ -55,7 +55,7 @@ None.
 
 ## Fallback Strategies
 
-- **`org_campuses` table does not exist:** The query uses LEFT JOINs for `org_campuses`, so if migration 013 has not run, the campus columns resolve to NULL and the org line falls back to `{Org Name}` without location. No crash.
+- **`org_campuses` table does not exist:** The query uses LEFT JOINs for `org_campuses`, so if migration 013 has not run, the campus columns resolve to NULL and the org line falls back to `{Org Name}` without location. No crash. **Note:** The education query (T44.4) uses `LEFT JOIN org_campuses oc ON oc.id = se.campus_id`. If `source_education.campus_id` column does not exist (migration 013 not applied), the LEFT JOIN on `org_campuses` will fail with 'no such column: se.campus_id'. Prerequisite: Requires migration 013 (org_campuses) to be applied.
 - **`work_arrangement` column missing from `source_roles`:** The column was added in migration 002. If somehow absent, the LEFT JOIN produces NULL and the work arrangement is omitted from the display string. No crash.
 - **No `user_profile` row:** The existing fallback chain `profile?.name ?? resume.name` handles this. The warning log surfaces the issue without crashing.
 - **Multiple campuses per org:** The query uses `oc.is_headquarters = 1` to select the HQ campus. If no HQ campus exists, the LEFT JOIN returns NULL and location is omitted. If an org has multiple HQ campuses (data error), `LIMIT 1` in a subquery (see T44.2) prevents row multiplication.
@@ -770,13 +770,13 @@ The existing `createTestDb()` helper runs all migrations. Tests seed data direct
 
 **Within this phase:**
 - T44.1 (header warning) is independent and can be done first or in parallel with T44.2.
-- T44.2 (experience query) and T44.3 (helper function) must be done together -- T44.2 calls `buildOrgDisplayString` from T44.3.
+- T44.3 (helper function) must complete before T44.2 (T44.2 calls the helper from T44.3). They cannot run in parallel.
 - T44.4 (education query) is independent of T44.2/T44.3.
 - T44.5 (skills orphan logging) is independent of all other tasks.
 
 **Recommended execution order:**
 1. T44.3 (helper -- no dependencies)
-2. T44.1 + T44.2 + T44.4 + T44.5 (all independent, T44.2 calls T44.3)
+2. T44.1 + T44.2 + T44.4 + T44.5 (all independent, T44.2 calls T44.3 which must already exist)
 3. Write tests (after all code changes)
 
 **Cross-phase:**

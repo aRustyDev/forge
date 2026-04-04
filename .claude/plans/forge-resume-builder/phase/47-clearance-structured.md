@@ -5,7 +5,7 @@
 **Spec:** [2026-04-03-clearance-structured-data.md](../refs/specs/2026-04-03-clearance-structured-data.md)
 **Depends on:** Migration 002 (`source_clearances` table)
 **Blocks:** None currently identified
-**Parallelizable with:** Phase 44 (IR Data Quality), Phase 45 (Editor Restructuring), Phase 46 (LaTeX/XeTeX Docs) -- independent migration number (017), different files
+**Parallelizable with:** Phase 44 (IR Data Quality), Phase 45 (Editor Restructuring), Phase 46 (LaTeX/XeTeX Docs) -- independent migration number (018), different files
 
 ## Goal
 
@@ -52,7 +52,7 @@ The fix: table rebuild with CHECK constraints, new columns, junction table for a
 
 | Spec section | Covered here? |
 |-------------|---------------|
-| 1. Schema changes (migration 017) | Yes |
+| 1. Schema changes (migration 018) | Yes |
 | 1.2 clearance_access_programs table | Yes |
 | 1.3 Rebuilt source_clearances columns | Yes |
 | 1.4 Enum values | Yes |
@@ -68,7 +68,7 @@ The fix: table rebuild with CHECK constraints, new columns, junction table for a
 
 | File | Description |
 |------|-------------|
-| `packages/core/src/db/migrations/017_clearance_structured_data.sql` | Table rebuild + junction table + data migration |
+| `packages/core/src/db/migrations/018_clearance_structured_data.sql` | Table rebuild + junction table + data migration |
 | `packages/core/src/constants/clearance.ts` | Hierarchy utility, enum arrays, label maps |
 
 ## Files to Modify
@@ -95,15 +95,15 @@ The fix: table rebuild with CHECK constraints, new columns, junction table for a
 
 ## Tasks
 
-### T47.1: Write Migration `017_clearance_structured_data.sql` [CRITICAL]
+### T47.1: Write Migration `018_clearance_structured_data.sql` [CRITICAL]
 
-**File:** `packages/core/src/db/migrations/017_clearance_structured_data.sql`
+**File:** `packages/core/src/db/migrations/018_clearance_structured_data.sql`
 
 Rebuilds `source_clearances` with CHECK constraints, creates `clearance_access_programs` junction table, migrates existing free-text data with enum mapping, and creates organizations from `sponsoring_agency` text values.
 
 ```sql
 -- Clearance Structured Data
--- Migration: 017_clearance_structured_data
+-- Migration: 018_clearance_structured_data
 -- Date: 2026-04-03
 -- Replaces free-text clearance fields with enum constraints,
 -- adds type/continuous_investigation columns, replaces sponsoring_agency
@@ -235,7 +235,7 @@ CREATE TABLE clearance_access_programs (
 -- values at this point. Access programs default to empty after migration. Users must
 -- manually add SCI/SAP/NATO via the UI.
 
-INSERT INTO _migrations (name) VALUES ('017_clearance_structured_data');
+INSERT INTO _migrations (name) VALUES ('018_clearance_structured_data');
 ```
 
 **Key points:**
@@ -257,7 +257,7 @@ INSERT INTO _migrations (name) VALUES ('017_clearance_structured_data');
 - `continuous_investigation` defaults to `0`.
 - `clearance_access_programs` table exists with correct CHECK constraint.
 - `INSERT INTO source_clearances (..., level) VALUES (..., 'invalid')` fails with CHECK constraint.
-- The `_migrations` table contains `017_clearance_structured_data`.
+- The `_migrations` table contains `018_clearance_structured_data`.
 
 **Failure criteria:**
 - Migration fails with SQL error.
@@ -276,7 +276,7 @@ Hierarchy utility, enum arrays, and human-readable label maps.
 /**
  * Security clearance constants, hierarchy, and label maps.
  *
- * Enum arrays mirror the CHECK constraints in migration 017.
+ * Enum arrays mirror the CHECK constraints in migration 018.
  * The hierarchy utility enables JD matching: a Top Secret holder
  * qualifies for any Secret-level requirement.
  */
@@ -726,11 +726,13 @@ import type {
 - `update()` with `access_programs=[]` deletes all junction rows.
 - `create()` defaults: `level='secret'`, `status='active'`, `type='personnel'`, `continuous_investigation=0`.
 - `get()` returns empty array `[]` for `access_programs` when no junction rows exist (not `undefined`).
+- After migration 018 removes the `sponsoring_agency` column, any repository code that tries to SET `sponsoring_agency = ?` will fail. Remove `sponsoring_agency` from the UPDATE statement in `updateExtension()` even while keeping the type field as @deprecated.
+- Ensure `updateExtension()` handles `continuous_investigation` field: `if ('continuous_investigation' in input) { sets.push('continuous_investigation = ?'); params.push(input.continuous_investigation ?? 0) }`
 
 **Failure criteria:**
 - Access programs not hydrated in `get()`.
 - Update appends instead of replacing junction rows.
-- Old `sponsoring_agency` column referenced in INSERT (column no longer exists).
+- Old `sponsoring_agency` column referenced in INSERT or UPDATE (column no longer exists after migration 018).
 
 ---
 
@@ -978,7 +980,7 @@ This task updates the display portion only. The exact changes depend on the curr
 
 ### Test Fixtures
 
-The existing `createTestDb()` helper runs all migrations including the new `017_clearance_structured_data.sql`. No changes to `createTestDb()` are needed.
+The existing `createTestDb()` helper runs all migrations including the new `018_clearance_structured_data.sql`. No changes to `createTestDb()` are needed.
 
 For tests with clearance data, create sources via the repository:
 ```typescript
@@ -1088,4 +1090,4 @@ const source = sourceRepo.create(db, {
 - Phase 44 (IR Data Quality) modifies the resume compiler. The compiler's `buildClearanceItems` function reads from `source_clearances`. After this phase, the clearance fields have different types (enum instead of free text). The compiler should be updated in a follow-up to use `CLEARANCE_LEVEL_LABELS` for display formatting, but this is not required for correctness -- the compiler uses the raw value, which is now a cleaner string.
 - Phase 45 (Editor Restructuring) is purely UI tab changes with no data layer overlap.
 - Phase 46 (LaTeX/XeTeX Docs) is documentation-only.
-- Migration 017 is reserved for this phase. The next available migration number is 018.
+- Migration 017 is reserved for Phase 43 (Generic Kanban). This phase uses migration 018. The next available migration number is 019.

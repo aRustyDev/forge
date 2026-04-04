@@ -40,7 +40,7 @@ export type ResumeSection =
   | 'custom'
 
 /** Valid status values for organization tracking. */
-export type OrganizationStatus = 'interested' | 'review' | 'targeting' | 'excluded'
+export type OrganizationStatus = 'backlog' | 'researching' | 'exciting' | 'interested' | 'acceptable' | 'excluded'
 
 /** Valid entity types for prompt logs. */
 export type PromptLogEntityType = 'bullet' | 'perspective'
@@ -50,11 +50,42 @@ export type SourceType = 'role' | 'project' | 'education' | 'clearance' | 'gener
 
 // ── Core Entities ─────────────────────────────────────────────────────
 
+/** Campus modality — how instruction/work is delivered at this location. */
+export type CampusModality = 'in_person' | 'remote' | 'hybrid'
+
+/** A campus/location belonging to an organization. */
+export interface OrgCampus {
+  id: string
+  organization_id: string
+  name: string
+  modality: CampusModality
+  address: string | null
+  city: string | null
+  state: string | null
+  zipcode: string | null
+  country: string | null
+  is_headquarters: number
+  created_at: string
+}
+
+/** An alias/shorthand name for an organization. */
+export interface OrgAlias {
+  id: string
+  organization_id: string
+  alias: string
+}
+
+/** Valid tags for an organization. */
+export type OrgTag = 'company' | 'vendor' | 'platform' | 'university' | 'school'
+  | 'nonprofit' | 'government' | 'military' | 'conference'
+  | 'volunteer' | 'freelance' | 'other'
+
 /** An organization (employer, school, etc.). */
 export interface Organization {
   id: string
   name: string
   org_type: string
+  tags: OrgTag[]
   industry: string | null
   size: string | null
   worked: number
@@ -165,19 +196,38 @@ export interface SourceProject {
   end_date: string | null
 }
 
+// ── Education Sub-Type Unions ────────────────────────────────────────
+
+export type DegreeLevelType = 'associate' | 'bachelors' | 'masters' | 'doctoral' | 'graduate_certificate'
+export type CertificateSubtype = 'professional' | 'vendor' | 'completion'
+export type EducationType = 'degree' | 'certificate' | 'course' | 'self_taught'
+
 /** Education-specific details for a source with source_type='education'. */
 export interface SourceEducation {
   source_id: string
-  education_type: 'degree' | 'certificate' | 'course' | 'self_taught'
+  education_type: EducationType
+  // Shared
+  organization_id: string | null
+  campus_id: string | null
+  /** @deprecated Use organization_id + join. Kept for legacy data reads. */
   institution: string | null
-  field: string | null
+  edu_description: string | null
+  location: string | null
   start_date: string | null
   end_date: string | null
+  url: string | null
+  // Degree-specific
+  degree_level: DegreeLevelType | null
+  degree_type: string | null
+  field: string | null
+  gpa: string | null
   is_in_progress: number
+  // Certificate-specific
+  certificate_subtype: CertificateSubtype | null
   credential_id: string | null
   expiration_date: string | null
+  /** @deprecated Use organization_id + join. Kept for legacy data reads. */
   issuing_body: string | null
-  url: string | null
 }
 
 /** Clearance-specific details for a source with source_type='clearance'. */
@@ -476,13 +526,21 @@ export interface CreateSource {
   is_personal?: number
   url?: string
   // Education extension fields
-  education_type?: 'degree' | 'certificate' | 'course' | 'self_taught'
+  education_type?: EducationType
+  education_organization_id?: string
+  campus_id?: string
   institution?: string
   field?: string
   is_in_progress?: number
   credential_id?: string
   expiration_date?: string
   issuing_body?: string
+  degree_level?: DegreeLevelType
+  degree_type?: string
+  certificate_subtype?: CertificateSubtype
+  gpa?: string
+  location?: string
+  edu_description?: string
   // Clearance extension fields
   level?: string
   polygraph?: string
@@ -507,13 +565,21 @@ export interface UpdateSource {
   is_personal?: number
   url?: string | null
   // Education extension fields
-  education_type?: 'degree' | 'certificate' | 'course' | 'self_taught'
+  education_type?: EducationType
+  education_organization_id?: string | null
+  campus_id?: string | null
   institution?: string | null
   field?: string | null
   is_in_progress?: number
   credential_id?: string | null
   expiration_date?: string | null
   issuing_body?: string | null
+  degree_level?: DegreeLevelType | null
+  degree_type?: string | null
+  certificate_subtype?: CertificateSubtype | null
+  gpa?: string | null
+  location?: string | null
+  edu_description?: string | null
   // Clearance extension fields
   level?: string
   polygraph?: string | null
@@ -844,6 +910,17 @@ export interface EducationItem {
   date: string
   entry_id: string | null
   source_id: string | null
+  // New optional fields from education sub-types
+  education_type?: string
+  degree_level?: string | null
+  degree_type?: string | null
+  field?: string | null
+  gpa?: string | null
+  location?: string | null
+  credential_id?: string | null
+  issuing_body?: string | null
+  certificate_subtype?: string | null
+  edu_description?: string | null
 }
 
 export interface ProjectItem {

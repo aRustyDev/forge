@@ -6,11 +6,11 @@
   import type { Resume, ResumeWithEntries, ResumeEntry, Perspective, GapAnalysis, ResumeDocument, Archetype, ResumeTemplate } from '@forge/sdk'
   import { debugState } from '$lib/debug.svelte'
   import DragNDropView from '$lib/components/resume/DragNDropView.svelte'
-  import MarkdownView from '$lib/components/resume/MarkdownView.svelte'
-  import LatexView from '$lib/components/resume/LatexView.svelte'
   import PdfView from '$lib/components/resume/PdfView.svelte'
+  import SourceView from '$lib/components/resume/SourceView.svelte'
   import SkillsPicker from '$lib/components/resume/SkillsPicker.svelte'
   import SourcePicker from '$lib/components/resume/SourcePicker.svelte'
+  import ResumeLinkedJDs from '$lib/components/resume/ResumeLinkedJDs.svelte'
   import SummaryPicker from '$lib/components/SummaryPicker.svelte'
   import ViewToggle from '$lib/components/ViewToggle.svelte'
   import GenericKanban from '$lib/components/kanban/GenericKanban.svelte'
@@ -18,13 +18,12 @@
   import ResumeFilterBar from '$lib/components/filters/ResumeFilterBar.svelte'
   import { getViewMode, setViewMode } from '$lib/stores/viewMode.svelte'
 
-  type ViewTab = 'dnd' | 'markdown' | 'latex' | 'pdf'
+  type ViewTab = 'editor' | 'preview' | 'source'
 
   const VIEW_TABS: { value: ViewTab; label: string }[] = [
-    { value: 'dnd', label: 'DragNDrop' },
-    { value: 'markdown', label: 'Markdown' },
-    { value: 'latex', label: 'LaTeX' },
-    { value: 'pdf', label: 'PDF' },
+    { value: 'editor', label: 'Editor' },
+    { value: 'preview', label: 'Preview' },
+    { value: 'source', label: 'Source' },
   ]
 
   let archetypeNames = $state<string[]>([])
@@ -145,7 +144,7 @@
   let collapsedSections = $state<Record<string, boolean>>({})
 
   // View tabs / IR
-  let activeViewTab = $state<ViewTab>('dnd')
+  let activeViewTab = $state<ViewTab>('editor')
   let ir = $state<ResumeDocument | null>(null)
   let irLoading = $state(false)
   let irError = $state<string | null>(null)
@@ -349,7 +348,7 @@
     gapAnalysis = null
     ir = null
     irError = null
-    activeViewTab = 'dnd'
+    activeViewTab = 'editor'
     showEditForm = false
     editingEntryId = null
   }
@@ -1005,6 +1004,11 @@
           </div>
         {/if}
 
+        <!-- Linked JDs -->
+        {#if selectedResumeId}
+          <ResumeLinkedJDs resumeId={selectedResumeId} />
+        {/if}
+
         <!-- View Mode Tabs -->
         <div class="view-tabs-container">
           <div class="view-tabs">
@@ -1032,7 +1036,7 @@
                 </button>
               </div>
             {:else if ir}
-              {#if activeViewTab === 'dnd'}
+              {#if activeViewTab === 'editor'}
                 <DragNDropView
                   ir={ir}
                   resumeId={selectedResumeId}
@@ -1043,26 +1047,19 @@
                   onRenameSection={handleRenameSection}
                   onMoveSection={handleMoveSection}
                 />
-              {:else if activeViewTab === 'markdown'}
-                <MarkdownView
-                  {ir}
-                  override={resumeDetail.markdown_override ?? null}
-                  overrideUpdatedAt={resumeDetail.markdown_override_updated_at ?? null}
-                  resumeUpdatedAt={resumeDetail.updated_at}
-                  resumeId={selectedResumeId}
-                  onOverrideChange={async () => { await loadResumeDetail(selectedResumeId!) }}
-                />
-              {:else if activeViewTab === 'latex'}
-                <LatexView
-                  {ir}
-                  override={resumeDetail.latex_override ?? null}
-                  overrideUpdatedAt={resumeDetail.latex_override_updated_at ?? null}
-                  resumeUpdatedAt={resumeDetail.updated_at}
-                  resumeId={selectedResumeId}
-                  onOverrideChange={async () => { await loadResumeDetail(selectedResumeId!) }}
-                />
-              {:else if activeViewTab === 'pdf'}
+              {:else if activeViewTab === 'preview'}
                 <PdfView resumeId={selectedResumeId} {ir} />
+              {:else if activeViewTab === 'source'}
+                <SourceView
+                  {ir}
+                  resumeId={selectedResumeId}
+                  latexOverride={resumeDetail.latex_override ?? null}
+                  latexOverrideUpdatedAt={resumeDetail.latex_override_updated_at ?? null}
+                  markdownOverride={resumeDetail.markdown_override ?? null}
+                  markdownOverrideUpdatedAt={resumeDetail.markdown_override_updated_at ?? null}
+                  resumeUpdatedAt={resumeDetail.updated_at}
+                  onOverrideChange={async () => { await loadResumeDetail(selectedResumeId!) }}
+                />
               {/if}
             {/if}
           </div>

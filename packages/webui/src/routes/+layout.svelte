@@ -1,6 +1,8 @@
-<script>
+<script lang="ts">
   import { page } from '$app/state'
   import { ToastContainer } from '$lib/components'
+  import ChainViewModal from '$lib/components/ChainViewModal.svelte'
+  import { chainViewState, closeChainView } from '$lib/stores/chain-view.svelte'
   import { navigation, isNavGroup } from '$lib/nav'
 
   let { children } = $props()
@@ -26,7 +28,7 @@
   }
 
   function isActive(href: string): boolean {
-    if (href === '/') return page.url.pathname === '/'
+    if (href === '/' || href === '/resumes') return page.url.pathname === href
     return page.url.pathname.startsWith(href)
   }
 
@@ -89,6 +91,16 @@
 </div>
 
 <ToastContainer />
+
+<!-- Chain view modal: mounted outside .app so it renders on top of everything.
+     Conditional mount means zero overhead (no Sigma/WebGL) when closed. -->
+{#if chainViewState.isOpen}
+  <ChainViewModal
+    highlightNode={chainViewState.highlightNode}
+    isModal={true}
+    onClose={closeChainView}
+  />
+{/if}
 
 <style>
   :global(*, *::before, *::after) {

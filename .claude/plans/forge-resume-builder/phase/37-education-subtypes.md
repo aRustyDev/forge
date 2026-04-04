@@ -57,6 +57,8 @@ The `source_education` extension table currently uses a flat set of nullable col
 | `packages/webui/src/routes/data/sources/SourcesView.svelte` | Conditional education form sections; org dropdown filter; 6 new form state variables |
 | `packages/core/src/db/repositories/__tests__/source-repository.test.ts` | Add tests for new education fields |
 | `packages/core/src/templates/__tests__/sb2nov.test.ts` | Add per-type education rendering tests |
+| `packages/core/src/routes/sources.ts` | Add translation layer to spread nested SDK objects (education, role, project, clearance) into flat structure before passing to service |
+| `packages/core/src/routes/__tests__/sources.test.ts` | Add integration tests for education sub-type round-trips |
 
 ## Fallback Strategies
 
@@ -68,6 +70,50 @@ The `source_education` extension table currently uses a flat set of nullable col
 ---
 
 ## Tasks
+
+### T37.0: Verify migration numbering prerequisite
+
+Before any implementation:
+1. Run `ls packages/core/src/db/migrations/` and verify files 001-008 exist sequentially
+2. If `005_job_descriptions.sql` exists, rename it to `007_job_descriptions.sql`
+3. Verify no `009_*` file exists
+4. Acceptance: `ls` shows 001, 002, 003, 004, 005_user_profile, 006_summaries, 007_job_descriptions, 008_resume_templates
+
+---
+
+### T37.0.1: Add SDK-to-core translation layer in sources route
+
+**File:** `packages/core/src/routes/sources.ts`
+
+The SDK sends nested extension objects (e.g. `{ education: { degree_level: 'masters', ... } }`) but the core service/repository reads fields at the top level (e.g. `input.degree_level`). This is a pre-existing architectural mismatch between SDK (nested) and core (flat) types. This fix resolves it for all source extension types, not just education.
+
+In the POST handler, before passing to the service:
+
+```typescript
+// In the POST handler, before passing to service:
+const body = await c.req.json()
+const input = {
+  ...body,
+  // Spread nested extension objects into flat structure
+  ...(body.education ?? {}),
+  ...(body.role ?? {}),
+  ...(body.project ?? {}),
+  ...(body.clearance ?? {}),
+}
+```
+
+Apply the same pattern in the PATCH handler for updates.
+
+**Acceptance criteria:**
+- SDK `forge.sources.create({ source_type: 'education', education: { degree_level: 'masters' } })` persists `degree_level = 'masters'` in the DB.
+- SDK `forge.sources.update(id, { education: { gpa: '3.9/4.0' } })` persists `gpa = '3.9/4.0'` in the DB.
+- Existing flat-style API calls (e.g. `{ source_type: 'education', degree_level: 'masters' }`) continue to work (spread of `undefined` is a no-op).
+
+**Failure criteria:**
+- Nested SDK payloads silently drop extension fields.
+- Flat-style payloads break due to double-spreading.
+
+---
 
 ### T37.1: Write Migration `009_education_subtype_fields.sql`
 
@@ -108,6 +154,8 @@ INSERT INTO _migrations (name) VALUES ('009_education_subtype_fields');
 - `degree_level` and `certificate_subtype` have CHECK constraints for enum validation at the DB level.
 - `degree_type`, `gpa`, `location`, `edu_description` are free text with no constraints.
 - `edu_description` is deliberately named to avoid collision with `sources.description`.
+
+> **Note:** The `field` column (major/focus) is populated for all education types via `input.field ?? null`. For non-degree types, the UI does not show a field input, so it will always be NULL. This is correct -- the column exists for degree sources only but is safe to INSERT as NULL for other types.
 
 **Acceptance criteria:**
 - After migration, `PRAGMA table_info(source_education)` includes all 6 new columns.
@@ -180,6 +228,7 @@ export interface EducationItem {
   education_type?: string
   degree_level?: string | null
   degree_type?: string | null
+  field?: string | null
   gpa?: string | null
   location?: string | null
   credential_id?: string | null
@@ -191,10 +240,26 @@ export interface EducationItem {
 
 **Acceptance criteria:**
 - `SourceEducation` includes all 6 new fields (`degree_level`, `degree_type`, `certificate_subtype`, `gpa`, `location`, `edu_description`).
-- `EducationItem` includes all new optional fields.
+- `EducationItem` includes all new optional fields, including `field?: string | null`.
 - Union types `DegreeLevelType`, `CertificateSubtype`, `EducationType` are exported.
 - TypeScript compilation succeeds for all files importing from `../types` or `../../types`.
 - `education_type` on `SourceEducation` references `EducationType` instead of an inline union.
+
+Additionally, add the 6 new fields to core's `CreateSource` and `UpdateSource` interfaces as optional fields:
+
+```typescript
+// In CreateSource education fields section:
+degree_level?: DegreeLevelType
+degree_type?: string
+certificate_subtype?: CertificateSubtype
+gpa?: string
+location?: string
+edu_description?: string
+```
+
+Same pattern for `UpdateSource` (all optional, same types).
+
+> **Note:** Core uses flat types where all extension fields are optional at the top level. The SDK uses nested types. The route translation layer (T37.0.1) bridges the gap.
 
 **Failure criteria:**
 - TypeScript compilation fails due to type mismatch.
@@ -256,6 +321,7 @@ export interface EducationItem {
   education_type?: string
   degree_level?: string | null
   degree_type?: string | null
+  field?: string | null
   gpa?: string | null
   location?: string | null
   credential_id?: string | null
@@ -267,14 +333,10 @@ export interface EducationItem {
 
 **File:** `packages/sdk/src/index.ts`
 
-Add to existing type exports:
+In `packages/sdk/src/index.ts`, add to the type exports block:
 
 ```typescript
-export type {
-  DegreeLevelType,
-  CertificateSubtype,
-  EducationType,
-} from './types'
+export type { DegreeLevelType, CertificateSubtype, EducationType } from './types'
 ```
 
 **Acceptance criteria:**
@@ -359,6 +421,8 @@ In the `updateExtension()` function, add 6 new field handlers to the `} else if 
 
 These lines go immediately after the existing education update lines (after `if ('end_date' in input)` and before `if (sets.length > 0)`).
 
+> **Note:** These fields compile because `UpdateSource` was updated in T37.2 to include the 6 new education fields.
+
 **Expected inputs/outputs:**
 - `update(db, id, { degree_level: 'doctoral' })` updates only `degree_level` on the education extension.
 - `update(db, id, { gpa: '3.8/4.0', location: 'Cambridge, MA' })` updates both fields in a single UPDATE.
@@ -440,6 +504,7 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
     education_type: row.education_type ?? undefined,
     degree_level: row.degree_level,
     degree_type: row.degree_type,
+    field: row.field ?? null,
     gpa: row.gpa,
     location: row.location,
     credential_id: row.credential_id,
@@ -455,6 +520,9 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
 - The `.all()` result cast adds all new column types.
 - The return mapping includes all new fields. `education_type` maps `null` to `undefined` (optional field on `EducationItem`).
 - `edu_description` maps `row.edu_description` (not `row.description` which would collide).
+- `field` is mapped via `row.field ?? null` to ensure it is always present on the `EducationItem` (not `undefined`).
+
+> **Note:** For certificates, `end_date` represents the expiration date. The `expiration_date` column on `source_education` is a legacy duplicate -- the compiler uses `end_date` for the IR's `date` field. Both columns exist in the DB but only `end_date` flows to the IR.
 
 **Acceptance criteria:**
 - Compiled IR for a degree education entry includes `degree_level`, `degree_type`, `gpa`, `location`.
@@ -514,7 +582,7 @@ function renderEducationSection(section: IRSection): string {
       // Degree (default): institution + location on line 1, degree info + date on line 2
       const location = item.location ?? ''
       const degreeType = item.degree_type ?? ''
-      const field = 'field' in item ? (item as any).field : null
+      const field = item.field ?? null
       // Build degree string: "M.S. in Computer Science" or fall back to perspective content
       let degreeLine: string
       if (degreeType && field) {
@@ -600,12 +668,35 @@ After the existing education extension field declarations (after `let formUrl = 
   let formEduDescription = $state('')
 ```
 
+#### 8a.1. Add `$effect` to reset irrelevant fields on education type switch
+
+After the form state variables, add:
+
+```typescript
+  $effect(() => {
+    // Reset degree-specific fields when not degree
+    if (formEducationType !== 'degree') {
+      formDegreeLevel = 'bachelors'
+      formDegreeType = ''
+      formGpa = ''
+    }
+    // Reset certificate-specific fields when not certificate
+    if (formEducationType !== 'certificate') {
+      formCertificateSubtype = 'vendor'
+    }
+    // Reset location when not degree/course
+    if (formEducationType !== 'degree' && formEducationType !== 'course') {
+      formLocation = ''
+    }
+  })
+```
+
 #### 8b. Update `populateFormFromSource()`
 
 In the `} else if (source.source_type === 'education' && source.education) {` block, add after the existing field assignments:
 
 ```typescript
-      formDegreeLevel = source.education.degree_level ?? 'bachelors'
+      formDegreeLevel = source.education.degree_level ?? ''  // empty = placeholder shown
       formDegreeType = source.education.degree_type ?? ''
       formCertificateSubtype = source.education.certificate_subtype ?? 'vendor'
       formGpa = source.education.gpa ?? ''
@@ -616,7 +707,7 @@ In the `} else if (source.source_type === 'education' && source.education) {` bl
 Also add resets for these fields in the general reset block at the top of `populateFormFromSource()`:
 
 ```typescript
-    formDegreeLevel = 'bachelors'
+    formDegreeLevel = ''  // empty = placeholder shown for pre-migration data
     formDegreeType = ''
     formCertificateSubtype = 'vendor'
     formGpa = ''
@@ -629,7 +720,7 @@ Also add resets for these fields in the general reset block at the top of `popul
 Add resets after the existing education field resets:
 
 ```typescript
-    formDegreeLevel = 'bachelors'
+    formDegreeLevel = ''  // empty = placeholder shown until user selects
     formDegreeType = ''
     formCertificateSubtype = 'vendor'
     formGpa = ''
@@ -710,6 +801,7 @@ Replace the entire `{#if formSourceType === 'education'}` block:
               <div class="form-group">
                 <label for="edu-degree-level">Degree Level <span class="required">*</span></label>
                 <select id="edu-degree-level" bind:value={formDegreeLevel}>
+                  <option value="" disabled>-- Select Degree Level --</option>
                   <option value="associate">Associate</option>
                   <option value="bachelors">Bachelor's</option>
                   <option value="masters">Master's</option>
@@ -846,6 +938,8 @@ Replace the entire `{#if formSourceType === 'education'}` block:
         {/if}
 ```
 
+> **Note:** For existing education sources created before migration 009, `degree_level` will be NULL. The form defaults to `''` (empty string) which shows the placeholder option `'-- Select Degree Level --'` instead of defaulting to `'bachelors'`, avoiding misleading pre-population. When the user selects a value, it persists normally.
+
 **Acceptance criteria:**
 - Selecting "Degree" shows: degree_level dropdown, degree_type input, institution, location, field, GPA, start/end dates, in-progress checkbox, description textarea.
 - Selecting "Certificate" shows: certificate_subtype dropdown, issuing body, credential ID, URL, expiration date, description textarea.
@@ -854,6 +948,7 @@ Replace the entire `{#if formSourceType === 'education'}` block:
 - GPA uses `type='text'` (not `type='number'`).
 - Organization dropdown in role/project forms only shows orgs with role sources.
 - Switching education type does not carry stale field values (reset logic).
+- Switching education type from Degree to Certificate clears degree_level, degree_type, and gpa fields.
 - Save payload includes all new fields.
 
 **Failure criteria:**
@@ -1019,7 +1114,9 @@ Add to the existing `update` describe block:
 
 ### Integration Tests -- API Round-Trip
 
-Tests to add to the API test suite (location depends on existing test structure):
+**File:** `packages/core/src/routes/__tests__/sources.test.ts`
+
+Add integration tests for education sub-type round-trips:
 
 ```typescript
     test('POST source with education_type=degree round-trips all fields', async () => {
@@ -1215,6 +1312,7 @@ Add a new describe block for education sub-types:
           education_type: 'degree',
           degree_level: 'masters',
           degree_type: 'M.S.',
+          field: 'Computer Science',
           gpa: '3.9/4.0',
           location: 'Cambridge, MA',
         }],
@@ -1223,7 +1321,7 @@ Add a new describe block for education sub-types:
       const result = sb2nov.renderSection(section)
       expect(result).toContain('\\resumeSubheading')
       expect(result).toContain('{MIT}{Cambridge, MA}')
-      expect(result).toContain('M.S. in')
+      expect(result).toContain('M.S. in Computer Science')
       expect(result).toContain('GPA: 3.9/4.0')
       expect(result).toContain('{2022}')
     })
@@ -1380,17 +1478,19 @@ Manual verification checklist (not automated):
 
 - **T37.1** (migration) has no code dependencies and can be written first.
 - **T37.2** (core types) and **T37.3** (SDK types) can be done in parallel.
-- **T37.4** (repo create) and **T37.5** (repo updateExtension) depend on T37.2 for type definitions but can be done together.
+- **T37.4** (repo create) and **T37.5** (repo updateExtension) depend on T37.2 for type definitions. They modify different functions in the same file (`source-repository.ts`). Execute sequentially in a single editing session -- do not dispatch to separate agents.
 - **T37.6** (compiler) depends on T37.2 (EducationItem type changes).
 - **T37.7** (template) depends on T37.6 (needs enriched EducationItem).
 - **T37.8** (UI) depends on T37.3 (SDK types) and T37.4/T37.5 (API must handle new fields).
 - **Tests** should be written alongside their corresponding tasks.
 
 **Suggested execution order:**
-1. T37.1 (migration)
-2. T37.2 + T37.3 (types, parallel)
-3. T37.4 + T37.5 (repository, parallel after types)
-4. T37.6 (compiler)
-5. T37.7 (template)
-6. T37.8 (UI)
-7. All tests
+1. T37.0 (verify migration numbering prerequisite)
+2. T37.0.1 (route translation layer)
+3. T37.1 (migration)
+4. T37.2 + T37.3 (types, parallel)
+5. T37.4 then T37.5 (repository, sequential -- same file)
+6. T37.6 (compiler)
+7. T37.7 (template)
+8. T37.8 (UI)
+9. All tests

@@ -1,0 +1,19 @@
+{
+  "name": "@forge/core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "test": "bun test",
+    "migrate": "bun run src/db/migrate.ts"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "dependencies": {
+    "hono": "^4.12.9"
+  }
+}

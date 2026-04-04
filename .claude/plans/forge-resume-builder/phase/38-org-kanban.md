@@ -71,12 +71,14 @@ The migration renames old statuses to match the new pipeline model:
 | `packages/sdk/src/types.ts` | Update `Organization.status`, `CreateOrganization.status`, `UpdateOrganization.status` union types |
 | `packages/webui/src/routes/opportunities/organizations/+page.svelte` | Replace split-panel layout with `<KanbanBoard />` import |
 | `packages/core/src/services/__tests__/organization-service.test.ts` | Update status validation tests: add new statuses, mark old statuses as invalid |
+| `packages/webui/src/routes/data/organizations/+page.svelte` | Update status dropdown options from `interested\|review\|targeting\|excluded` to `backlog\|researching\|exciting\|interested\|acceptable\|excluded` |
 
 ## Fallback Strategies
 
 - **`svelte-dnd-action` Svelte 5 compatibility:** The project uses `svelte-dnd-action` v0.9.69. If `onconsider`/`onfinalize` event handlers do not work (some versions require `on:consider`/`on:finalize` Svelte 4 syntax), fall back to using the `use:dndzone` action with Svelte 4 event directive syntax. The existing `DragNDropView.svelte` in the codebase already uses `onconsider`/`onfinalize` as Svelte 5 event handlers successfully, confirming v0.9.69 supports this.
 - **PRAGMA foreign_keys in transactions:** The migration runner wraps each migration in `BEGIN`/`COMMIT`. SQLite silently ignores `PRAGMA foreign_keys = OFF` inside an active transaction. The PRAGMA calls in the migration SQL are defensive only -- the actual atomicity comes from the runner's transaction. This is consistent with how migrations 002 and 007 handle table rebuilds.
 - **`org_tags` FK during table rebuild:** Since we INSERT all rows into `organizations_new` with the same IDs before dropping the old table, and FK checking is effectively off during the transaction, no FK violations occur. After the transaction commits, `org_tags` rows still reference valid organization IDs.
+- **org_tags preservation:** The `DROP TABLE organizations` step may trigger CASCADE deletes on `org_tags` if FK enforcement is active (PRAGMA foreign_keys = OFF is ignored inside the runner's transaction). To mitigate: after the INSERT into `organizations_new` but before the DROP, verify `org_tags` will survive by noting that SQLite's CASCADE behavior on DROP TABLE only fires when FK enforcement is ON. If org_tags rows are lost after migration, restore them from a pre-migration backup or re-run migration 011's seeding logic. Add a migration integrity test (see Testing Support) that verifies org_tags count is preserved.
 - **Empty board:** If no organizations have a status set, the board shows an empty state message instead of four empty columns, guiding the user to add their first org.
 - **API failure on drag:** Optimistic UI reverts the card to its original column and shows an error toast if the `PATCH` call fails.
 - **Large org list:** The board fetches with `limit=500`. If a user somehow has more than 500 orgs with statuses, the board will show the first 500. This is acceptable for a single-user app.
@@ -89,7 +91,7 @@ The migration renames old statuses to match the new pipeline model:
 
 **File:** `packages/core/src/db/migrations/012_org_kanban_statuses.sql`
 
-Expands the `organizations.status` CHECK constraint from `interested | review | targeting | excluded` to `backlog | researching | exciting | interested | acceptable | excluded`. Uses the table rebuild pattern (SQLite cannot ALTER CHECK constraints). Updates run BEFORE the INSERT into the new table. Explicit column list (no `SELECT *`).
+Expands the `organizations.status` CHECK constraint from `interested | review | targeting | excluded` to `backlog | researching | exciting | interested | acceptable | excluded`. Uses the table rebuild pattern (SQLite cannot ALTER CHECK constraints). Status remapping is done inline via CASE WHEN during the INSERT into the new table (not via UPDATEs on the source table, which would violate the old CHECK constraint). Explicit column list (no `SELECT *`).
 
 ```sql
 -- Organization Kanban Statuses
@@ -136,21 +138,23 @@ CREATE TABLE organizations_new (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 ) STRICT;
 
--- Step 1: Migrate old statuses on the SOURCE table FIRST
-UPDATE organizations SET status = 'backlog' WHERE status = 'interested';
-UPDATE organizations SET status = 'researching' WHERE status = 'review';
-UPDATE organizations SET status = 'interested' WHERE status = 'targeting';
-
--- Step 2: Now copy (all values are valid under new CHECK)
+-- Status remapping done inline via CASE WHEN to avoid CHECK constraint violations on the source table.
 INSERT INTO organizations_new (id, name, org_type, industry, size, worked, employment_type,
   location, headquarters, website, linkedin_url, glassdoor_url, glassdoor_rating,
   reputation_notes, notes, status, created_at, updated_at)
 SELECT id, name, org_type, industry, size, worked, employment_type,
   location, headquarters, website, linkedin_url, glassdoor_url, glassdoor_rating,
-  reputation_notes, notes, status, created_at, updated_at
+  reputation_notes, notes,
+  CASE status
+    WHEN 'interested' THEN 'backlog'
+    WHEN 'review' THEN 'researching'
+    WHEN 'targeting' THEN 'interested'
+    ELSE status
+  END,
+  created_at, updated_at
 FROM organizations;
 
--- Step 3: Swap tables
+-- Swap tables
 DROP TABLE organizations;
 ALTER TABLE organizations_new RENAME TO organizations;
 
@@ -169,8 +173,7 @@ INSERT INTO _migrations (name) VALUES ('012_org_kanban_statuses');
 ```
 
 **Key points:**
-- UPDATEs on the old table happen BEFORE the INSERT into the new table. This avoids CHECK constraint violations during copy.
-- The `interested -> backlog -> interested` chain is safe because the first UPDATE (`interested -> backlog`) runs first, leaving no `interested` rows. Then the third UPDATE (`targeting -> interested`) creates `interested` rows that are valid under the new constraint.
+- Status remapping is done inline via `CASE WHEN` in the SELECT during INSERT, avoiding CHECK constraint violations on the source table. The old table's CHECK constraint does not allow values like `'backlog'`, so UPDATE statements on the source table would fail.
 - `SELECT *` is avoided: explicit column list prevents breakage if columns are added between migrations.
 - The `idx_organizations_name` index improves picker search performance.
 
@@ -618,7 +621,7 @@ A single column with a `svelte-dnd-action` drop zone, header with label and coun
     items: (Organization & { id: string })[]
     collapsed?: boolean
     onToggleCollapse?: () => void
-    onDrop: (orgId: string, items: (Organization & { id: string })[]) => void
+    onDrop: (orgId: string) => void
     onCardClick: (orgId: string) => void
   } = $props()
 
@@ -638,12 +641,11 @@ A single column with a `svelte-dnd-action` drop zone, header with label and coun
     const originalIds = new Set(items.map(i => i.id))
     const newItems = localItems.filter(i => !originalIds.has(i.id))
     for (const item of newItems) {
-      onDrop(item.id, localItems)
+      onDrop(item.id)
     }
-    // Also handle reorder within the same column (no-op for status, but update localItems)
-    if (newItems.length === 0) {
-      onDrop('', localItems) // signal reorder only
-    }
+    // Intra-column reorder: not supported (no position field in schema).
+    // The card will visually snap back to its alphabetical position on the next render cycle.
+    // Silently ignore — no onDrop call needed.
   }
 
   const flipDurationMs = 200
@@ -806,7 +808,8 @@ A single column with a `svelte-dnd-action` drop zone, header with label and coun
 - `localItems` is a mutable copy synced from `items` via `$effect` -- `svelte-dnd-action` requires a mutable array.
 - When collapsed (Excluded only), renders as a thin vertical strip with rotated text and count badge.
 - `dropTargetStyle` uses the column's accent color for the dashed outline on drag-over.
-- The `onDrop` callback receives both the org ID and the current items array so the parent can identify cross-column moves.
+- The `onDrop` callback receives only the org ID. The parent handles status mapping via `DROP_STATUS`. Intra-column reorder is silently ignored (no position field in schema).
+- **Intra-column drag snap-back:** Intra-column drag-and-drop is not supported (no position field in schema). If a user drags within the same column, the card visually snaps back to its alphabetical position on the next render cycle. This is by design -- documented in Non-Goals as 'Card reordering within a column.'
 
 **Acceptance criteria:**
 - Column renders header with label, count badge, and accent color top border.
@@ -1335,6 +1338,7 @@ Modal for adding organizations to the pipeline. Shows only orgs where `status IS
 - Name collision: `checkNameCollision()` does case-insensitive comparison against ALL orgs (not just available ones).
 - On collision, offers "Add Existing" (sets status to `backlog`) or "Create Anyway".
 - After adding, calls `onadd()` which triggers `loadOrganizations()` on the parent board.
+- **Tags in Create New form:** The spec requires a tags field in the Create New form. For simplicity, the inline form omits tags -- the repository defaults tags to `[org_type]` on creation. Users can edit tags from the master list at `/data/organizations`. This is an intentional simplification documented here.
 
 **Acceptance criteria:**
 - Modal shows only orgs with `status = null`.
@@ -1404,6 +1408,8 @@ Detail modal that opens on card click. Shows org info, interest level dropdown, 
 
   async function changeInterest(newStatus: string) {
     if (!org) return
+    // TODO: Remove this `as any` cast — after T38.3 updates the SDK types, `UpdateOrganization.status`
+    // accepts the new union type directly. The cast is only needed if T38.8 is developed before T38.3.
     const result = await forge.organizations.update(org.id, { status: newStatus as any })
     if (result.ok) {
       addToast({ message: `Interest level changed to ${newStatus}`, type: 'success' })
@@ -1821,8 +1827,9 @@ Detail modal that opens on card click. Shows org info, interest level dropdown, 
 - Interest level dropdown only visible when status is one of `exciting | interested | acceptable` (the Targeting column statuses).
 - Notes and reputation notes auto-save on blur via `PATCH`.
 - "Remove from Pipeline" sets `status: null` -- the org is NOT deleted, just removed from the board.
-- "Edit Full Details" links to `/data/organizations?id={orgId}` for the full editor form.
+- "Edit Full Details" links to `/data/organizations?id={orgId}` for the full editor form. **Note:** The `/data/organizations` page does not currently read this query param for auto-selection -- this is a future enhancement. The link still works (navigates to the page) but the user must manually find the org.
 - Column indicator shows "Targeting" for all three interest levels, "Backlog", "Researching", or "Excluded" for others.
+- **Interest level changes are NOT optimistically updated** -- the board reloads after the PATCH completes. This is intentional: interest level changes are less frequent than drag-and-drop column changes, and the reload ensures consistency. The UX tradeoff (brief delay before card color updates) is acceptable for a single-user tool.
 
 **Acceptance criteria:**
 - Interest dropdown visible only for targeting statuses.
@@ -2200,6 +2207,10 @@ These would be manual or automated via a browser test framework. Listed here as 
 | Empty board state | Shows message when no orgs have statuses |
 | Loading spinner | Shows while fetching org data |
 
+### Migration Integrity Test
+
+Create an in-memory DB, apply migrations 001-011, insert orgs with old statuses (`interested`, `review`, `targeting`, `excluded`), apply migration 012, verify: (a) row count before = row count after, (b) `interested` maps to `backlog`, (c) `review` maps to `researching`, (d) `targeting` maps to `interested`, (e) `excluded` stays `excluded`, (f) `org_tags` rows are preserved.
+
 ### Contract Tests
 
 | Test | What to verify |
@@ -2217,6 +2228,11 @@ These would be manual or automated via a browser test framework. Listed here as 
 - This plan file serves as the implementation reference.
 - Inline code comments in migration SQL explain the status migration sequence.
 - Inline TSDoc comments in SDK types explain the new status values.
+- Add TSDoc to the SDK `Organization.status` field:
+```typescript
+/** Pipeline status for org vetting. Backlog->Researching->Targeting (exciting/interested/acceptable)->Excluded. Null means not in the pipeline. */
+status: 'backlog' | 'researching' | 'exciting' | 'interested' | 'acceptable' | 'excluded' | null
+```
 
 ---
 
@@ -2224,6 +2240,7 @@ These would be manual or automated via a browser test framework. Listed here as 
 
 **Within this phase:**
 - T38.1 (migration) and T38.2 (service) and T38.3 (SDK types) can be developed in any order but must all be committed together -- the migration changes the DB schema, the service validates the new values, and the SDK types must match.
+- T38.1 (migration), T38.2 (service), and T38.3 (SDK types) must be committed together or in rapid sequence. If the migration runs but the service still has old VALID_STATUSES, the service will reject new status values at runtime. Run all tests only after all three tasks are complete.
 - T38.4 (tests) depends on T38.2 (service update).
 - T38.5 (KanbanCard), T38.7 (OrgPickerModal), and T38.8 (OrgDetailModal) can be developed in parallel -- they are leaf components with no dependencies on each other.
 - T38.6 (KanbanColumn) depends on T38.5 (imports KanbanCard).
@@ -2241,3 +2258,4 @@ These would be manual or automated via a browser test framework. Listed here as 
 **Cross-phase:**
 - This phase is independent of Phases 29-37 at the DDL level. The migration (012) follows 011 numerically but does not depend on any tables created in migrations 005-011 (profile, summaries, job descriptions, templates, education subtypes, org_tags). It only modifies the `organizations` table which was created in migration 003.
 - If Phases 29-37 are also being developed in parallel, the only coordination needed is ensuring migration numbering does not conflict. Migration 012 is reserved for this phase.
+- Migration 012 is reserved for this phase. If any parallel phase (29-37) needs a new migration, it should use 013+. Phases 29-37 already have migrations numbered 005-011; no conflicts exist.

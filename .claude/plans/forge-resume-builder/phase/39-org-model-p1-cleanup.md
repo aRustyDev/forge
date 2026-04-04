@@ -28,6 +28,8 @@ After Phases 37-38, the organization model has campuses, aliases, tags, and a ka
 3. **Stale payload fields** — `saveOrg()` in the org editor still sends `location` and `headquarters` even though the form fields are gone.
 4. **Campus in IR compiler** — The resume compiler JOINs `organizations` for the institution name but does not JOIN `org_campuses` for city/state. Campus location data is informational only and does not flow to the rendered resume.
 
+Already resolved prior to this phase: OrganizationStatus type (updated to kanban values), SDK exports for OrgCampus/OrgAlias/CampusModality (exported from index.ts), roleFilteredOrgs (includes project sources).
+
 ## Scope
 
 | Spec item | Part B # | Covered here? |
@@ -57,8 +59,10 @@ After Phases 37-38, the organization model has campuses, aliases, tags, and a ka
 | `packages/core/src/routes/campuses.ts` | Add `PATCH /campuses/:id` route |
 | `packages/core/src/services/resume-compiler.ts` | JOIN `org_campuses` in `buildEducationItems`, select campus fields |
 | `packages/core/src/types/index.ts` | Add `campus_name`, `campus_city`, `campus_state` to `EducationItem` |
+| `packages/sdk/src/types.ts` | Mirror `campus_name`, `campus_city`, `campus_state` fields onto `EducationItem` |
 | `packages/core/src/templates/sb2nov.ts` | Use campus city/state for education location field with fallback |
 | `packages/webui/src/lib/components/SourcesView.svelte` | Replace `<select>` with `OrgCombobox` in education forms |
+| `packages/webui/src/routes/data/sources/SourcesView.svelte` | Legacy copy of SourcesView — delete or apply same OrgCombobox changes |
 | `packages/webui/src/routes/data/organizations/+page.svelte` | Remove `formLocation`/`formHeadquarters`; add inline campus editing |
 
 ## Fallback Strategies
@@ -159,8 +163,11 @@ Insert the following after the `app.post('/organizations/:orgId/campuses', ...)`
 - Boolean `is_headquarters` from JSON is converted to integer `0`/`1` for the repository.
 - Omitting a field from the body leaves that column unchanged.
 
+If `c.req.json()` throws (malformed body), let Hono's error handler return 400.
+
 **Failure criteria:**
 - Must not require `organization_id` in the PATCH body (it is immutable).
+- Malformed JSON body must not cause a 500.
 
 ---
 
@@ -397,6 +404,7 @@ Replace the read-only campus cards with an inline edit mode. Clicking a campus c
 **Acceptance criteria:**
 - `formLocation` and `formHeadquarters` variables no longer exist in the file.
 - The `saveOrg()` payload object does not include `location` or `headquarters`.
+- Scoped to the `/data/organizations` `+page.svelte` save payload only. The `location`/`headquarters` fields are intentionally retained in `Organization` and `UpdateOrganization` types until Phase 40 migration.
 - The component compiles without errors.
 - Saving an organization does not send stale location/headquarters data.
 
@@ -422,6 +430,7 @@ A searchable combobox that replaces plain `<select>` elements for org selection.
   let {
     id = '',
     organizations = [],
+    aliases = new Map<string, string[]>(),
     value = $bindable<string | null>(null),
     placeholder = '-- Select --',
     disabled = false,
@@ -429,6 +438,7 @@ A searchable combobox that replaces plain `<select>` elements for org selection.
   }: {
     id?: string
     organizations: Organization[]
+    aliases?: Map<string, string[]>
     value: string | null
     placeholder?: string
     disabled?: boolean
@@ -440,6 +450,7 @@ A searchable combobox that replaces plain `<select>` elements for org selection.
   let highlightIndex = $state(-1)
   let inputEl: HTMLInputElement | undefined = $state()
   let listEl: HTMLUListElement | undefined = $state()
+  let listId = `org-combo-${crypto.randomUUID().slice(0,8)}`
 
   // Display the selected org name in the input when not focused
   let selectedOrg = $derived(organizations.find(o => o.id === value) ?? null)
@@ -449,12 +460,16 @@ A searchable combobox that replaces plain `<select>` elements for org selection.
     if (!query.trim()) return organizations
     const q = query.toLowerCase()
     return organizations.filter(o => {
-      if (o.name.toLowerCase().includes(q)) return true
-      // Search aliases if available (aliases may be embedded as a string array on the org object
-      // or we search by checking the org_aliases that the parent loaded)
-      return false
+      const aliasMatch = aliases?.get(o.id)?.some(a => a.toLowerCase().includes(q))
+      return o.name.toLowerCase().includes(q) || aliasMatch
     })
   })
+
+  // NOTE: The `Organization` type does not include an `aliases` field. To support
+  // alias search, OrgCombobox accepts an optional `aliases` prop (`Map<string, string[]>`)
+  // pre-loaded by the parent. The parent loads aliases via `GET /api/organizations/:id/aliases`
+  // for each org on mount, or the combobox falls back to name-only search if no aliases map
+  // is provided.
 
   function openDropdown() {
     if (disabled) return
@@ -540,6 +555,7 @@ A searchable combobox that replaces plain `<select>` elements for org selection.
       role="combobox"
       aria-expanded={open}
       aria-autocomplete="list"
+      aria-controls={listId}
       autocomplete="off"
     />
     {#if value && !disabled}
@@ -548,7 +564,7 @@ A searchable combobox that replaces plain `<select>` elements for org selection.
   </div>
 
   {#if open}
-    <ul class="combobox-list" bind:this={listEl} role="listbox">
+    <ul class="combobox-list" id={listId} bind:this={listEl} role="listbox">
       {#if filtered.length === 0}
         <li class="combobox-empty">No matches found</li>
       {/if}
@@ -841,9 +857,13 @@ With:
 **Failure criteria:**
 - Switching education type must still reset `formEduOrgId` to null (existing `onEducationTypeChange` handles this).
 
+**Note:** There is a second copy of SourcesView at `packages/webui/src/routes/data/sources/SourcesView.svelte`. This file is a legacy copy — the canonical version is at `packages/webui/src/lib/components/SourcesView.svelte`. Either delete the legacy copy and update any imports, or apply the same OrgCombobox changes to both files.
+
 ---
 
 ### Task 39.7 — Campus in IR Compiler
+
+**PREREQUISITE:** Task 39.8 (type changes) must be completed before this task — the compiler code references `campus_name`, `campus_city`, `campus_state` fields that are defined in 39.8.
 
 **File:** `packages/core/src/services/resume-compiler.ts`
 
@@ -987,9 +1007,18 @@ export interface EducationItem {
 }
 ```
 
+**Step 8b — Mirror fields onto SDK `EducationItem` in `packages/sdk/src/types.ts`.** Add the same three fields to the SDK's `EducationItem` interface:
+
+```typescript
+  campus_name?: string | null
+  campus_city?: string | null
+  campus_state?: string | null
+```
+
 **Acceptance criteria:**
 - TypeScript compiles with the new fields.
 - Existing code that constructs `EducationItem` objects without campus fields still compiles (fields are optional).
+- The SDK's `EducationItem` in `packages/sdk/src/types.ts` includes `campus_name`, `campus_city`, `campus_state`.
 
 ---
 
@@ -1054,8 +1083,56 @@ With:
 
 These tests belong in `packages/core/src/db/repositories/__tests__/campus-repository.test.ts` (create if not exists). Follow the pattern in `source-repository.test.ts`.
 
+Minimal test file skeleton:
+
+```typescript
+import { describe, it, expect, beforeEach } from 'bun:test'
+import { Database } from 'bun:sqlite'
+import * as CampusRepo from '../campus-repository'
+import * as OrgRepo from '../organization-repository'
+import { runMigrations } from '../../migrate'
+
+describe('campus-repository', () => {
+  let db: Database
+
+  beforeEach(() => {
+    db = new Database(':memory:')
+    runMigrations(db)
+  })
+
+  describe('update()', () => {
+    it('partially updates a campus', () => {
+      const org = OrgRepo.create(db, { name: 'Test Org' })
+      const campus = CampusRepo.create(db, { organization_id: org.id, name: 'Main', modality: 'in_person' })
+      const updated = CampusRepo.update(db, campus.id, { name: 'Renamed' })
+      expect(updated?.name).toBe('Renamed')
+      expect(updated?.modality).toBe('in_person')
+    })
+
+    it('returns null for nonexistent ID', () => {
+      expect(CampusRepo.update(db, 'no-such-id', { name: 'X' })).toBeNull()
+    })
+
+    it('returns existing campus unchanged for empty input', () => {
+      const org = OrgRepo.create(db, { name: 'Test Org' })
+      const campus = CampusRepo.create(db, { organization_id: org.id, name: 'Main', modality: 'in_person' })
+      const same = CampusRepo.update(db, campus.id, {})
+      expect(same).toEqual(campus)
+    })
+
+    it('sets a field to null', () => {
+      const org = OrgRepo.create(db, { name: 'Test Org' })
+      const campus = CampusRepo.create(db, { organization_id: org.id, name: 'Main', modality: 'in_person', city: 'Portland' })
+      const updated = CampusRepo.update(db, campus.id, { city: null })
+      expect(updated?.city).toBeNull()
+    })
+  })
+})
+```
+
 **Resume compiler campus JOIN (Task 39.7):**
-- Add a test case in the resume compiler test suite that creates a source_education with a campus_id pointing to a campus with city/state.
+- Add compiler integration tests to `packages/core/src/services/__tests__/resume-compiler.test.ts` (this file already exists).
+- Add a test case that creates a source_education with a campus_id pointing to a campus with city/state.
 - Verify the resulting `EducationItem` includes `campus_city` and `campus_state`.
 - Verify an education item without a campus_id has null campus fields.
 
@@ -1089,7 +1166,7 @@ These tests belong in `packages/core/src/db/repositories/__tests__/campus-reposi
 
 ## Documentation Requirements
 
-No documentation files to create. Update the spec's Part B checklist items 2, 3, 5, and 7 to mark them as complete after implementation, referencing this phase. The `EducationItem` type changes are self-documenting via the added comment block.
+No documentation files to create. After implementation, prepend '**Done in Phase 39.**' to the opening line of Part B items 2, 3, 5, and 7 in the spec. The `EducationItem` type changes are self-documenting via the added comment block.
 
 ---
 

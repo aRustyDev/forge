@@ -65,6 +65,7 @@ After Phase 39, the four P1 gaps are closed: campus editing works, the searchabl
 | `packages/sdk/src/types.ts` | Remove `location`/`headquarters` from `Organization`, `CreateOrganization`, `UpdateOrganization`; remove `institution`/`issuing_body` from `SourceEducation` |
 | `packages/webui/src/lib/components/kanban/KanbanCard.svelte` | Add alias count and campus/HQ location line |
 | `packages/webui/src/lib/components/kanban/OrgPickerModal.svelte` | Default tag filter to `company` |
+| `packages/webui/src/lib/components/kanban/OrgDetailModal.svelte` | Remove `org.location` block; optionally replace with HQ campus city/state |
 | `packages/webui/src/routes/data/organizations/+page.svelte` | Add alias count and campus count to org list cards |
 
 ## Fallback Strategies
@@ -197,6 +198,7 @@ INSERT INTO _migrations (name) VALUES ('017_drop_legacy_education_columns');
 - `PRAGMA table_info(source_education)` does not include `institution` or `issuing_body`.
 - All other columns are preserved with their data intact.
 - The `idx_source_education_org` index exists after the rebuild.
+- Deleting an `org_campuses` row sets `source_education.campus_id` to NULL (ON DELETE SET NULL preserved, not changed to CASCADE).
 - FK constraints on `source_id`, `organization_id`, and `campus_id` are intact.
 - Existing `source_education` rows have identical data in all non-dropped columns before and after migration.
 
@@ -294,6 +296,7 @@ INSERT INTO _migrations (name) VALUES ('018_drop_legacy_org_location_columns');
 - `org_tags`, `org_campuses`, `org_aliases` rows still reference valid organization IDs.
 - `source_roles.organization_id`, `source_projects.organization_id`, `source_education.organization_id` FK references are still valid.
 - The `status` CHECK constraint matches migration 012's set (backlog/researching/exciting/interested/acceptable/excluded).
+- Run `SELECT sql FROM sqlite_master WHERE type='table' AND name='organizations'` and verify the CHECK constraint includes all six status values.
 
 **Failure criteria:**
 - Must not use `SELECT *` in the INSERT -- explicit column lists only.
@@ -467,7 +470,7 @@ export interface SourceEducation {
   headquarters?: string
 ```
 
-**Step 6b -- Change `status` type from `string` to `OrganizationStatus | null`:**
+**Step 6b -- Change `status` type from `string` to `OrganizationStatus | null`.** Since `update()` uses `Partial<CreateOrganizationInput>`, this type tightening applies to both create and update automatically.
 
 ```typescript
 // CHANGE in CreateOrganizationInput:
@@ -643,7 +646,7 @@ Add alias count and campus HQ location to the org list cards. This requires load
   let hqLocationMap = $state<Map<string, string>>(new Map())
 ```
 
-**Step 9b -- Load enrichment data after loading organizations.** Update `loadOrganizations()` to also fetch alias counts and HQ campus data:
+**Step 9b -- Load enrichment data after loading organizations.** Add `OrgCampus` to the import from `@forge/sdk`. Update `loadOrganizations()` to also fetch alias counts and HQ campus data:
 
 ```typescript
   async function loadOrganizations() {
@@ -696,7 +699,7 @@ Add alias count and campus HQ location to the org list cards. This requires load
   }
 ```
 
-**Step 9c -- Update the org card template** (lines 352-378). Replace the existing card content block:
+**Step 9c -- Update the org card template** (lines 352-378). Replace the org card template in the `{#each filteredOrgs}` block (the `<button class='org-card'>` through its closing `</button>`). Preserve the outer `<li>` wrapper. Replace the existing card content block:
 
 ```svelte
         {#each filteredOrgs as org (org.id)}
@@ -747,6 +750,8 @@ Add alias count and campus HQ location to the org list cards. This requires load
 - Org cards show the HQ campus city/state in the meta line (replacing the old `org.location` reference).
 - Orgs without aliases or HQ campuses show no extra data (no "(0)" or empty strings).
 - The enrichment loads after the org list loads -- the list appears immediately, and enrichment data fills in asynchronously.
+
+**Note:** If the org list exceeds 50, consider batching enrichment requests (e.g., process in chunks of 10) to avoid overwhelming the local server with 100+ simultaneous requests.
 
 **Failure criteria:**
 - Enrichment failures must not prevent the org list from rendering.
@@ -897,14 +902,33 @@ The `OrgPickerModal` already has a `tagFilter` state variable and a tag `<select
   })
 ```
 
+Also remove `org.location` reference at line ~162 of `OrgPickerModal.svelte`. After Task 40.4 removes `location` from the Organization type, this will be a compile error.
+
 **Acceptance criteria:**
 - When the OrgPickerModal opens, the tag filter dropdown defaults to "company" instead of "All tags".
 - The user can still select "All tags" or any other tag to override the default.
 - The available orgs list is filtered to only show orgs tagged "company" on initial open.
+- When `tagFilter` is non-empty and `availableOrgs.length === 0`, the empty state message says 'No organizations with this tag. Try selecting All tags.' instead of the generic message.
 
 **Failure criteria:**
 - The default must not prevent adding non-company orgs. The user can always change the filter.
 - The `tagFilter = 'company'` must match a value in the `TAG_OPTIONS` array (it does -- `company` is the first entry).
+
+---
+
+### Task 40.12 -- Remove `org.location` from OrgDetailModal
+
+**File:** `packages/webui/src/lib/components/kanban/OrgDetailModal.svelte`
+
+Remove the `org.location` block (lines ~147-151) from `OrgDetailModal.svelte`. After Task 40.4 removes `location` from the Organization type, this reference will be a compile error. Optionally replace with HQ campus city/state from enrichment data (same pattern as KanbanCard props in Task 40.10).
+
+**Acceptance criteria:**
+- No reference to `org.location` remains in `OrgDetailModal.svelte`.
+- The component compiles cleanly after Task 40.4 type removal.
+- If a replacement is added, it uses HQ campus data passed as a prop, not the removed `location` field.
+
+**Failure criteria:**
+- Must not break the modal layout if no HQ campus data is available.
 
 ---
 
@@ -959,8 +983,8 @@ No documentation files to create. After implementation:
 
 1. Update the spec's Part B items 1, 4, 6, 8, 9, 12 to mark them as complete, referencing Phase 40.
 2. The `org_type` vs tags decision is documented via the comment added in Task 40.8.
-3. Update the spec's Decision Log table with:
-   - `2026-04-03 | Keep org_type as primary type (Option B) | Backward compatible; removal churn not justified for single-user tool`
+3. If no Decision Log table exists in the spec Part C, create one. Add entry: `2026-04-03 | Keep org_type as primary type alongside tags`.
+4. Add additional Decision Log entries:
    - `2026-04-03 | Drop institution/issuing_body from source_education | organization_id FK is authoritative; text columns were stale duplicates`
    - `2026-04-03 | Drop location/headquarters from organizations | Replaced by org_campuses table; save payload already cleaned`
 
@@ -979,9 +1003,13 @@ No documentation files to create. After implementation:
 | Task 40.10 (kanban card enrichment) | KanbanCard.svelte, KanbanBoard.svelte | Task 40.9 (different file), Task 40.11 (different file) |
 | Task 40.11 (tag filter default) | OrgPickerModal.svelte | Tasks 40.9, 40.10 (different files) |
 
+**Deployment Note:** Migration files 016-018 must not be applied (server must not restart with a fresh migration run) until Tasks 40.4, 40.6, 40.7, 40.9, 40.10 are all code-complete. Write all migration SQL first, complete all code changes, then do a single clean migration run.
+
 **Constraint:** Tasks 40.4 + 40.5 (type removal) must complete before Tasks 40.6 + 40.7 (repository code removal). The TS compiler will error if repository code references fields that no longer exist in the type interfaces.
 
 **Constraint:** Tasks 40.1 -> 40.2 -> 40.3 must run in order (data cleanup before column drop, education before org). Migration file numbering enforces this.
+
+**Migration numbering:** Verify Phase 39 does not add migrations. If it does, renumber Phase 40 migrations accordingly. The correct numbers are `max(existing) + 1` through `+3`.
 
 **Constraint:** Task 40.10 must remove the `org.location` reference from KanbanCard.svelte, which will break if migration 018 has run but the code still references the field. Coordinate with Task 40.4 (type removal).
 

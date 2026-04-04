@@ -1,0 +1,327 @@
+/* ================================================================
+   Forge Design System -- Semantic Tokens
+   ================================================================
+   Light defaults on :root.
+   Dark overrides via @media (prefers-color-scheme: dark).
+   User override via html[data-theme="light"|"dark"].
+   ================================================================ */
+
+/* ---- Global reset (moved from +layout.svelte) ---- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--color-bg);
+}
+
+/* ================================================================
+   Light theme (default)
+   ================================================================ */
+:root {
+  /* --- Brand --- */
+  --color-primary: #6c63ff;
+  --color-primary-hover: #5a52e0;
+  --color-primary-subtle: rgba(108, 99, 255, 0.15);
+
+  /* --- Surfaces --- */
+  --color-bg: #f5f5f5;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f9fafb;
+  --color-surface-sunken: #f3f4f6;
+
+  /* --- Sidebar --- */
+  --color-sidebar-bg: #1a1a2e;
+  --color-sidebar-text: #b0b0c0;
+  --color-sidebar-text-hover: #ffffff;
+  --color-sidebar-text-active: #ffffff;
+  --color-sidebar-border: rgba(255, 255, 255, 0.1);
+  --color-sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+  --color-sidebar-active-bg: rgba(255, 255, 255, 0.1);
+  --color-sidebar-accent: #6c63ff;
+
+  /* --- Text --- */
+  --text-primary: #1a1a2e;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+  --text-faint: #9ca3af;
+  --text-inverse: #ffffff;
+
+  /* --- Borders --- */
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db;
+  --color-border-focus: #6c63ff;
+
+  /* --- Status --- */
+  --color-success: #22c55e;
+  --color-success-subtle: #f0fdf4;
+  --color-success-text: #065f46;
+  --color-success-strong: #16a34a;
+
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-danger-subtle: #fee2e2;
+  --color-danger-text: #dc2626;
+
+  --color-warning: #f59e0b;
+  --color-warning-subtle: #fffbeb;
+  --color-warning-border: #fcd34d;
+  --color-warning-text: #92400e;
+  --color-warning-bg: #fef3c7;
+
+  --color-info: #3b82f6;
+  --color-info-subtle: #eff6ff;
+  --color-info-border: #bfdbfe;
+  --color-info-text: #1e40af;
+
+  /* --- Interactive --- */
+  --color-ghost: #f3f4f6;
+  --color-ghost-hover: #e5e7eb;
+  --color-ghost-text: #374151;
+
+  /* --- Overlay --- */
+  --color-overlay: rgba(0, 0, 0, 0.5);
+
+  /* --- Tags / Pills --- */
+  --color-tag-bg: #e0e7ff;
+  --color-tag-text: #3730a3;
+  --color-tag-neutral-bg: #f3f4f6;
+  --color-tag-neutral-text: #374151;
+
+  /* --- Template highlight (golden) --- */
+  --color-template-bg: #fffbeb;
+  --color-template-border: #fcd34d;
+  --color-template-star: #f59e0b;
+
+  /* --- Typography --- */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace;
+
+  --text-xs: 0.7rem;     /* 11.2px -- collapsed labels, tiny badges */
+  --text-sm: 0.8rem;     /* 12.8px -- section titles, field labels, small buttons */
+  --text-base: 0.875rem; /* 14px   -- body text, standard buttons, inputs */
+  --text-lg: 1rem;       /* 16px   -- card titles, dialog body */
+  --text-xl: 1.125rem;   /* 18px   -- dialog headings, section headers */
+  --text-2xl: 1.5rem;    /* 24px   -- page titles */
+
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+
+  /* --- Spacing --- */
+  --space-1: 0.25rem;   /*  4px */
+  --space-2: 0.5rem;    /*  8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+
+  /* --- Radii --- */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 999px;
+
+  /* --- Shadows --- */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.2);
+
+  /* --- Z-index layers --- */
+  --z-dropdown: 100;
+  --z-modal: 10000;
+  --z-toast: 10100;
+}
+
+/* ================================================================
+   Dark theme (OS preference)
+   ================================================================ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #8b83ff;
+    --color-primary-hover: #a29bff;
+    --color-primary-subtle: rgba(139, 131, 255, 0.2);
+
+    --color-bg: #0f0f1a;
+    --color-surface: #1a1a2e;
+    --color-surface-raised: #222240;
+    --color-surface-sunken: #141428;
+
+    --color-sidebar-bg: #0d0d1a;
+    --color-sidebar-text: #8888a0;
+    --color-sidebar-text-hover: #e0e0f0;
+    --color-sidebar-text-active: #ffffff;
+    --color-sidebar-border: rgba(255, 255, 255, 0.06);
+    --color-sidebar-hover-bg: rgba(255, 255, 255, 0.04);
+    --color-sidebar-active-bg: rgba(255, 255, 255, 0.08);
+
+    --text-primary: #e0e0f0;
+    --text-secondary: #b0b0c8;
+    --text-muted: #8888a0;
+    --text-faint: #606078;
+    --text-inverse: #0f0f1a;
+
+    --color-border: #2a2a44;
+    --color-border-strong: #3a3a58;
+    --color-border-focus: #8b83ff;
+
+    --color-success: #4ade80;
+    --color-success-subtle: #0a2618;
+    --color-success-text: #86efac;
+    --color-success-strong: #22c55e;
+
+    --color-danger: #f87171;
+    --color-danger-hover: #ef4444;
+    --color-danger-subtle: #2a0f0f;
+    --color-danger-text: #fca5a5;
+
+    --color-warning: #fbbf24;
+    --color-warning-subtle: #2a2008;
+    --color-warning-border: #854d0e;
+    --color-warning-text: #fde68a;
+    --color-warning-bg: #422006;
+
+    --color-info: #60a5fa;
+    --color-info-subtle: #0a1628;
+    --color-info-border: #1e3a5f;
+    --color-info-text: #93c5fd;
+
+    --color-ghost: #222240;
+    --color-ghost-hover: #2a2a44;
+    --color-ghost-text: #b0b0c8;
+
+    --color-overlay: rgba(0, 0, 0, 0.7);
+
+    --color-tag-bg: #1e1e3a;
+    --color-tag-text: #a5b4fc;
+    --color-tag-neutral-bg: #222240;
+    --color-tag-neutral-text: #b0b0c8;
+
+    --color-template-bg: #2a2008;
+    --color-template-border: #854d0e;
+    --color-template-star: #fbbf24;
+  }
+}
+
+/* ================================================================
+   User override via data-theme attribute
+   Higher specificity than the media query, so it wins when present.
+   ================================================================ */
+html[data-theme="light"] {
+  --color-primary: #6c63ff;
+  --color-primary-hover: #5a52e0;
+  --color-primary-subtle: rgba(108, 99, 255, 0.15);
+  --color-bg: #f5f5f5;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f9fafb;
+  --color-surface-sunken: #f3f4f6;
+  --color-sidebar-bg: #1a1a2e;
+  --color-sidebar-text: #b0b0c0;
+  --color-sidebar-text-hover: #ffffff;
+  --color-sidebar-text-active: #ffffff;
+  --color-sidebar-border: rgba(255, 255, 255, 0.1);
+  --color-sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+  --color-sidebar-active-bg: rgba(255, 255, 255, 0.1);
+  --color-sidebar-accent: #6c63ff;
+  --text-primary: #1a1a2e;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+  --text-faint: #9ca3af;
+  --text-inverse: #ffffff;
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db;
+  --color-border-focus: #6c63ff;
+  --color-success: #22c55e;
+  --color-success-subtle: #f0fdf4;
+  --color-success-text: #065f46;
+  --color-success-strong: #16a34a;
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-danger-subtle: #fee2e2;
+  --color-danger-text: #dc2626;
+  --color-warning: #f59e0b;
+  --color-warning-subtle: #fffbeb;
+  --color-warning-border: #fcd34d;
+  --color-warning-text: #92400e;
+  --color-warning-bg: #fef3c7;
+  --color-info: #3b82f6;
+  --color-info-subtle: #eff6ff;
+  --color-info-border: #bfdbfe;
+  --color-info-text: #1e40af;
+  --color-ghost: #f3f4f6;
+  --color-ghost-hover: #e5e7eb;
+  --color-ghost-text: #374151;
+  --color-overlay: rgba(0, 0, 0, 0.5);
+  --color-tag-bg: #e0e7ff;
+  --color-tag-text: #3730a3;
+  --color-tag-neutral-bg: #f3f4f6;
+  --color-tag-neutral-text: #374151;
+  --color-template-bg: #fffbeb;
+  --color-template-border: #fcd34d;
+  --color-template-star: #f59e0b;
+}
+
+html[data-theme="dark"] {
+  --color-primary: #8b83ff;
+  --color-primary-hover: #a29bff;
+  --color-primary-subtle: rgba(139, 131, 255, 0.2);
+  --color-bg: #0f0f1a;
+  --color-surface: #1a1a2e;
+  --color-surface-raised: #222240;
+  --color-surface-sunken: #141428;
+  --color-sidebar-bg: #0d0d1a;
+  --color-sidebar-text: #8888a0;
+  --color-sidebar-text-hover: #e0e0f0;
+  --color-sidebar-text-active: #ffffff;
+  --color-sidebar-border: rgba(255, 255, 255, 0.06);
+  --color-sidebar-hover-bg: rgba(255, 255, 255, 0.04);
+  --color-sidebar-active-bg: rgba(255, 255, 255, 0.08);
+  --text-primary: #e0e0f0;
+  --text-secondary: #b0b0c8;
+  --text-muted: #8888a0;
+  --text-faint: #606078;
+  --text-inverse: #0f0f1a;
+  --color-border: #2a2a44;
+  --color-border-strong: #3a3a58;
+  --color-border-focus: #8b83ff;
+  --color-success: #4ade80;
+  --color-success-subtle: #0a2618;
+  --color-success-text: #86efac;
+  --color-success-strong: #22c55e;
+  --color-danger: #f87171;
+  --color-danger-hover: #ef4444;
+  --color-danger-subtle: #2a0f0f;
+  --color-danger-text: #fca5a5;
+  --color-warning: #fbbf24;
+  --color-warning-subtle: #2a2008;
+  --color-warning-border: #854d0e;
+  --color-warning-text: #fde68a;
+  --color-warning-bg: #422006;
+  --color-info: #60a5fa;
+  --color-info-subtle: #0a1628;
+  --color-info-border: #1e3a5f;
+  --color-info-text: #93c5fd;
+  --color-ghost: #222240;
+  --color-ghost-hover: #2a2a44;
+  --color-ghost-text: #b0b0c8;
+  --color-overlay: rgba(0, 0, 0, 0.7);
+  --color-tag-bg: #1e1e3a;
+  --color-tag-text: #a5b4fc;
+  --color-tag-neutral-bg: #222240;
+  --color-tag-neutral-text: #b0b0c8;
+  --color-template-bg: #2a2008;
+  --color-template-border: #854d0e;
+  --color-template-star: #fbbf24;
+}

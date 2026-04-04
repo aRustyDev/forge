@@ -8,14 +8,14 @@ const mcpPort = parseInt(process.env.FORGE_MCP_PORT ?? '5174', 10)
 
 const sdk = new ForgeClient({ baseUrl })
 const flags = detectFeatures(sdk)
-const server = createForgeServer(sdk, flags)
 
 if (transport === 'http') {
-  // Streamable HTTP — multiple clients can connect simultaneously
+  // Streamable HTTP — multiple clients, per-session server instances
   const { startHttpTransport } = await import('./transports/http')
-  await startHttpTransport(server, { port: mcpPort })
+  await startHttpTransport(sdk, flags, { port: mcpPort })
 } else {
   // STDIO — single client, spawned as child process
+  const server = createForgeServer(sdk, flags)
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js')
   const stdioTransport = new StdioServerTransport()
 

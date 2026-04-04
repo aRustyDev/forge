@@ -1,46 +1,46 @@
 /**
  * Streamable HTTP transport for the Forge MCP server.
  *
- * Uses the Web Standard transport from @modelcontextprotocol/sdk which
- * is compatible with Bun.serve(). Handles multiple concurrent MCP sessions
- * over a single HTTP endpoint.
+ * Creates a new transport + server connection per session. Each MCP client
+ * (Claude Code, Claude Desktop, Cursor) gets its own session identified by
+ * the mcp-session-id header.
  *
- * Endpoint: POST /mcp (JSON-RPC messages + SSE responses)
- *           GET  /mcp (SSE stream for server-initiated notifications)
+ * Endpoint: POST /mcp   (JSON-RPC messages + SSE responses)
+ *           GET  /mcp   (SSE stream for server-initiated notifications)
  *           DELETE /mcp (session teardown)
  */
 
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
+import type { ForgeClient } from '@forge/sdk'
+import type { FeatureFlags } from '../utils/feature-flags'
+import { createForgeServer } from '../server'
 
 export interface HttpTransportOptions {
   port: number
-  /** Optional: restrict to specific origins (default: allow all) */
   cors?: string[]
 }
 
 /**
- * Start the MCP server with Streamable HTTP transport on a Bun HTTP server.
+ * Start the MCP HTTP endpoint with per-session transport management.
  *
- * Each incoming request creates or resumes an MCP session. The transport
- * handles session multiplexing (multiple Claude Code / Claude Desktop
- * clients can connect simultaneously).
+ * Each new client connection (no mcp-session-id header) creates a fresh
+ * McpServer + transport pair. Subsequent requests with the same session ID
+ * route to the existing transport. This enables multiple simultaneous clients.
  */
 export async function startHttpTransport(
-  server: McpServer,
+  sdk: ForgeClient,
+  flags: FeatureFlags,
   options: HttpTransportOptions,
 ): Promise<void> {
   const { port, cors } = options
 
-  // Create the web-standard transport
-  const transport = new WebStandardStreamableHTTPServerTransport({
-    sessionIdGenerator: () => crypto.randomUUID(),
-  })
+  // Session store: maps session ID → transport instance
+  const sessions = new Map<string, {
+    transport: WebStandardStreamableHTTPServerTransport
+    server: McpServer
+  }>()
 
-  // Connect the MCP server to the transport
-  await server.connect(transport)
-
-  // Start Bun HTTP server
   const httpServer = Bun.serve({
     port,
     async fetch(req: Request): Promise<Response> {
@@ -48,48 +48,87 @@ export async function startHttpTransport(
 
       // CORS preflight
       if (req.method === 'OPTIONS') {
-        return new Response(null, {
-          status: 204,
-          headers: corsHeaders(cors),
-        })
+        return new Response(null, { status: 204, headers: corsHeaders(cors) })
       }
 
       // Health check (non-MCP)
       if (url.pathname === '/health') {
-        return Response.json({ server: 'ok', transport: 'http', port })
+        return Response.json({
+          server: 'ok',
+          transport: 'http',
+          port,
+          active_sessions: sessions.size,
+        })
       }
 
       // MCP endpoint
       if (url.pathname === '/mcp') {
-        try {
-          const response = await transport.handleRequest(req)
-          // Add CORS headers to response
-          for (const [key, value] of Object.entries(corsHeaders(cors))) {
-            response.headers.set(key, value)
+        const sessionId = req.headers.get('mcp-session-id')
+
+        // Existing session — route to its transport
+        if (sessionId && sessions.has(sessionId)) {
+          try {
+            const session = sessions.get(sessionId)!
+            const response = await session.transport.handleRequest(req)
+            addCorsHeaders(response, cors)
+            return response
+          } catch (err) {
+            console.error(`[forge:mcp:http] Session ${sessionId} error:`, err)
+            return errorResponse(500, 'Internal server error', cors)
           }
-          return response
-        } catch (err) {
-          console.error('[forge:mcp:http] Request handling error:', err)
-          return Response.json(
-            { error: 'Internal server error' },
-            { status: 500, headers: corsHeaders(cors) },
-          )
         }
+
+        // New session — create transport + server, handle the initialize request
+        if (req.method === 'POST') {
+          try {
+            const transport = new WebStandardStreamableHTTPServerTransport({
+              sessionIdGenerator: () => crypto.randomUUID(),
+            })
+
+            // Create a fresh MCP server for this session
+            const server = createForgeServer(sdk, flags)
+            await server.connect(transport)
+
+            // Handle the request (should be initialize)
+            const response = await transport.handleRequest(req)
+
+            // Store the session if a session ID was assigned
+            if (transport.sessionId) {
+              sessions.set(transport.sessionId, { transport, server })
+              console.error(`[forge:mcp:http] New session: ${transport.sessionId}`)
+
+              // Clean up on close
+              transport.onclose = () => {
+                sessions.delete(transport.sessionId!)
+                console.error(`[forge:mcp:http] Session closed: ${transport.sessionId}`)
+              }
+            }
+
+            addCorsHeaders(response, cors)
+            return response
+          } catch (err) {
+            console.error('[forge:mcp:http] Session creation error:', err)
+            return errorResponse(500, 'Failed to create session', cors)
+          }
+        }
+
+        // GET/DELETE without session ID
+        return errorResponse(400, 'Missing mcp-session-id header', cors)
       }
 
-      return Response.json(
-        { error: 'Not found. MCP endpoint is at /mcp' },
-        { status: 404, headers: corsHeaders(cors) },
-      )
+      return errorResponse(404, 'Not found. MCP endpoint is at /mcp', cors)
     },
   })
 
   console.error(`[forge:mcp] Streamable HTTP transport listening on http://localhost:${httpServer.port}/mcp`)
 
-  // Graceful shutdown
+  // Graceful shutdown — close all sessions
   const shutdown = async () => {
-    console.error('[forge:mcp] Shutting down HTTP transport...')
-    await server.close()
+    console.error(`[forge:mcp] Shutting down (${sessions.size} active sessions)...`)
+    for (const [id, session] of sessions) {
+      await session.server.close().catch(() => {})
+      sessions.delete(id)
+    }
     httpServer.stop()
     process.exit(0)
   }
@@ -107,4 +146,17 @@ function corsHeaders(origins?: string[]): Record<string, string> {
     'Access-Control-Allow-Headers': 'Content-Type, mcp-session-id',
     'Access-Control-Expose-Headers': 'mcp-session-id',
   }
+}
+
+function addCorsHeaders(response: Response, origins?: string[]): void {
+  for (const [key, value] of Object.entries(corsHeaders(origins))) {
+    response.headers.set(key, value)
+  }
+}
+
+function errorResponse(status: number, message: string, origins?: string[]): Response {
+  return Response.json(
+    { error: message },
+    { status, headers: corsHeaders(origins) },
+  )
 }

@@ -11,9 +11,9 @@
   let visible = $state(false)
 
   const colorMap: Record<ToastType, string> = {
-    success: '#22c55e',
-    error: '#ef4444',
-    info: '#3b82f6',
+    success: 'var(--color-success)',
+    error: 'var(--color-danger)',
+    info: 'var(--color-info)',
   }
 
   $effect(() => {
@@ -51,12 +51,12 @@
   .toast {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    border-radius: 6px;
-    color: #fff;
-    font-size: 0.875rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    color: var(--text-inverse);
+    font-size: var(--text-base);
+    box-shadow: var(--shadow-md);
     transform: translateX(120%);
     opacity: 0;
     transition: transform 0.2s ease, opacity 0.2s ease;
@@ -76,7 +76,7 @@
   .close {
     background: none;
     border: none;
-    color: #fff;
+    color: var(--text-inverse);
     font-size: 1.25rem;
     cursor: pointer;
     padding: 0;

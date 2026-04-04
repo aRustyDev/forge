@@ -65,20 +65,20 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
-    padding: 0.75rem 1rem;
-    background: #fffbeb;
-    border: 1px solid #fde68a;
-    border-radius: 6px;
-    margin-bottom: 0.75rem;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-warning-subtle);
+    border: 1px solid var(--color-warning-border);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-3);
   }
 
   .drift-message {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--space-2);
     font-size: 0.85rem;
-    color: #92400e;
+    color: var(--color-warning-text);
   }
 
   .drift-icon {
@@ -88,52 +88,52 @@
 
   .drift-actions {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--space-2);
     flex-shrink: 0;
   }
 
   .drift-btn {
     padding: 0.3rem 0.65rem;
-    border: 1px solid #fcd34d;
-    border-radius: 4px;
-    background: #fef3c7;
-    color: #92400e;
-    font-size: 0.75rem;
-    font-weight: 500;
+    border: 1px solid var(--color-warning-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
     cursor: pointer;
     font-family: inherit;
     transition: background 0.1s;
   }
 
   .drift-btn:hover {
-    background: #fde68a;
+    background: var(--color-warning-border);
   }
 
   .drift-rederive {
-    background: #6c63ff;
-    border-color: #6c63ff;
-    color: #fff;
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--text-inverse);
   }
 
   .drift-rederive:hover {
-    background: #5a52e0;
+    background: var(--color-primary-hover);
   }
 
   .drift-dismiss {
     background: transparent;
-    border-color: #d1d5db;
-    color: #6b7280;
+    border-color: var(--color-border-strong);
+    color: var(--text-muted);
   }
 
   .drift-dismiss:hover {
-    background: #f3f4f6;
+    background: var(--color-ghost);
   }
 
   .drift-diff {
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     overflow: hidden;
-    margin-bottom: 0.75rem;
+    margin-bottom: var(--space-3);
   }
 
   .diff-columns {
@@ -146,41 +146,41 @@
   }
 
   .snapshot-column {
-    border-right: 1px solid #e5e7eb;
+    border-right: 1px solid var(--color-border);
   }
 
   .diff-column-header {
     padding: 0.4rem 0.75rem;
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: #6b7280;
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
   }
 
   .snapshot-column .diff-column-header {
-    background: #fffbeb;
+    background: var(--color-warning-subtle);
   }
 
   .current-column .diff-column-header {
-    background: #f0fdf4;
+    background: var(--color-success-subtle);
   }
 
   .diff-column-body {
-    padding: 0.75rem;
-    font-size: 0.8rem;
-    line-height: 1.5;
-    color: #374151;
+    padding: var(--space-3);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    color: var(--text-secondary);
     white-space: pre-wrap;
     word-break: break-word;
   }
 
   .snapshot-column .diff-column-body {
-    background: #fffef5;
+    background: var(--color-warning-subtle);
   }
 
   .current-column .diff-column-body {
-    background: #f7fef9;
+    background: var(--color-success-subtle);
   }
 </style>

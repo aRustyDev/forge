@@ -218,14 +218,5 @@ export function resumeRoutes(services: Services) {
     })
   })
 
-  // ── Legacy export endpoint (replaced by PDF) ──────────────────────
-
-  app.post('/resumes/:id/export', (c) => {
-    return c.json(
-      { error: { code: 'NOT_IMPLEMENTED', message: 'Resume export is not yet implemented. Use POST /resumes/:id/pdf instead.' } },
-      501,
-    )
-  })
-
   return app
 }

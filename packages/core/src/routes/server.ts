@@ -25,6 +25,9 @@ import { archetypeRoutes } from './archetypes'
 import { jobDescriptionRoutes } from './job-descriptions'
 import { templateRoutes } from './templates'
 import { profileRoutes } from './profile'
+import { exportRoutes } from './export'
+import { summaryRoutes } from './summaries'
+import { campusRoutes } from './campuses'
 
 /** Map error codes to HTTP status codes. */
 export function mapStatusCode(code: string): number {
@@ -32,6 +35,7 @@ export function mapStatusCode(code: string): number {
     case 'VALIDATION_ERROR':
       return 400
     case 'NOT_FOUND':
+    case 'SUMMARY_NOT_FOUND':
       return 404
     case 'CONFLICT':
       return 409
@@ -95,7 +99,7 @@ export function createApp(services: Services, db: Database) {
 
   // ── Routes ─────────────────────────────────────────────────────────
 
-  app.route('/', sourceRoutes(services))
+  app.route('/', sourceRoutes(services, db))
   app.route('/', bulletRoutes(services))
   app.route('/', perspectiveRoutes(services))
   app.route('/', resumeRoutes(services))
@@ -110,6 +114,9 @@ export function createApp(services: Services, db: Database) {
   app.route('/', jobDescriptionRoutes(services))
   app.route('/', templateRoutes(services))
   app.route('/', profileRoutes(services))
+  app.route('/', summaryRoutes(services))
+  app.route('/', campusRoutes(db))
+  app.route('/', exportRoutes(services, db))
 
   // ── Global error handler ───────────────────────────────────────────
 

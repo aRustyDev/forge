@@ -131,4 +131,4 @@ CREATE TABLE clearance_access_programs (
 -- values at this point. Access programs default to empty after migration. Users must
 -- manually add SCI/SAP/NATO via the UI.
 
-INSERT INTO _migrations (name) VALUES ('018_clearance_structured_data');
+-- Migration recording handled by the runner; no manual INSERT needed.

@@ -10,6 +10,7 @@ import {
   seedResumeSection,
   seedOrganization,
   seedJobDescription,
+  seedSummary,
 } from '../../db/__tests__/helpers'
 
 describe('API Response Contracts', () => {
@@ -275,20 +276,23 @@ describe('API Response Contracts', () => {
     const body = await res.json()
 
     expect(body.data).toHaveProperty('source_type', 'role')
-    expect(body.data).toHaveProperty('extension')
-    expect(body.data.extension).toHaveProperty('source_id')
-    expect(body.data.extension).toHaveProperty('start_date')
-    expect(body.data.extension).toHaveProperty('end_date')
+    expect(body.data).toHaveProperty('role')
+    expect(body.data.role).toHaveProperty('source_id')
+    expect(body.data.role).toHaveProperty('start_date')
+    expect(body.data.role).toHaveProperty('end_date')
   })
 
-  test('GET /sources/:id for general type has null extension', async () => {
+  test('GET /sources/:id for general type has no extension keys', async () => {
     const sourceId = seedSource(ctx.db, { sourceType: 'general' })
     const res = await apiRequest(ctx.app, 'GET', `/sources/${sourceId}`)
     expect(res.status).toBe(200)
     const body = await res.json()
 
     expect(body.data).toHaveProperty('source_type', 'general')
-    expect(body.data.extension).toBeNull()
+    expect(body.data.role).toBeUndefined()
+    expect(body.data.education).toBeUndefined()
+    expect(body.data.project).toBeUndefined()
+    expect(body.data.clearance).toBeUndefined()
   })
 
   // ── Bullet with Sources Array ──────────────────────────────────────
@@ -473,5 +477,50 @@ describe('API Response Contracts', () => {
     expect(body.pagination).toHaveProperty('total')
     expect(body.pagination).toHaveProperty('offset')
     expect(body.pagination).toHaveProperty('limit')
+  })
+
+  // ── Summaries Contracts ─────────────────────────────────────────
+
+  test('POST /summaries returns { data: entity } envelope', async () => {
+    const res = await apiRequest(ctx.app, 'POST', '/summaries', {
+      title: 'Contract Summary',
+    })
+    expect(res.status).toBe(201)
+    const body = await res.json()
+
+    expect(body).toHaveProperty('data')
+    expect(body.data).toHaveProperty('id')
+    expect(body.data).toHaveProperty('title')
+    expect(body.data).toHaveProperty('is_template')
+    expect(body.data).toHaveProperty('created_at')
+    expect(body).not.toHaveProperty('error')
+  })
+
+  test('GET /summaries returns { data: [], pagination: {} } envelope', async () => {
+    seedSummary(ctx.db)
+
+    const res = await apiRequest(ctx.app, 'GET', '/summaries')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    expect(body).toHaveProperty('data')
+    expect(body.data).toBeArray()
+    expect(body).toHaveProperty('pagination')
+    expect(body.pagination).toHaveProperty('total')
+    expect(body.pagination).toHaveProperty('offset')
+    expect(body.pagination).toHaveProperty('limit')
+  })
+
+  test('POST /summaries/:id/clone returns { data: entity } with 201', async () => {
+    const id = seedSummary(ctx.db)
+
+    const res = await apiRequest(ctx.app, 'POST', `/summaries/${id}/clone`)
+    expect(res.status).toBe(201)
+    const body = await res.json()
+
+    expect(body).toHaveProperty('data')
+    expect(body.data).toHaveProperty('id')
+    expect(body.data.id).not.toBe(id)
+    expect(body).not.toHaveProperty('error')
   })
 })

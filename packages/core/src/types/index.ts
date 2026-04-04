@@ -48,6 +48,21 @@ export type PromptLogEntityType = 'bullet' | 'perspective'
 /** Valid source type discriminator values. */
 export type SourceType = 'role' | 'project' | 'education' | 'clearance' | 'general'
 
+/** Valid clearance level values. */
+export type ClearanceLevel = 'public' | 'confidential' | 'secret' | 'top_secret' | 'q' | 'l'
+
+/** Valid clearance polygraph values. */
+export type ClearancePolygraph = 'none' | 'ci' | 'full_scope'
+
+/** Valid clearance status values. */
+export type ClearanceStatus = 'active' | 'inactive'
+
+/** Valid clearance type values. */
+export type ClearanceType = 'personnel' | 'facility'
+
+/** Valid clearance access program values. */
+export type ClearanceAccessProgram = 'sci' | 'sap' | 'nato'
+
 // ── Core Entities ─────────────────────────────────────────────────────
 
 /** Campus modality — how instruction/work is delivered at this location. */
@@ -233,14 +248,19 @@ export interface SourceEducation {
 /** Clearance-specific details for a source with source_type='clearance'. */
 export interface SourceClearance {
   source_id: string
-  level: string
-  polygraph: string | null
-  status: string | null
-  sponsoring_agency: string | null
+  level: ClearanceLevel
+  polygraph: ClearancePolygraph | null
+  status: ClearanceStatus
+  type: ClearanceType
+  sponsor_organization_id: string | null
+  continuous_investigation: number
+  access_programs: ClearanceAccessProgram[]
   investigation_date: string | null
   adjudication_date: string | null
   reinvestigation_date: string | null
   read_on: string | null
+  /** @deprecated Use sponsor_organization_id. Kept for legacy reads during transition. */
+  sponsoring_agency?: string | null
 }
 
 /** A bullet point derived from a source. */
@@ -542,9 +562,14 @@ export interface CreateSource {
   location?: string
   edu_description?: string
   // Clearance extension fields
-  level?: string
-  polygraph?: string
-  clearance_status?: string
+  level?: ClearanceLevel
+  polygraph?: ClearancePolygraph
+  clearance_status?: ClearanceStatus
+  clearance_type?: ClearanceType
+  sponsor_organization_id?: string
+  continuous_investigation?: number
+  access_programs?: ClearanceAccessProgram[]
+  /** @deprecated Use sponsor_organization_id. */
   sponsoring_agency?: string
 }
 
@@ -581,9 +606,14 @@ export interface UpdateSource {
   location?: string | null
   edu_description?: string | null
   // Clearance extension fields
-  level?: string
-  polygraph?: string | null
-  clearance_status?: string | null
+  level?: ClearanceLevel
+  polygraph?: ClearancePolygraph | null
+  clearance_status?: ClearanceStatus
+  clearance_type?: ClearanceType
+  sponsor_organization_id?: string | null
+  continuous_investigation?: number
+  access_programs?: ClearanceAccessProgram[]
+  /** @deprecated Use sponsor_organization_id. */
   sponsoring_agency?: string | null
 }
 

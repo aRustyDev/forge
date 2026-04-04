@@ -733,13 +733,13 @@
       {:else}
         <div class="resume-list">
           {#each resumes as resume (resume.id)}
-            <button class="resume-card" onclick={() => selectResume(resume.id)}>
+            <div class="resume-card" role="button" tabindex="0" onclick={() => selectResume(resume.id)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') selectResume(resume.id) }}>
               <div class="resume-card-header">
                 <span class="resume-name">{resume.name}</span>
                 <div class="resume-card-actions">
                   <StatusBadge status={resume.status} />
                   <div class="dropdown">
-                    <button class="btn btn-sm btn-download" onclick={(e) => toggleDropdown(resume.id, e)}>
+                    <button class="btn btn-sm btn-download" onclick={(e) => { e.stopPropagation(); toggleDropdown(resume.id, e) }}>
                       Download
                     </button>
                     {#if openDropdown === resume.id}
@@ -763,7 +763,7 @@
               <div class="resume-card-archetype">
                 <span class="archetype-tag">{resume.archetype}</span>
               </div>
-            </button>
+            </div>
           {/each}
         </div>
       {/if}

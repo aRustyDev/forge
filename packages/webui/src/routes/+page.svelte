@@ -2,6 +2,10 @@
   import { forge, friendlyError } from '$lib/sdk'
   import { LoadingSpinner, EmptyState } from '$lib/components'
   import { goto } from '$app/navigation'
+  import SkillsSunburst from '$lib/components/charts/SkillsSunburst.svelte'
+  import SkillsTreemap from '$lib/components/charts/SkillsTreemap.svelte'
+  import BulletsTreemap from '$lib/components/charts/BulletsTreemap.svelte'
+  import DomainsTreemap from '$lib/components/charts/DomainsTreemap.svelte'
 
   let loading = $state(true)
   let error = $state<string | null>(null)
@@ -164,6 +168,22 @@
           <div class="stat-number">{totalResumes}</div>
           <div class="stat-label">Resumes</div>
         </div>
+      </div>
+    </section>
+
+    <!-- Skill & Domain Distribution (Phase 63) -->
+    <section class="section">
+      <h2 class="section-title">Skill & Domain Distribution</h2>
+      <SkillsSunburst />
+    </section>
+
+    <!-- Treemap Views (Phase 64) -->
+    <section class="section">
+      <h2 class="section-title">Treemap Views</h2>
+      <div class="treemap-grid">
+        <SkillsTreemap />
+        <BulletsTreemap />
+        <DomainsTreemap />
       </div>
     </section>
   {/if}
@@ -349,5 +369,12 @@
     font-size: var(--text-sm);
     color: var(--text-muted);
     font-weight: var(--font-medium);
+  }
+
+  /* Treemap grid */
+  .treemap-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
   }
 </style>

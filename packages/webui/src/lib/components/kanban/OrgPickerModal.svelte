@@ -32,7 +32,7 @@
     if (open) {
       loadAllOrgs()
       searchQuery = ''
-      tagFilter = ''
+      tagFilter = 'company'  // Default to company for employer pipeline context
       showCreateForm = false
       collisionOrg = null
     }
@@ -142,7 +142,7 @@
           </div>
         {:else if availableOrgs.length === 0}
           <div class="list-empty">
-            <p>No available organizations found.{searchQuery ? ' Try a different search.' : ''}</p>
+            <p>No available organizations found.{searchQuery ? ' Try a different search.' : tagFilter ? ' Try selecting All tags.' : ''}</p>
           </div>
         {:else}
           {#each availableOrgs as org (org.id)}
@@ -159,7 +159,6 @@
               </div>
               <div class="picker-meta">
                 {#if org.industry}<span>{org.industry}</span>{/if}
-                {#if org.location}<span>{org.location}</span>{/if}
               </div>
               {#if org.tags && org.tags.length > 0}
                 <div class="picker-tags">

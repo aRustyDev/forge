@@ -11,6 +11,8 @@
     onToggleCollapse,
     onDrop,
     onCardClick,
+    aliasCountMap = new Map(),
+    hqLocationMap = new Map(),
   }: {
     label: string
     accent: string
@@ -19,6 +21,8 @@
     onToggleCollapse?: () => void
     onDrop: (orgId: string) => void
     onCardClick: (orgId: string) => void
+    aliasCountMap?: Map<string, number>
+    hqLocationMap?: Map<string, string>
   } = $props()
 
   let localItems = $state<(Organization & { id: string })[]>([])
@@ -79,7 +83,12 @@
       onfinalize={handleFinalize}
     >
       {#each localItems as item (item.id)}
-        <KanbanCard org={item} onclick={() => onCardClick(item.id)} />
+        <KanbanCard
+          org={item}
+          onclick={() => onCardClick(item.id)}
+          aliasCount={aliasCountMap.get(item.id) ?? 0}
+          hqLocation={hqLocationMap.get(item.id) ?? ''}
+        />
       {/each}
     </div>
   </div>

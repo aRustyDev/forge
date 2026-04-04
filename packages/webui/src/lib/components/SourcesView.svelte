@@ -752,8 +752,6 @@
       {/if}
       {#if source.source_type === 'education' && source.education?.organization_id}
         <span class="card-org">{getOrgName(source.education.organization_id)}</span>
-      {:else if source.source_type === 'education' && source.education?.institution}
-        <span class="card-org">{source.education.institution}</span>
       {/if}
       {#if source.source_type === 'education' && source.education?.education_type}
         <span class="edu-type-badge">{source.education.education_type}</span>

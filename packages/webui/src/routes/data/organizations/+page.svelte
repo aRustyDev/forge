@@ -65,6 +65,10 @@
   let newAlias = $state('')
   let savingAlias = $state(false)
 
+  // Enrichment data: alias counts and HQ locations per org
+  let aliasCountMap = $state<Map<string, number>>(new Map())
+  let hqLocationMap = $state<Map<string, string>>(new Map())
+
   let filteredOrgs = $derived.by(() => {
     let result = organizations
     if (tagFilter !== 'all') {
@@ -92,10 +96,46 @@
     const result = await forge.organizations.list({ limit: 500 })
     if (result.ok) {
       organizations = result.data
+      loadEnrichmentData(result.data)
     } else {
       addToast({ message: friendlyError(result.error, 'Failed to load organizations'), type: 'error' })
     }
     loading = false
+  }
+
+  async function loadEnrichmentData(orgs: Organization[]) {
+    const aliasMap = new Map<string, number>()
+    const hqMap = new Map<string, string>()
+
+    const promises = orgs.map(async (org) => {
+      try {
+        const [aliasRes, campusRes] = await Promise.all([
+          fetch(`/api/organizations/${org.id}/aliases`),
+          fetch(`/api/organizations/${org.id}/campuses`),
+        ])
+        if (aliasRes.ok) {
+          const aliasBody = await aliasRes.json()
+          const aliases = aliasBody.data ?? []
+          if (aliases.length > 0) {
+            aliasMap.set(org.id, aliases.length)
+          }
+        }
+        if (campusRes.ok) {
+          const campusBody = await campusRes.json()
+          const campuses = campusBody.data ?? []
+          const hq = campuses.find((c: OrgCampus) => c.is_headquarters)
+          if (hq && (hq.city || hq.state)) {
+            hqMap.set(org.id, [hq.city, hq.state].filter(Boolean).join(', '))
+          }
+        }
+      } catch {
+        // Silently skip enrichment failures
+      }
+    })
+
+    await Promise.all(promises)
+    aliasCountMap = aliasMap
+    hqLocationMap = hqMap
   }
 
   function populateForm(org: Organization) {
@@ -406,6 +446,9 @@
             >
               <div class="card-top">
                 <span class="card-title">{org.name}</span>
+                {#if aliasCountMap.get(org.id)}
+                  <span class="alias-count">({aliasCountMap.get(org.id)})</span>
+                {/if}
                 {#if org.worked}
                   <span class="worked-badge">Worked</span>
                 {/if}
@@ -415,10 +458,10 @@
                   <span class="tag-pill">{tag}</span>
                 {/each}
               </div>
-              {#if org.industry || org.location}
+              {#if org.industry || hqLocationMap.get(org.id)}
                 <div class="card-meta">
                   {#if org.industry}<span class="meta-item">{org.industry}</span>{/if}
-                  {#if org.location}<span class="meta-item">{org.location}</span>{/if}
+                  {#if hqLocationMap.get(org.id)}<span class="meta-item">{hqLocationMap.get(org.id)}</span>{/if}
                 </div>
               {/if}
             </button>
@@ -789,6 +832,7 @@
   .card-top { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
   .card-title { font-size: 0.875rem; font-weight: 500; color: #1a1a1a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
   .worked-badge { display: inline-block; padding: 0.1em 0.4em; background: #d1fae5; color: #065f46; border-radius: 3px; font-size: 0.65rem; font-weight: 600; flex-shrink: 0; }
+  .alias-count { font-size: 0.65rem; color: #9ca3af; font-weight: 400; flex-shrink: 0; }
 
   .card-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 0.2rem; }
   .tag-pill { display: inline-block; padding: 0.1em 0.4em; background: #e0e7ff; color: #4338ca; border-radius: 3px; font-size: 0.6rem; font-weight: 500; text-transform: capitalize; }

@@ -252,9 +252,6 @@ function importEducation(v1: Database, forge: Database, summary: ImportSummary) 
         : row.type === 'self_taught' ? 'self_taught'
         : 'certificate'  // fallback
 
-      // issuing_body derived from institution for certs
-      const issuingBody = row.type === 'certificate' ? row.institution : null
-
       forge.query(`
         INSERT INTO sources (
           id, title, description, source_type, notes,
@@ -264,21 +261,19 @@ function importEducation(v1: Database, forge: Database, summary: ImportSummary) 
 
       forge.query(`
         INSERT INTO source_education (
-          source_id, education_type, institution, field,
+          source_id, education_type, field,
           start_date, end_date, is_in_progress,
-          credential_id, expiration_date, issuing_body, url
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          credential_id, expiration_date, url
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         educationType,
-        row.institution ?? null,
         row.field ?? null,
         row.start_date ?? null,
         row.end_date ?? null,
         row.is_in_progress ? 1 : 0,
         row.credential_id ?? null,
         row.expiration_date ?? null,
-        issuingBody,
         row.url ?? null,
       )
 

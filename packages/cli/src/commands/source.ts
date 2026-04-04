@@ -49,9 +49,9 @@ const add = defineCommand({
       type: 'string',
       description: 'Education type (degree, certificate, course, self_taught)',
     },
-    institution: {
+    'edu-org': {
       type: 'string',
-      description: 'Institution name',
+      description: 'Education organization ID',
     },
     field: {
       type: 'string',
@@ -103,7 +103,7 @@ const add = defineCommand({
     } else if (args.type === 'education') {
       const education: Record<string, unknown> = {}
       if (args['edu-type']) education.education_type = args['edu-type']
-      if (args.institution) education.institution = args.institution
+      if (args['edu-org']) education.organization_id = args['edu-org']
       if (args.field) education.field = args.field
       if (args['credential-id']) education.credential_id = args['credential-id']
       if (args['start-date']) education.start_date = args['start-date']
@@ -275,7 +275,7 @@ const show = defineCommand({
       console.log(`  Arrangement:     ${s.role.work_arrangement ?? '(none)'}`)
     } else if (s.source_type === 'education' && s.education) {
       console.log(`  Education Type:  ${s.education.education_type}`)
-      console.log(`  Institution:     ${s.education.institution ?? '(none)'}`)
+      console.log(`  Organization:    ${s.education.organization_id ?? '(none)'}`)
       console.log(`  Field:           ${s.education.field ?? '(none)'}`)
       console.log(`  Credential ID:   ${s.education.credential_id ?? '(none)'}`)
     } else if (s.source_type === 'clearance' && s.clearance) {

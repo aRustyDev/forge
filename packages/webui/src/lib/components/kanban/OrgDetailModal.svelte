@@ -144,12 +144,6 @@
               <span class="info-value">{org.industry}</span>
             </div>
           {/if}
-          {#if org.location}
-            <div class="info-item">
-              <span class="info-label">Location</span>
-              <span class="info-value">{org.location}</span>
-            </div>
-          {/if}
           {#if org.size}
             <div class="info-item">
               <span class="info-label">Size</span>

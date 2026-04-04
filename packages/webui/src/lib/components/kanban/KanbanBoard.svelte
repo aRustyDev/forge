@@ -5,7 +5,7 @@
   import KanbanColumn from './KanbanColumn.svelte'
   import OrgPickerModal from './OrgPickerModal.svelte'
   import OrgDetailModal from './OrgDetailModal.svelte'
-  import type { Organization } from '@forge/sdk'
+  import type { Organization, OrgCampus } from '@forge/sdk'
 
   type OrgStatus = 'backlog' | 'researching' | 'exciting' | 'interested' | 'acceptable' | 'excluded'
 
@@ -35,6 +35,10 @@
   let showPicker = $state(false)
   let detailOrgId = $state<string | null>(null)
 
+  // Enrichment data: alias counts and HQ locations per org
+  let aliasCountMap = $state<Map<string, number>>(new Map())
+  let hqLocationMap = $state<Map<string, string>>(new Map())
+
   let detailOrg = $derived(organizations.find(o => o.id === detailOrgId) ?? null)
 
   let columnData = $derived(COLUMNS.map(col => ({
@@ -54,10 +58,46 @@
     const result = await forge.organizations.list({ limit: 500 })
     if (result.ok) {
       organizations = result.data.filter(o => o.status)
+      loadEnrichmentData(organizations)
     } else {
       addToast({ message: friendlyError(result.error, 'Failed to load organizations'), type: 'error' })
     }
     loading = false
+  }
+
+  async function loadEnrichmentData(orgs: Organization[]) {
+    const aliasMap = new Map<string, number>()
+    const hqMap = new Map<string, string>()
+
+    const promises = orgs.map(async (org) => {
+      try {
+        const [aliasRes, campusRes] = await Promise.all([
+          fetch(`/api/organizations/${org.id}/aliases`),
+          fetch(`/api/organizations/${org.id}/campuses`),
+        ])
+        if (aliasRes.ok) {
+          const aliasBody = await aliasRes.json()
+          const aliases = aliasBody.data ?? []
+          if (aliases.length > 0) {
+            aliasMap.set(org.id, aliases.length)
+          }
+        }
+        if (campusRes.ok) {
+          const campusBody = await campusRes.json()
+          const campuses = campusBody.data ?? []
+          const hq = campuses.find((c: OrgCampus) => c.is_headquarters)
+          if (hq && (hq.city || hq.state)) {
+            hqMap.set(org.id, [hq.city, hq.state].filter(Boolean).join(', '))
+          }
+        }
+      } catch {
+        // Silently skip enrichment failures
+      }
+    })
+
+    await Promise.all(promises)
+    aliasCountMap = aliasMap
+    hqLocationMap = hqMap
   }
 
   async function handleDrop(columnKey: string, orgId: string) {
@@ -130,6 +170,8 @@
           onToggleCollapse={col.key === 'excluded' ? () => { excludedExpanded = !excludedExpanded } : undefined}
           onDrop={(orgId) => handleDrop(col.key, orgId)}
           onCardClick={handleCardClick}
+          {aliasCountMap}
+          {hqLocationMap}
         />
       {/each}
     </div>

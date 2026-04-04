@@ -1,9 +1,11 @@
 <script lang="ts">
   import type { Organization } from '@forge/sdk'
 
-  let { org, onclick }: {
+  let { org, onclick, aliasCount = 0, hqLocation = '' }: {
     org: Organization
     onclick: () => void
+    aliasCount?: number
+    hqLocation?: string
   } = $props()
 
   const INTEREST_STYLES: Record<string, { bg: string; border: string; badge: string; label: string }> = {
@@ -29,6 +31,9 @@
 >
   <div class="card-header">
     <span class="card-name" class:strike={isExcluded}>{org.name}</span>
+    {#if aliasCount > 0}
+      <span class="alias-count">({aliasCount})</span>
+    {/if}
     {#if org.worked}
       <span class="worked-badge">Worked</span>
     {/if}
@@ -46,8 +51,8 @@
     {#if org.industry}
       <span class="meta-text">{org.industry}</span>
     {/if}
-    {#if org.location}
-      <span class="meta-text">{org.location}</span>
+    {#if hqLocation}
+      <span class="meta-text">{hqLocation}</span>
     {/if}
   </div>
 
@@ -131,5 +136,12 @@
   .meta-text {
     font-size: var(--text-xs);
     color: var(--text-muted);
+  }
+
+  .alias-count {
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    font-weight: 400;
+    flex-shrink: 0;
   }
 </style>

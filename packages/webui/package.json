@@ -23,6 +23,7 @@
     "graphology-layout-forceatlas2": "^0.10.1",
     "graphology-types": "^0.24.8",
     "sigma": "^3.0.2",
+    "echarts": "^5.5.0",
     "svelte-dnd-action": "^0.9.69"
   },
   "devDependencies": {

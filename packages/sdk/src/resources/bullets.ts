@@ -10,6 +10,8 @@ import type {
   RequestFn,
   RequestListFn,
   Result,
+  Skill,
+  Source,
   UpdateBullet,
 } from '../types'
 
@@ -60,6 +62,11 @@ export class BulletsResource {
     return this.request<Bullet>('PATCH', `/api/bullets/${id}/reopen`)
   }
 
+  /** Submit a draft bullet for review (draft -> pending_review). */
+  submit(id: string): Promise<Result<Bullet>> {
+    return this.request<Bullet>('PATCH', `/api/bullets/${id}/submit`)
+  }
+
   derivePerspectives(
     id: string,
     input: DerivePerspectiveInput,
@@ -69,5 +76,29 @@ export class BulletsResource {
       `/api/bullets/${id}/derive-perspectives`,
       input,
     )
+  }
+
+  // ── Bullet Skills ───────────────────────────────────────────────────
+
+  /** List all skills linked to this bullet. */
+  listSkills(bulletId: string): Promise<Result<Skill[]>> {
+    return this.request<Skill[]>('GET', `/api/bullets/${bulletId}/skills`)
+  }
+
+  /** Link an existing skill or create a new one and link it. */
+  addSkill(bulletId: string, input: { skill_id: string } | { name: string; category?: string }): Promise<Result<Skill>> {
+    return this.request<Skill>('POST', `/api/bullets/${bulletId}/skills`, input)
+  }
+
+  /** Unlink a skill from this bullet. */
+  removeSkill(bulletId: string, skillId: string): Promise<Result<void>> {
+    return this.request<void>('DELETE', `/api/bullets/${bulletId}/skills/${skillId}`)
+  }
+
+  // ── Bullet Sources ──────────────────────────────────────────────────
+
+  /** List sources associated with this bullet (with is_primary flag). */
+  listSources(bulletId: string): Promise<Result<Array<Source & { is_primary: number }>>> {
+    return this.request<Array<Source & { is_primary: number }>>('GET', `/api/bullets/${bulletId}/sources`)
   }
 }

@@ -363,6 +363,132 @@ describe('sb2nov template', () => {
       expect(result).toContain('\\resumeItem{Self-taught Python}')
     })
 
+    test('degree with campus_city and campus_state uses campus location', () => {
+      const section: IRSection = {
+        id: 's1', type: 'education', title: 'Education', display_order: 0,
+        items: [{
+          kind: 'education',
+          institution: 'WGU',
+          degree: 'B.S. Cybersecurity',
+          date: '2023',
+          entry_id: 'e1',
+          source_id: 's1',
+          education_type: 'degree',
+          degree_type: 'B.S.',
+          field: 'Cybersecurity',
+          campus_city: 'Salt Lake City',
+          campus_state: 'UT',
+        }],
+      }
+
+      const result = sb2nov.renderSection(section)
+      expect(result).toContain('{WGU}{Salt Lake City, UT}')
+    })
+
+    test('degree with only campus_city uses city alone', () => {
+      const section: IRSection = {
+        id: 's1', type: 'education', title: 'Education', display_order: 0,
+        items: [{
+          kind: 'education',
+          institution: 'MIT',
+          degree: 'M.S. CS',
+          date: '2022',
+          entry_id: 'e1',
+          source_id: 's1',
+          education_type: 'degree',
+          campus_city: 'Arlington',
+          campus_state: null,
+        }],
+      }
+
+      const result = sb2nov.renderSection(section)
+      expect(result).toContain('{MIT}{Arlington}')
+    })
+
+    test('degree with no campus falls back to deprecated location', () => {
+      const section: IRSection = {
+        id: 's1', type: 'education', title: 'Education', display_order: 0,
+        items: [{
+          kind: 'education',
+          institution: 'Online Univ',
+          degree: 'B.S. IT',
+          date: '2020',
+          entry_id: 'e1',
+          source_id: 's1',
+          education_type: 'degree',
+          location: 'Online',
+          campus_city: null,
+          campus_state: null,
+        }],
+      }
+
+      const result = sb2nov.renderSection(section)
+      expect(result).toContain('{Online Univ}{Online}')
+    })
+
+    test('degree with no campus and no location renders empty', () => {
+      const section: IRSection = {
+        id: 's1', type: 'education', title: 'Education', display_order: 0,
+        items: [{
+          kind: 'education',
+          institution: 'WGU',
+          degree: 'B.S. Cyber',
+          date: '2023',
+          entry_id: 'e1',
+          source_id: 's1',
+          education_type: 'degree',
+          campus_city: null,
+          campus_state: null,
+          location: null,
+        }],
+      }
+
+      const result = sb2nov.renderSection(section)
+      expect(result).toContain('{WGU}{}')
+    })
+
+    test('course with campus location prefers campus over deprecated location', () => {
+      const section: IRSection = {
+        id: 's1', type: 'education', title: 'Education', display_order: 0,
+        items: [{
+          kind: 'education',
+          institution: 'SANS Institute',
+          degree: 'SANS SEC504',
+          date: '2024',
+          entry_id: 'e1',
+          source_id: 's1',
+          education_type: 'course',
+          location: 'Las Vegas',
+          campus_city: 'Orlando',
+          campus_state: 'FL',
+        }],
+      }
+
+      const result = sb2nov.renderSection(section)
+      expect(result).toContain('{SANS Institute, Orlando, FL}{}')
+    })
+
+    test('course without campus falls back to deprecated location', () => {
+      const section: IRSection = {
+        id: 's1', type: 'education', title: 'Education', display_order: 0,
+        items: [{
+          kind: 'education',
+          institution: 'SANS Institute',
+          degree: 'SANS SEC504',
+          date: '2024',
+          entry_id: 'e1',
+          source_id: 's1',
+          education_type: 'course',
+          location: 'Las Vegas',
+          campus_city: null,
+          campus_state: null,
+        }],
+      }
+
+      const result = sb2nov.renderSection(section)
+      expect(result).toContain('{SANS Institute, Las Vegas}{}')
+    })
+
     test('education without education_type defaults to degree rendering', () => {
       const section: IRSection = {
         id: 's1', type: 'education', title: 'Education', display_order: 0,

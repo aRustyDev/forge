@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import type { Database } from 'bun:sqlite'
 import { compileResumeIR, syntheticUUID, formatDateRange } from '../resume-compiler'
-import type { ExperienceGroup, ProjectItem, PresentationItem } from '../../types'
+import type { EducationItem, ExperienceGroup, ProjectItem, PresentationItem } from '../../types'
 import { createTestDb, seedSource, seedBullet, seedPerspective, seedResume, seedResumeEntry, seedResumeSection, seedOrganization, seedResumeSkill, seedProfile, seedSummary } from '../../db/__tests__/helpers'
 
 describe('compileResumeIR', () => {
@@ -179,6 +179,65 @@ describe('compileResumeIR', () => {
       expect(item.degree).toBe('B.S. Cybersecurity & Information Assurance')
       expect(item.date).toBe('2023')
     }
+  })
+
+  test('education section includes campus fields when campus_id is set', () => {
+    const resumeId = seedResume(db)
+    const orgId = seedOrganization(db, { name: 'Western Governors University' })
+
+    // Create a campus
+    const campusId = crypto.randomUUID()
+    db.run(
+      `INSERT INTO org_campuses (id, organization_id, name, modality, city, state)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [campusId, orgId, 'Salt Lake City Campus', 'in_person', 'Salt Lake City', 'UT']
+    )
+
+    const sourceId = seedSource(db, { title: 'WGU Degree', sourceType: 'education' })
+    db.run(
+      `INSERT INTO source_education (source_id, education_type, organization_id, campus_id, field, end_date)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [sourceId, 'degree', orgId, campusId, 'Cybersecurity', '2023-06-01']
+    )
+
+    const bulletId = seedBullet(db, [{ id: sourceId, isPrimary: true }], { content: 'B.S. Cybersecurity' })
+    const perspId = seedPerspective(db, bulletId, { content: 'B.S. Cybersecurity & Information Assurance' })
+    const secId = seedResumeSection(db, resumeId, 'Education', 'education', 0)
+    seedResumeEntry(db, secId, { perspectiveId: perspId, position: 0 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const eduSection = result.sections.find(s => s.type === 'education')
+    expect(eduSection).toBeDefined()
+    const item = eduSection!.items[0] as EducationItem
+    expect(item.kind).toBe('education')
+    expect(item.institution).toBe('Western Governors University')
+    expect(item.campus_name).toBe('Salt Lake City Campus')
+    expect(item.campus_city).toBe('Salt Lake City')
+    expect(item.campus_state).toBe('UT')
+  })
+
+  test('education section has null campus fields when no campus_id', () => {
+    const resumeId = seedResume(db)
+    const sourceId = seedSource(db, { title: 'WGU Degree', sourceType: 'education' })
+    db.run(
+      `INSERT INTO source_education (source_id, education_type, institution, field, end_date)
+       VALUES (?, ?, ?, ?, ?)`,
+      [sourceId, 'degree', 'Western Governors University', 'Cybersecurity', '2023-06-01']
+    )
+
+    const bulletId = seedBullet(db, [{ id: sourceId, isPrimary: true }], { content: 'B.S. Cybersecurity' })
+    const perspId = seedPerspective(db, bulletId, { content: 'B.S. Cybersecurity & Information Assurance' })
+    const secId = seedResumeSection(db, resumeId, 'Education', 'education', 0)
+    seedResumeEntry(db, secId, { perspectiveId: perspId, position: 0 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const eduSection = result.sections.find(s => s.type === 'education')
+    expect(eduSection).toBeDefined()
+    const item = eduSection!.items[0] as EducationItem
+    expect(item.kind).toBe('education')
+    expect(item.campus_name).toBeNull()
+    expect(item.campus_city).toBeNull()
+    expect(item.campus_state).toBeNull()
   })
 
   test('clearance section builds from structured data', () => {

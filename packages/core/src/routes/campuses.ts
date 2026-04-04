@@ -32,6 +32,22 @@ export function campusRoutes(db: Database) {
     return c.json({ data: campus }, 201)
   })
 
+  app.patch('/campuses/:id', async (c) => {
+    const body = await c.req.json()
+    const updated = CampusRepo.update(db, c.req.param('id'), {
+      name: body.name,
+      modality: body.modality,
+      address: body.address,
+      city: body.city,
+      state: body.state,
+      zipcode: body.zipcode,
+      country: body.country,
+      is_headquarters: body.is_headquarters !== undefined ? (body.is_headquarters ? 1 : 0) : undefined,
+    })
+    if (!updated) return c.json({ error: { code: 'NOT_FOUND', message: 'Campus not found' } }, 404)
+    return c.json({ data: updated })
+  })
+
   app.delete('/campuses/:id', (c) => {
     const deleted = CampusRepo.del(db, c.req.param('id'))
     if (!deleted) return c.json({ error: { code: 'NOT_FOUND', message: 'Campus not found' } }, 404)

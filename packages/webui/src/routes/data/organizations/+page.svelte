@@ -26,8 +26,6 @@
   let formSize = $state('')
   let formWorked = $state(false)
   let formEmploymentType = $state('')
-  let formLocation = $state('')
-  let formHeadquarters = $state('')
   let formWebsite = $state('')
   let formLinkedinUrl = $state('')
   let formGlassdoorUrl = $state('')
@@ -49,6 +47,18 @@
   let newCampusIsHQ = $state(false)
   let savingCampus = $state(false)
   let deletingCampusId = $state<string | null>(null)
+
+  // Campus inline editing
+  let editingCampusId = $state<string | null>(null)
+  let editCampusName = $state('')
+  let editCampusModality = $state('in_person')
+  let editCampusAddress = $state('')
+  let editCampusCity = $state('')
+  let editCampusState = $state('')
+  let editCampusZipcode = $state('')
+  let editCampusCountry = $state('')
+  let editCampusIsHQ = $state(false)
+  let savingCampusEdit = $state(false)
 
   // Alias management
   let orgAliases = $state<{ id: string; alias: string }[]>([])
@@ -96,8 +106,6 @@
     formSize = org.size ?? ''
     formWorked = org.worked
     formEmploymentType = org.employment_type ?? ''
-    formLocation = org.location ?? ''
-    formHeadquarters = org.headquarters ?? ''
     formWebsite = org.website ?? ''
     formLinkedinUrl = org.linkedin_url ?? ''
     formGlassdoorUrl = org.glassdoor_url ?? ''
@@ -120,8 +128,6 @@
     formSize = ''
     formWorked = false
     formEmploymentType = ''
-    formLocation = ''
-    formHeadquarters = ''
     formWebsite = ''
     formLinkedinUrl = ''
     formGlassdoorUrl = ''
@@ -162,8 +168,6 @@
       size: formSize || undefined,
       worked: formWorked,
       employment_type: formWorked ? (formEmploymentType || undefined) : undefined,
-      location: formLocation || undefined,
-      headquarters: formHeadquarters || undefined,
       website: formWebsite || undefined,
       linkedin_url: formLinkedinUrl || undefined,
       glassdoor_url: formGlassdoorUrl || undefined,
@@ -273,6 +277,50 @@
       addToast({ message: 'Failed to delete campus.', type: 'error' })
     }
     deletingCampusId = null
+  }
+
+  function startEditCampus(campus: OrgCampus) {
+    editingCampusId = campus.id
+    editCampusName = campus.name
+    editCampusModality = campus.modality
+    editCampusAddress = campus.address ?? ''
+    editCampusCity = campus.city ?? ''
+    editCampusState = campus.state ?? ''
+    editCampusZipcode = campus.zipcode ?? ''
+    editCampusCountry = campus.country ?? ''
+    editCampusIsHQ = !!campus.is_headquarters
+  }
+
+  function cancelEditCampus() {
+    editingCampusId = null
+  }
+
+  async function saveEditCampus() {
+    if (!editingCampusId || !editCampusName.trim()) return
+    savingCampusEdit = true
+    const res = await fetch(`/api/campuses/${editingCampusId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: editCampusName.trim(),
+        modality: editCampusModality,
+        address: editCampusAddress.trim() || null,
+        city: editCampusCity.trim() || null,
+        state: editCampusState.trim() || null,
+        zipcode: editCampusZipcode.trim() || null,
+        country: editCampusCountry.trim() || null,
+        is_headquarters: editCampusIsHQ,
+      }),
+    })
+    if (res.ok) {
+      const body = await res.json()
+      orgCampuses = orgCampuses.map(c => c.id === editingCampusId ? body.data : c)
+      editingCampusId = null
+      addToast({ message: 'Campus updated.', type: 'success' })
+    } else {
+      addToast({ message: 'Failed to update campus.', type: 'error' })
+    }
+    savingCampusEdit = false
   }
 
   // ── Alias functions ───────────────────────────────────────────────
@@ -564,31 +612,95 @@
             {:else}
               <ul class="campus-list">
                 {#each orgCampuses as campus (campus.id)}
-                  <li class="campus-item">
-                    <div class="campus-info">
-                      <span class="campus-name">{campus.name}</span>
-                      {#if campus.is_headquarters}
-                        <span class="campus-hq-badge">HQ</span>
-                      {/if}
-                      <span class="campus-modality">{MODALITY_LABELS[campus.modality] ?? campus.modality}</span>
-                      {#if campus.city || campus.state || campus.zipcode}
-                        <span class="campus-location">
-                          {[campus.city, campus.state, campus.zipcode].filter(Boolean).join(', ')}
-                        </span>
-                      {/if}
-                      {#if campus.address}
-                        <span class="campus-address">{campus.address}</span>
-                      {/if}
-                    </div>
-                    <button
-                      class="btn-delete-sm"
-                      onclick={() => deleteCampus(campus.id)}
-                      disabled={deletingCampusId === campus.id}
-                      title="Delete campus"
-                    >
-                      {deletingCampusId === campus.id ? '...' : '×'}
-                    </button>
-                  </li>
+                  {#if editingCampusId === campus.id}
+                    <li class="campus-item campus-editing">
+                      <div class="campus-edit-form">
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="edit-campus-name">Name *</label>
+                            <input id="edit-campus-name" type="text" bind:value={editCampusName} />
+                          </div>
+                          <div class="form-group">
+                            <label for="edit-campus-modality">Modality</label>
+                            <select id="edit-campus-modality" bind:value={editCampusModality}>
+                              <option value="in_person">In Person</option>
+                              <option value="remote">Remote / Online</option>
+                              <option value="hybrid">Hybrid</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="edit-campus-address">Address</label>
+                            <input id="edit-campus-address" type="text" bind:value={editCampusAddress} />
+                          </div>
+                        </div>
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="edit-campus-city">City</label>
+                            <input id="edit-campus-city" type="text" bind:value={editCampusCity} />
+                          </div>
+                          <div class="form-group">
+                            <label for="edit-campus-state">State</label>
+                            <input id="edit-campus-state" type="text" bind:value={editCampusState} />
+                          </div>
+                          <div class="form-group">
+                            <label for="edit-campus-zip">Zip</label>
+                            <input id="edit-campus-zip" type="text" bind:value={editCampusZipcode} />
+                          </div>
+                        </div>
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label for="edit-campus-country">Country</label>
+                            <input id="edit-campus-country" type="text" bind:value={editCampusCountry} />
+                          </div>
+                          <div class="form-group checkbox-group">
+                            <label>
+                              <input type="checkbox" bind:checked={editCampusIsHQ} /> Headquarters
+                            </label>
+                          </div>
+                        </div>
+                        <div class="campus-edit-actions">
+                          <button class="btn btn-save btn-sm" onclick={saveEditCampus} disabled={savingCampusEdit || !editCampusName.trim()}>
+                            {savingCampusEdit ? 'Saving...' : 'Save'}
+                          </button>
+                          <button class="btn btn-cancel btn-sm" onclick={cancelEditCampus} disabled={savingCampusEdit}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  {:else}
+                    <li class="campus-item">
+                      <div class="campus-info" role="button" tabindex="0"
+                        onclick={() => startEditCampus(campus)}
+                        onkeydown={(e) => { if (e.key === 'Enter') startEditCampus(campus) }}
+                        title="Click to edit"
+                      >
+                        <span class="campus-name">{campus.name}</span>
+                        {#if campus.is_headquarters}
+                          <span class="campus-hq-badge">HQ</span>
+                        {/if}
+                        <span class="campus-modality">{MODALITY_LABELS[campus.modality] ?? campus.modality}</span>
+                        {#if campus.city || campus.state || campus.zipcode}
+                          <span class="campus-location">
+                            {[campus.city, campus.state, campus.zipcode].filter(Boolean).join(', ')}
+                          </span>
+                        {/if}
+                        {#if campus.address}
+                          <span class="campus-address">{campus.address}</span>
+                        {/if}
+                      </div>
+                      <button
+                        class="btn-delete-sm"
+                        onclick={() => deleteCampus(campus.id)}
+                        disabled={deletingCampusId === campus.id}
+                        title="Delete campus"
+                      >
+                        {deletingCampusId === campus.id ? '...' : '×'}
+                      </button>
+                    </li>
+                  {/if}
                 {/each}
               </ul>
             {/if}
@@ -747,4 +859,15 @@
   .btn-delete-sm:hover { color: #ef4444; background: #fee2e2; }
   .btn-delete { background: #fee2e2; color: #dc2626; margin-left: auto; }
   .btn-delete:hover { background: #fecaca; }
+  .campus-editing { padding: 0.75rem; }
+  .campus-edit-form { width: 100%; }
+  .campus-edit-form .form-row { display: flex; gap: 0.5rem; margin-bottom: 0.4rem; }
+  .campus-edit-form .form-group { flex: 1; min-width: 0; }
+  .campus-edit-form label { display: block; font-size: 0.7rem; color: #6b7280; margin-bottom: 0.15rem; }
+  .campus-edit-form input, .campus-edit-form select { width: 100%; padding: 0.3rem 0.5rem; font-size: 0.8rem; border: 1px solid #d1d5db; border-radius: 4px; }
+  .campus-edit-actions { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+  .campus-info[role="button"] { cursor: pointer; }
+  .campus-info[role="button"]:hover { opacity: 0.8; }
+  .btn-cancel { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+  .btn-cancel:hover:not(:disabled) { background: #e5e7eb; }
 </style>

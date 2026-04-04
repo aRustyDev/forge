@@ -656,6 +656,10 @@ export interface EducationItem {
   issuing_body?: string | null
   certificate_subtype?: string | null
   edu_description?: string | null
+  // Campus fields from org_campuses JOIN
+  campus_name?: string | null
+  campus_city?: string | null
+  campus_state?: string | null
 }
 
 export interface ProjectItem {

@@ -328,13 +328,17 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
         COALESCE(o.name, se.issuing_body) AS issuing_body,
         se.certificate_subtype,
         se.edu_description,
-        se.organization_id
+        se.organization_id,
+        oc.name AS campus_name,
+        oc.city AS campus_city,
+        oc.state AS campus_state
       FROM resume_entries re
       JOIN perspectives p ON p.id = re.perspective_id
       JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
       JOIN sources s ON s.id = bs.source_id
       LEFT JOIN source_education se ON se.source_id = s.id
       LEFT JOIN organizations o ON o.id = se.organization_id
+      LEFT JOIN org_campuses oc ON oc.id = se.campus_id
       WHERE re.section_id = ?
       ORDER BY re.position ASC`
     )
@@ -356,6 +360,9 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
       certificate_subtype: string | null
       edu_description: string | null
       organization_id: string | null
+      campus_name: string | null
+      campus_city: string | null
+      campus_state: string | null
     }>
 
   return rows.map(row => ({
@@ -375,6 +382,9 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
     issuing_body: row.issuing_body,
     certificate_subtype: row.certificate_subtype,
     edu_description: row.edu_description,
+    campus_name: row.campus_name ?? null,
+    campus_city: row.campus_city ?? null,
+    campus_state: row.campus_state ?? null,
   }))
 }
 

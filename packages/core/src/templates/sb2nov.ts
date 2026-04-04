@@ -263,14 +263,21 @@ function renderEducationSection(section: IRSection): string {
       const title = item.degree
       const date = item.date ?? ''
       const instPart = item.institution ?? ''
-      const locPart = item.location ? `, ${item.location}` : ''
+      // Prefer campus location over deprecated source_education.location
+      const campusLoc = (item.campus_city && item.campus_state)
+        ? `${item.campus_city}, ${item.campus_state}`
+        : item.campus_city ?? item.campus_state ?? null
+      const locPart = campusLoc ? `, ${campusLoc}` : (item.location ? `, ${item.location}` : '')
       const line2 = `${instPart}${locPart}`
       lines.push(`    \\resumeSubheading`)
       lines.push(`      {${title}}{${date}}`)
       lines.push(`      {${line2}}{}`)
     } else {
       // Degree (default): institution + location on line 1, degree info + date on line 2
-      const location = item.location ?? ''
+      // Prefer campus city/state; fall back to deprecated source_education.location
+      const location = (item.campus_city && item.campus_state)
+        ? `${item.campus_city}, ${item.campus_state}`
+        : item.campus_city ?? item.campus_state ?? item.location ?? ''
       const degreeType = item.degree_type ?? ''
       const field = item.field ?? null
       // Build degree string: "M.S. in Computer Science" or fall back to perspective content

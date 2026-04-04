@@ -2,6 +2,7 @@
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
   import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog } from '$lib/components'
+  import OrgCombobox from '$lib/components/OrgCombobox.svelte'
   import type { Source, Organization, Skill } from '@forge/sdk'
 
   /** Optional: lock this view to a single source type (hides the type filter tabs). */
@@ -934,13 +935,13 @@
               <div class="form-group">
                 <label for="edu-org">Institution</label>
                 <div class="org-select-row">
-                  <select id="edu-org" bind:value={formEduOrgId}>
-                    <option value={null}>-- Select --</option>
-                    {#each eduFilteredOrgs as org}
-                      <option value={org.id}>{org.name}</option>
-                    {/each}
-                  </select>
-                  <button class="btn-new-sm" onclick={openOrgModal} type="button">+</button>
+                  <OrgCombobox
+                    id="edu-org"
+                    organizations={eduFilteredOrgs}
+                    bind:value={formEduOrgId}
+                    placeholder="Search institutions..."
+                    oncreate={openOrgModal}
+                  />
                 </div>
               </div>
               <div class="form-group">
@@ -1001,13 +1002,13 @@
             <div class="form-group">
               <label for="edu-org">Issuing Body</label>
               <div class="org-select-row">
-                <select id="edu-org" bind:value={formEduOrgId}>
-                  <option value={null}>-- Select --</option>
-                  {#each eduFilteredOrgs as org}
-                    <option value={org.id}>{org.name}</option>
-                  {/each}
-                </select>
-                <button class="btn-new-sm" onclick={openOrgModal} type="button">+</button>
+                <OrgCombobox
+                  id="edu-org"
+                  organizations={eduFilteredOrgs}
+                  bind:value={formEduOrgId}
+                  placeholder="Search issuers..."
+                  oncreate={openOrgModal}
+                />
               </div>
             </div>
             <div class="form-group">
@@ -1034,13 +1035,13 @@
               <div class="form-group">
                 <label for="edu-org">Institution (Provider)</label>
                 <div class="org-select-row">
-                  <select id="edu-org" bind:value={formEduOrgId}>
-                    <option value={null}>-- Select --</option>
-                    {#each eduFilteredOrgs as org}
-                      <option value={org.id}>{org.name}</option>
-                    {/each}
-                  </select>
-                  <button class="btn-new-sm" onclick={openOrgModal} type="button">+</button>
+                  <OrgCombobox
+                    id="edu-org"
+                    organizations={eduFilteredOrgs}
+                    bind:value={formEduOrgId}
+                    placeholder="Search providers..."
+                    oncreate={openOrgModal}
+                  />
                 </div>
               </div>
               <div class="form-group">

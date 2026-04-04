@@ -1077,50 +1077,72 @@ export type LintResult =
   | { ok: true }
   | { ok: false; errors: string[] }
 
-// ── Embedding & Alignment Types ──────────────────────────────────────
+// ── Alignment Constants ─────────────────────────────────────────────
 
-/** Report from aligning a resume against a job description. */
+export const STRONG_THRESHOLD_DEFAULT = 0.75
+export const ADJACENT_THRESHOLD_DEFAULT = 0.50
+
+// ── Alignment Types ──────────────────────────────────────────────────
+
+export type MatchVerdict = 'strong' | 'adjacent' | 'gap'
+
+export interface RequirementMatch {
+  requirement_text: string
+  requirement_index: number
+  best_match: {
+    entry_id: string
+    perspective_id: string
+    perspective_content: string
+    similarity: number
+  } | null
+  verdict: MatchVerdict
+}
+
+export interface UnmatchedEntry {
+  entry_id: string
+  perspective_content: string
+  best_requirement_similarity: number
+}
+
 export interface AlignmentReport {
   job_description_id: string
   resume_id: string
-  /** Mean of best_match.similarity per requirement. Gaps contribute 0.0. */
   overall_score: number
-  matches: Array<{
-    requirement_text: string
-    classification: 'strong' | 'adjacent' | 'gap'
-    best_match: {
-      entity_id: string
-      similarity: number
-    } | null
-  }>
-  strong_count: number
-  adjacent_count: number
-  gap_count: number
+  requirement_matches: RequirementMatch[]
+  unmatched_entries: UnmatchedEntry[]
+  summary: {
+    strong: number
+    adjacent: number
+    gaps: number
+    total_requirements: number
+    total_entries: number
+  }
+  computed_at: string
 }
 
-/** A single requirement match with its candidate entities. */
-export interface RequirementMatch {
-  requirement_text: string
-  candidates: Array<{
-    entity_id: string
-    content: string
-    similarity: number
-  }>
-}
-
-/** An entity that exists in the inventory but was not matched to any requirement. */
-export interface UnmatchedEntry {
-  entity_id: string
-  content: string
-}
-
-/** Report from matching JD requirements against entity inventory. */
 export interface RequirementMatchReport {
   job_description_id: string
-  matches: RequirementMatch[]
+  matches: Array<{
+    requirement_text: string
+    candidates: Array<{
+      entity_id: string
+      content: string
+      similarity: number
+    }>
+  }>
+  computed_at: string
 }
 
-/** A stale embedding detected by checkStale(). */
+export interface AlignmentScoreOptions {
+  strong_threshold?: number
+  adjacent_threshold?: number
+}
+
+export interface MatchRequirementsOptions {
+  threshold?: number
+  limit?: number
+}
+
 export interface StaleEmbedding {
   entity_type: EmbeddingEntityType
   entity_id: string

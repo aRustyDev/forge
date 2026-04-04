@@ -93,8 +93,8 @@
     display: flex;
     flex-direction: column;
     border-top: 3px solid;
-    background: #f9fafb;
-    border-radius: 6px;
+    background: var(--color-surface-raised);
+    border-radius: var(--radius-md);
     overflow: hidden;
   }
 
@@ -103,14 +103,14 @@
     align-items: center;
     gap: 0.4rem;
     padding: 0.6rem 0.75rem;
-    background: #fff;
-    border-bottom: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
   }
 
   .column-label {
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: #1a1a2e;
+    font-size: var(--text-sm);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     flex: 1;
@@ -124,27 +124,27 @@
     min-width: 1.4rem;
     height: 1.4rem;
     padding: 0 0.3rem;
-    background: #e5e7eb;
-    color: #374151;
-    border-radius: 999px;
-    font-size: 0.7rem;
-    font-weight: 600;
+    background: var(--color-border);
+    color: var(--text-secondary);
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
   }
 
   .collapse-btn {
     background: none;
     border: none;
-    color: #9ca3af;
+    color: var(--text-faint);
     cursor: pointer;
     font-size: 0.7rem;
     padding: 0.15rem;
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     line-height: 1;
   }
 
   .collapse-btn:hover {
-    color: #374151;
-    background: #f3f4f6;
+    color: var(--text-secondary);
+    background: var(--color-surface-sunken);
   }
 
   .column-body {
@@ -161,9 +161,9 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    background: #f3f4f6;
+    background: var(--color-surface-sunken);
     border-top: 3px solid;
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     cursor: pointer;
     transition: background 0.12s;
     padding: 1rem 0;
@@ -171,15 +171,15 @@
   }
 
   .column-collapsed:hover {
-    background: #e5e7eb;
+    background: var(--color-border);
   }
 
   .collapsed-label {
     writing-mode: vertical-rl;
     text-orientation: mixed;
     font-size: 0.75rem;
-    font-weight: 600;
-    color: #6b7280;
+    font-weight: var(--font-semibold);
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
@@ -190,10 +190,10 @@
     justify-content: center;
     min-width: 1.4rem;
     height: 1.4rem;
-    background: #d1d5db;
-    color: #374151;
-    border-radius: 999px;
+    background: var(--color-border-strong);
+    color: var(--text-secondary);
+    border-radius: var(--radius-full);
     font-size: 0.65rem;
-    font-weight: 600;
+    font-weight: var(--font-semibold);
   }
 </style>

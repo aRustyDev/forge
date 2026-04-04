@@ -154,40 +154,40 @@
     flex-direction: column;
     height: calc(100vh - 4rem);
     margin: -2rem;
-    background: #fff;
+    background: var(--color-surface);
   }
 
   .kanban-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid #e5e7eb;
+    padding: var(--space-4) var(--space-6);
+    border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
   }
 
   .kanban-header h2 {
     font-size: 1.15rem;
-    font-weight: 600;
-    color: #1a1a2e;
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
     margin: 0;
   }
 
   .btn-add {
     padding: 0.4rem 0.85rem;
-    background: #6c63ff;
-    color: #fff;
+    background: var(--color-primary);
+    color: var(--text-inverse);
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     font-size: 0.82rem;
-    font-weight: 500;
+    font-weight: var(--font-medium);
     cursor: pointer;
     transition: background 0.15s;
     white-space: nowrap;
     font-family: inherit;
   }
 
-  .btn-add:hover { background: #5a52e0; }
+  .btn-add:hover { background: var(--color-primary-hover); }
 
   .board-loading {
     display: flex;
@@ -202,7 +202,7 @@
     align-items: center;
     justify-content: center;
     flex: 1;
-    color: #6b7280;
+    color: var(--text-muted);
     font-size: 0.95rem;
     text-align: center;
     gap: 0.25rem;
@@ -214,8 +214,8 @@
 
   .board-columns {
     display: flex;
-    gap: 0.75rem;
-    padding: 1rem;
+    gap: var(--space-3);
+    padding: var(--space-4);
     flex: 1;
     overflow-x: auto;
     align-items: stretch;

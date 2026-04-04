@@ -152,7 +152,7 @@
     gap: 1rem;
     padding: 2rem;
     text-align: center;
-    color: #6b7280;
+    color: var(--text-muted);
   }
 
   .pdf-empty-text {
@@ -161,8 +161,8 @@
   }
 
   .pdf-loading-sub {
-    font-size: 0.8rem;
-    color: #9ca3af;
+    font-size: var(--text-sm);
+    color: var(--text-faint);
   }
 
   .pdf-error {
@@ -178,8 +178,8 @@
 
   .pdf-error-code {
     padding: 0.2rem 0.5rem;
-    background: #fef2f2;
-    color: #ef4444;
+    background: var(--color-danger-subtle);
+    color: var(--color-danger);
     border-radius: 4px;
     font-size: 0.75rem;
     font-weight: 600;
@@ -188,12 +188,12 @@
 
   .pdf-error-message {
     font-weight: 500;
-    color: #374151;
+    color: var(--text-secondary);
   }
 
   .pdf-error-details {
-    background: #1a1a2e;
-    color: #e0e0e0;
+    background: var(--color-sidebar-bg);
+    color: var(--color-sidebar-text-hover);
     padding: 1rem;
     border-radius: 6px;
     font-size: 0.8rem;
@@ -208,8 +208,8 @@
     display: flex;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid #e5e7eb;
-    background: #f9fafb;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface-raised);
   }
 
   .pdf-frame {
@@ -234,9 +234,9 @@
   }
 
   .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .btn-primary { background: #6c63ff; color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: #5a52e0; }
-  .btn-secondary { background: #e5e7eb; color: #374151; }
-  .btn-secondary:hover:not(:disabled) { background: #d1d5db; }
-  .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.75rem; }
+  .btn-primary { background: var(--color-primary); color: var(--text-inverse); }
+  .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
+  .btn-secondary { background: var(--color-border); color: var(--text-secondary); }
+  .btn-secondary:hover:not(:disabled) { background: var(--color-border-strong); }
+  .btn-sm { padding: 0.3rem 0.6rem; font-size: var(--text-xs); }
 </style>

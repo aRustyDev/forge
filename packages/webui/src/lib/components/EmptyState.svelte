@@ -11,7 +11,7 @@
   <h3 class="title">{title}</h3>
   <p class="description">{description}</p>
   {#if action && onaction}
-    <button class="action-btn" onclick={onaction}>
+    <button class="btn btn-primary" onclick={onaction}>
       {action}
     </button>
   {/if}
@@ -28,32 +28,16 @@
   }
 
   .title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 0.5rem;
+    font-size: var(--text-xl);
+    font-weight: var(--font-semibold);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-2);
   }
 
   .description {
     font-size: 0.9rem;
-    color: #6b7280;
+    color: var(--text-muted);
     max-width: 320px;
-    margin-bottom: 1.25rem;
-  }
-
-  .action-btn {
-    padding: 0.5rem 1.25rem;
-    background: #6c63ff;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-
-  .action-btn:hover {
-    background: #5a52e0;
+    margin-bottom: var(--space-5);
   }
 </style>

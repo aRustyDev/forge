@@ -124,49 +124,49 @@
   .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--color-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: var(--z-modal);
   }
 
   .skills-picker-modal {
-    background: white;
-    border-radius: 12px;
-    padding: 1.25rem;
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
     max-width: 600px;
     width: 90%;
     max-height: 80vh;
     overflow-y: auto;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-lg);
   }
 
   .picker-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: var(--space-4);
   }
 
   .picker-header h3 {
     margin: 0;
-    font-size: 1rem;
-    color: #1a1a2e;
+    font-size: var(--text-lg);
+    color: var(--text-primary);
   }
 
   .skill-category-group {
-    margin-bottom: 1rem;
+    margin-bottom: var(--space-4);
   }
 
   .category-label {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #6b7280;
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.03em;
     margin-bottom: 0.35rem;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--color-surface-sunken);
     padding-bottom: 0.15rem;
   }
 
@@ -181,46 +181,45 @@
     align-items: center;
     gap: 0.25rem;
     padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    color: #374151;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
     cursor: pointer;
     transition: background 0.1s;
   }
 
   .skill-checkbox:hover {
-    background: #f5f3ff;
+    background: var(--color-primary-subtle);
   }
 
   .skill-checkbox.checked {
-    background: #e0e7ff;
-    color: #3730a3;
+    background: var(--color-tag-bg);
+    color: var(--color-tag-text);
   }
 
   .skill-checkbox input[type="checkbox"] {
-    accent-color: #6c63ff;
+    accent-color: var(--color-primary);
   }
 
   .loading-text, .empty-text {
     text-align: center;
-    color: #9ca3af;
+    color: var(--text-faint);
     font-size: 0.85rem;
     padding: 2rem;
   }
 
-  /* Button styles for consistency */
   .btn {
-    padding: 0.5rem 1rem;
+    padding: var(--space-2) var(--space-4);
     border: none;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
+    border-radius: var(--radius-md);
+    font-size: var(--text-base);
+    font-weight: var(--font-medium);
     cursor: pointer;
     transition: background 0.15s, opacity 0.15s;
     white-space: nowrap;
     font-family: inherit;
   }
-  .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.75rem; }
-  .btn-ghost { background: transparent; color: #6b7280; }
-  .btn-ghost:hover { color: #374151; background: #f3f4f6; }
+  .btn-sm { padding: 0.3rem 0.6rem; font-size: var(--text-xs); }
+  .btn-ghost { background: transparent; color: var(--text-muted); }
+  .btn-ghost:hover { color: var(--text-secondary); background: var(--color-ghost); }
 </style>

@@ -2,24 +2,28 @@
   let { status }: { status: string } = $props()
 
   const colorMap: Record<string, string> = {
-    draft: '#6b7280',
-    approved: '#22c55e',
-    pending_review: '#f59e0b',
-    rejected: '#ef4444',
-    deriving: '#3b82f6',
+    draft: 'var(--text-muted)',
+    approved: 'var(--color-success)',
+    in_review: 'var(--color-warning)',
+    pending_review: 'var(--color-warning)',
+    rejected: 'var(--color-danger)',
+    deriving: 'var(--color-info)',
     final: '#8b5cf6',
+    archived: 'var(--text-faint)',
   }
 
   const labelMap: Record<string, string> = {
     draft: 'Draft',
     approved: 'Approved',
+    in_review: 'In Review',
     pending_review: 'Pending Review',
     rejected: 'Rejected',
     deriving: 'Deriving',
     final: 'Final',
+    archived: 'Archived',
   }
 
-  let color = $derived(colorMap[status] ?? '#6b7280')
+  let color = $derived(colorMap[status] ?? 'var(--text-muted)')
   let label = $derived(labelMap[status] ?? status)
   let pulsing = $derived(status === 'deriving')
 </script>
@@ -33,18 +37,6 @@
 </span>
 
 <style>
-  .badge {
-    display: inline-block;
-    padding: 0.2em 0.6em;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #fff;
-    line-height: 1.4;
-    white-space: nowrap;
-    letter-spacing: 0.01em;
-  }
-
   .pulsing {
     animation: pulse 1.5s ease-in-out infinite;
   }

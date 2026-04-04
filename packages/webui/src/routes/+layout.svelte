@@ -1,4 +1,7 @@
 <script lang="ts">
+  import '$lib/styles/tokens.css'
+  import '$lib/styles/base.css'
+  import '$lib/stores/theme.svelte.ts'  // initializes theme on import
   import { page } from '$app/state'
   import { ToastContainer } from '$lib/components'
   import ChainViewModal from '$lib/components/ChainViewModal.svelte'
@@ -103,19 +106,6 @@
 {/if}
 
 <style>
-  :global(*, *::before, *::after) {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-
-  :global(body) {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-      Oxygen, Ubuntu, Cantarell, sans-serif;
-    color: #1a1a1a;
-    background: #f5f5f5;
-  }
-
   .app {
     display: flex;
     min-height: 100vh;
@@ -123,8 +113,8 @@
 
   .sidebar {
     width: 220px;
-    background: #1a1a2e;
-    color: #e0e0e0;
+    background: var(--color-sidebar-bg);
+    color: var(--color-sidebar-text);
     padding: 1.5rem 0;
     flex-shrink: 0;
     overflow-y: auto;
@@ -132,7 +122,7 @@
 
   .logo {
     padding: 0 1.5rem 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--color-sidebar-border);
     margin-bottom: 1rem;
   }
 
@@ -140,7 +130,7 @@
     font-size: 1.25rem;
     font-weight: 600;
     letter-spacing: 0.05em;
-    color: #fff;
+    color: var(--color-sidebar-text-active);
   }
 
   .nav-list {
@@ -151,27 +141,27 @@
   .top-link {
     display: block;
     padding: 0.625rem 1.5rem;
-    color: #b0b0c0;
+    color: var(--color-sidebar-text);
     text-decoration: none;
     font-size: 0.9rem;
     transition: background 0.15s, color 0.15s;
   }
 
   .top-link:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
+    background: var(--color-sidebar-hover-bg);
+    color: var(--color-sidebar-text-hover);
   }
 
   .top-link.active {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    border-left: 3px solid #6c63ff;
+    background: var(--color-sidebar-active-bg);
+    color: var(--color-sidebar-text-active);
+    border-left: 3px solid var(--color-sidebar-accent);
     padding-left: calc(1.5rem - 3px);
   }
 
   /* Group label (accordion toggle) */
   .nav-group {
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid var(--color-sidebar-border);
   }
 
   .nav-group:first-child {
@@ -186,7 +176,7 @@
     padding: 0.625rem 1.5rem;
     background: none;
     border: none;
-    color: #b0b0c0;
+    color: var(--color-sidebar-text);
     font-size: 0.9rem;
     font-weight: 500;
     cursor: pointer;
@@ -195,12 +185,12 @@
   }
 
   .group-label:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
+    background: var(--color-sidebar-hover-bg);
+    color: var(--color-sidebar-text-hover);
   }
 
   .group-label.group-active {
-    color: #fff;
+    color: var(--color-sidebar-text-active);
     font-weight: 600;
   }
 
@@ -222,21 +212,21 @@
   .group-children li a {
     display: block;
     padding: 0.45rem 1.5rem 0.45rem 2.5rem;
-    color: #9090a8;
+    color: var(--color-sidebar-text);
     text-decoration: none;
     font-size: 0.82rem;
     transition: background 0.15s, color 0.15s;
   }
 
   .group-children li a:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #d0d0e0;
+    background: var(--color-sidebar-hover-bg);
+    color: var(--color-sidebar-text-hover);
   }
 
   .group-children li a.active {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    border-left: 3px solid #6c63ff;
+    background: var(--color-sidebar-active-bg);
+    color: var(--color-sidebar-text-active);
+    border-left: 3px solid var(--color-sidebar-accent);
     padding-left: calc(2.5rem - 3px);
   }
 

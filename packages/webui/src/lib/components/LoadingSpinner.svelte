@@ -35,15 +35,15 @@
   }
 
   .spinner {
-    border: 3px solid #e5e7eb;
-    border-top-color: #6c63ff;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-primary);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
 
   .message {
     font-size: 0.85rem;
-    color: #6b7280;
+    color: var(--text-muted);
   }
 
   @keyframes spin {

@@ -1,0 +1,118 @@
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import type { Database } from 'bun:sqlite'
+import { ReviewService } from '../review-service'
+import { createTestDb, seedSource, seedBullet, seedPerspective } from '../../db/__tests__/helpers'
+
+describe('ReviewService', () => {
+  let db: Database
+  let service: ReviewService
+
+  beforeEach(() => {
+    db = createTestDb()
+    service = new ReviewService(db)
+  })
+
+  afterEach(() => db.close())
+
+  // ── getPendingReview ──────────────────────────────────────────────
+
+  test('getPendingReview returns empty queues when nothing pending', () => {
+    const result = service.getPendingReview()
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.bullets.count).toBe(0)
+    expect(result.data.bullets.items).toHaveLength(0)
+    expect(result.data.perspectives.count).toBe(0)
+    expect(result.data.perspectives.items).toHaveLength(0)
+  })
+
+  test('getPendingReview returns pending bullets with source title from junction', () => {
+    const srcId = seedSource(db, { title: 'Cloud Migration' })
+    seedBullet(db, [{ id: srcId }], { status: 'pending_review' })
+
+    const result = service.getPendingReview()
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.bullets.count).toBe(1)
+    expect(result.data.bullets.items[0].source_title).toBe('Cloud Migration')
+  })
+
+  test('getPendingReview does not include approved bullets', () => {
+    const srcId = seedSource(db)
+    seedBullet(db, [{ id: srcId }], { status: 'approved' })
+    seedBullet(db, [{ id: srcId }], { status: 'pending_review' })
+
+    const result = service.getPendingReview()
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.bullets.count).toBe(1)
+  })
+
+  test('getPendingReview returns pending perspectives with bullet content and source title', () => {
+    const srcId = seedSource(db, { title: 'Security Platform' })
+    const bulletId = seedBullet(db, [{ id: srcId }], { content: 'Built security platform' })
+    seedPerspective(db, bulletId, { status: 'pending_review' })
+
+    const result = service.getPendingReview()
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.perspectives.count).toBe(1)
+    expect(result.data.perspectives.items[0].bullet_content).toBe('Built security platform')
+    expect(result.data.perspectives.items[0].source_title).toBe('Security Platform')
+  })
+
+  test('getPendingReview does not include approved perspectives', () => {
+    const srcId = seedSource(db)
+    const bulletId = seedBullet(db, [{ id: srcId }])
+    seedPerspective(db, bulletId, { status: 'approved' })
+    seedPerspective(db, bulletId, { status: 'pending_review' })
+
+    const result = service.getPendingReview()
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.perspectives.count).toBe(1)
+  })
+
+  test('getPendingReview hydrates technologies for bullets', () => {
+    const srcId = seedSource(db)
+    // Create bullet manually to set technologies
+    const bulletId = crypto.randomUUID()
+    db.run(
+      `INSERT INTO bullets (id, content, source_content_snapshot, status) VALUES (?, 'Test bullet', 'snapshot', 'pending_review')`,
+      [bulletId],
+    )
+    db.run(
+      'INSERT INTO bullet_sources (bullet_id, source_id, is_primary) VALUES (?, ?, 1)',
+      [bulletId, srcId],
+    )
+    db.run(
+      'INSERT INTO bullet_technologies (bullet_id, technology) VALUES (?, ?)',
+      [bulletId, 'typescript'],
+    )
+    db.run(
+      'INSERT INTO bullet_technologies (bullet_id, technology) VALUES (?, ?)',
+      [bulletId, 'aws'],
+    )
+
+    const result = service.getPendingReview()
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.bullets.items[0].technologies).toContain('typescript')
+    expect(result.data.bullets.items[0].technologies).toContain('aws')
+  })
+
+  test('getPendingReview returns combined bullets and perspectives', () => {
+    const srcId = seedSource(db)
+    seedBullet(db, [{ id: srcId }], { status: 'pending_review' })
+    seedBullet(db, [{ id: srcId }], { status: 'pending_review', content: 'Second bullet' })
+
+    const bulletId = seedBullet(db, [{ id: srcId }])
+    seedPerspective(db, bulletId, { status: 'pending_review' })
+
+    const result = service.getPendingReview()
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data.bullets.count).toBe(2)
+    expect(result.data.perspectives.count).toBe(1)
+  })
+})

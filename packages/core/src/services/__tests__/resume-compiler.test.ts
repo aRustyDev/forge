@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import type { Database } from 'bun:sqlite'
 import { compileResumeIR, syntheticUUID, formatDateRange } from '../resume-compiler'
 import type { ExperienceGroup, ProjectItem, PresentationItem } from '../../types'
-import { createTestDb, seedSource, seedBullet, seedPerspective, seedResume, seedResumeEntry, seedResumeSection, seedOrganization, seedResumeSkill, seedProfile } from '../../db/__tests__/helpers'
+import { createTestDb, seedSource, seedBullet, seedPerspective, seedResume, seedResumeEntry, seedResumeSection, seedOrganization, seedResumeSkill, seedProfile, seedSummary } from '../../db/__tests__/helpers'
 
 describe('compileResumeIR', () => {
   let db: Database
@@ -436,6 +436,53 @@ describe('compileResumeIR', () => {
 
     const after = compileResumeIR(db, resumeId)
     expect(after!.header.email).toBe('new@test.com')
+  })
+
+  // ── Summary integration ───────────────────────────────────────────
+
+  test('compileResumeIR uses summary.tagline when summary is linked', () => {
+    const resumeId = seedResume(db, { name: 'Test', targetRole: 'Fallback Role' })
+    const summaryId = seedSummary(db, { tagline: 'Summary Tagline' })
+
+    // Link summary to resume
+    db.run('UPDATE resumes SET summary_id = ? WHERE id = ?', [summaryId, resumeId])
+
+    const ir = compileResumeIR(db, resumeId)
+    expect(ir).not.toBeNull()
+    expect(ir!.header.tagline).toBe('Summary Tagline')
+  })
+
+  test('compileResumeIR falls back to target_role when no summary linked', () => {
+    const resumeId = seedResume(db, { targetRole: 'Fallback Role' })
+
+    const ir = compileResumeIR(db, resumeId)
+    expect(ir).not.toBeNull()
+    expect(ir!.header.tagline).toBe('Fallback Role')
+  })
+
+  test('compileResumeIR falls back to header JSON when summary has no tagline', () => {
+    const resumeId = seedResume(db)
+    const summaryId = seedSummary(db, { tagline: null })
+
+    db.run('UPDATE resumes SET summary_id = ? WHERE id = ?', [summaryId, resumeId])
+
+    const ir = compileResumeIR(db, resumeId)
+    expect(ir).not.toBeNull()
+    // Should fall back to header JSON tagline or target_role
+    expect(ir!.header.tagline).toBeTruthy()
+  })
+
+  test('compileResumeIR handles deleted summary gracefully', () => {
+    const resumeId = seedResume(db)
+    const summaryId = seedSummary(db)
+
+    db.run('UPDATE resumes SET summary_id = ? WHERE id = ?', [summaryId, resumeId])
+    db.run('DELETE FROM summaries WHERE id = ?', [summaryId])
+
+    // summary_id is now NULL due to ON DELETE SET NULL
+    const ir = compileResumeIR(db, resumeId)
+    expect(ir).not.toBeNull()
+    // Should not crash -- falls back to default behavior
   })
 })
 

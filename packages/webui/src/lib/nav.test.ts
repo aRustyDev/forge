@@ -16,8 +16,8 @@ describe('nav', () => {
   })
 
   describe('navigation', () => {
-    it('has 5 top-level entries', () => {
-      expect(navigation).toHaveLength(5)
+    it('has 6 top-level entries', () => {
+      expect(navigation).toHaveLength(6)
     })
 
     it('starts with Dashboard as a plain link', () => {
@@ -26,30 +26,39 @@ describe('nav', () => {
       expect((navigation[0] as NavItem).label).toBe('Dashboard')
     })
 
-    it('has Data group with 4 children', () => {
-      const data = navigation[1]
+    it('has Experience group with 5 children', () => {
+      const exp = navigation[1]
+      expect(isNavGroup(exp)).toBe(true)
+      expect((exp as NavGroup).label).toBe('Experience')
+      expect((exp as NavGroup).children).toHaveLength(5)
+    })
+
+    it('has Data group with 6 children', () => {
+      const data = navigation[2]
       expect(isNavGroup(data)).toBe(true)
       expect((data as NavGroup).label).toBe('Data')
-      expect((data as NavGroup).children).toHaveLength(4)
+      expect((data as NavGroup).children).toHaveLength(6)
     })
 
     it('has Opportunities group with 2 children', () => {
-      const opp = navigation[2]
+      const opp = navigation[3]
       expect(isNavGroup(opp)).toBe(true)
       expect((opp as NavGroup).label).toBe('Opportunities')
       expect((opp as NavGroup).children).toHaveLength(2)
     })
 
-    it('has Resumes as a plain link', () => {
-      expect(isNavGroup(navigation[3])).toBe(false)
-      expect((navigation[3] as NavItem).href).toBe('/resumes')
+    it('has Resumes group with 3 children', () => {
+      const resumes = navigation[4]
+      expect(isNavGroup(resumes)).toBe(true)
+      expect((resumes as NavGroup).label).toBe('Resumes')
+      expect((resumes as NavGroup).children).toHaveLength(3)
     })
 
-    it('has Config group with 4 children', () => {
-      const config = navigation[4]
+    it('has Config group with 3 children', () => {
+      const config = navigation[5]
       expect(isNavGroup(config)).toBe(true)
       expect((config as NavGroup).label).toBe('Config')
-      expect((config as NavGroup).children).toHaveLength(4)
+      expect((config as NavGroup).children).toHaveLength(3)
     })
 
     it('all hrefs start with /', () => {

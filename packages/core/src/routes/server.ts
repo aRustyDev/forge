@@ -28,6 +28,7 @@ import { profileRoutes } from './profile'
 import { exportRoutes } from './export'
 import { summaryRoutes } from './summaries'
 import { campusRoutes } from './campuses'
+import { contactRoutes } from './contacts'
 
 /** Map error codes to HTTP status codes. */
 export function mapStatusCode(code: string): number {
@@ -117,6 +118,7 @@ export function createApp(services: Services, db: Database) {
   app.route('/', summaryRoutes(services))
   app.route('/', campusRoutes(db))
   app.route('/', exportRoutes(services, db))
+  app.route('/', contactRoutes(services, db))
 
   // ── Global error handler ───────────────────────────────────────────
 

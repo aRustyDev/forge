@@ -23,6 +23,7 @@ import { JobDescriptionService } from './job-description-service'
 import { TemplateService } from './template-service'
 import { ExportService } from './export-service'
 import { SummaryService } from './summary-service'
+import { ContactService } from './contact-service'
 
 export interface Services {
   sources: SourceService
@@ -42,6 +43,7 @@ export interface Services {
   templates: TemplateService
   export: ExportService
   summaries: SummaryService
+  contacts: ContactService
 }
 
 /**
@@ -69,6 +71,7 @@ export function createServices(db: Database, dbPath: string): Services {
     templates: new TemplateService(db),
     export: new ExportService(db, dbPath),
     summaries: new SummaryService(db),
+    contacts: new ContactService(db),
   }
 }
 
@@ -90,3 +93,4 @@ export { JobDescriptionService } from './job-description-service'
 export { TemplateService } from './template-service'
 export { ExportService } from './export-service'
 export { SummaryService } from './summary-service'
+export { ContactService } from './contact-service'

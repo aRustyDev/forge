@@ -183,6 +183,19 @@ export type {
   UpdateJobDescription,
 } from './types'
 
+// Contact types
+export type {
+  Contact,
+  ContactWithOrg,
+  ContactLink,
+  ContactFilter,
+  ContactOrgRelationship,
+  ContactJDRelationship,
+  ContactResumeRelationship,
+  CreateContact,
+  UpdateContact,
+} from './types'
+
 // Note reference entity type (shared)
 export type {
   NoteReferenceEntityType,
@@ -223,3 +236,4 @@ export { JobDescriptionsResource } from './resources/job-descriptions'
 export { TemplatesResource } from './resources/templates'
 export { SummariesResource } from './resources/summaries'
 export { ExportResource } from './resources/export'
+export { ContactsResource } from './resources/contacts'

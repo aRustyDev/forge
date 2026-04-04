@@ -52,5 +52,13 @@ export function organizationRoutes(services: Services) {
     return c.body(null, 204)
   })
 
+  // ── Contact reverse lookup ──────────────────────────────────────────
+  app.get('/organizations/:id/contacts', (c) => {
+    const result = services.contacts.listByOrganization(c.req.param('id'))
+    if (!result.ok)
+      return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.json({ data: result.data })
+  })
+
   return app
 }

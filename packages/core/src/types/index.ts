@@ -171,6 +171,79 @@ export interface UpdateJobDescription {
   notes?: string | null
 }
 
+// ── Contact Entity ─────────────────────────────────────────────────────
+
+/** A contact person tracked in the job hunting process. */
+export interface Contact {
+  id: string
+  name: string
+  title: string | null
+  email: string | null
+  phone: string | null
+  linkedin: string | null
+  team: string | null
+  dept: string | null
+  notes: string | null
+  organization_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Contact with computed organization_name from JOIN. Used in API responses. */
+export interface ContactWithOrg extends Contact {
+  organization_name: string | null
+}
+
+/** Input for creating a new Contact. */
+export interface CreateContact {
+  name: string
+  title?: string
+  email?: string
+  phone?: string
+  linkedin?: string
+  team?: string
+  dept?: string
+  notes?: string
+  organization_id?: string
+}
+
+/** Input for partially updating a Contact. */
+export interface UpdateContact {
+  name?: string
+  title?: string | null
+  email?: string | null
+  phone?: string | null
+  linkedin?: string | null
+  team?: string | null
+  dept?: string | null
+  notes?: string | null
+  organization_id?: string | null
+}
+
+/** Valid relationship types for contact-organization links. */
+export type ContactOrgRelationship = 'recruiter' | 'hr' | 'referral' | 'peer' | 'manager' | 'other'
+
+/** Valid relationship types for contact-job description links. */
+export type ContactJDRelationship = 'hiring_manager' | 'recruiter' | 'interviewer' | 'referral' | 'other'
+
+/** Valid relationship types for contact-resume links. */
+export type ContactResumeRelationship = 'reference' | 'recommender' | 'other'
+
+/** A contact linked to an entity with a typed relationship. */
+export interface ContactLink {
+  contact_id: string
+  contact_name: string
+  contact_title: string | null
+  contact_email: string | null
+  relationship: string
+}
+
+/** Filter parameters for listing contacts. */
+export interface ContactFilter {
+  organization_id?: string
+  search?: string
+}
+
 /** A source experience entry — the root of the derivation chain. */
 export interface Source {
   id: string
@@ -430,6 +503,7 @@ export type NoteReferenceEntityType =
   | 'skill'
   | 'organization'
   | 'job_description'
+  | 'contact'
 
 /** A reference linking a note to an entity. */
 export interface NoteReference {

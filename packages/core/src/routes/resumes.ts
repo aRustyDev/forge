@@ -218,5 +218,13 @@ export function resumeRoutes(services: Services) {
     })
   })
 
+  // ── Contact reverse lookup ──────────────────────────────────────────
+  app.get('/resumes/:id/contacts', (c) => {
+    const result = services.contacts.listByResume(c.req.param('id'))
+    if (!result.ok)
+      return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.json({ data: result.data })
+  })
+
   return app
 }

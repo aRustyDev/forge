@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import type { Database } from 'bun:sqlite'
 import { ResumeService } from '../resume-service'
-import { createTestDb, seedSource, seedBullet, seedPerspective, seedResume, seedResumeEntry, seedResumeSection } from '../../db/__tests__/helpers'
+import { createTestDb, seedSource, seedBullet, seedPerspective, seedResume, seedResumeEntry, seedResumeSection, seedSkill } from '../../db/__tests__/helpers'
 
 describe('ResumeService', () => {
   let db: Database
@@ -460,5 +460,206 @@ describe('ResumeService', () => {
 
     const result = service.analyzeGaps(resumeId)
     expect(result.ok).toBe(true)
+  })
+
+  // ── Section management ────────────────────────────────────────────
+
+  describe('section management', () => {
+    test('createSection returns section entity', () => {
+      const resumeId = seedResume(db)
+      const result = service.createSection(resumeId, {
+        title: 'Experience',
+        entry_type: 'experience',
+        position: 0,
+      })
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.data.title).toBe('Experience')
+      expect(result.data.entry_type).toBe('experience')
+      expect(result.data.resume_id).toBe(resumeId)
+    })
+
+    test('createSection returns NOT_FOUND for missing resume', () => {
+      const result = service.createSection('nonexistent', {
+        title: 'Sec',
+        entry_type: 'experience',
+      })
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.code).toBe('NOT_FOUND')
+    })
+
+    test('listSections returns all sections ordered by position', () => {
+      const resumeId = seedResume(db)
+      service.createSection(resumeId, { title: 'Skills', entry_type: 'skills', position: 1 })
+      service.createSection(resumeId, { title: 'Summary', entry_type: 'freeform', position: 0 })
+
+      const result = service.listSections(resumeId)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.data).toHaveLength(2)
+      expect(result.data[0].title).toBe('Summary')
+      expect(result.data[1].title).toBe('Skills')
+    })
+
+    test('listSections returns NOT_FOUND for missing resume', () => {
+      const result = service.listSections('nonexistent')
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.code).toBe('NOT_FOUND')
+    })
+
+    test('updateSection changes title', () => {
+      const resumeId = seedResume(db)
+      const created = service.createSection(resumeId, { title: 'Old', entry_type: 'experience' })
+      if (!created.ok) throw new Error('setup failed')
+
+      const result = service.updateSection(resumeId, created.data.id, { title: 'New Title' })
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.data.title).toBe('New Title')
+      expect(result.data.entry_type).toBe('experience')
+    })
+
+    test('updateSection returns NOT_FOUND for wrong resume', () => {
+      const resumeId = seedResume(db)
+      const otherResumeId = seedResume(db)
+      const created = service.createSection(resumeId, { title: 'Sec', entry_type: 'experience' })
+      if (!created.ok) throw new Error('setup failed')
+
+      const result = service.updateSection(otherResumeId, created.data.id, { title: 'Nope' })
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.code).toBe('NOT_FOUND')
+    })
+
+    test('deleteSection removes section', () => {
+      const resumeId = seedResume(db)
+      const created = service.createSection(resumeId, { title: 'Del', entry_type: 'experience' })
+      if (!created.ok) throw new Error('setup failed')
+
+      const result = service.deleteSection(resumeId, created.data.id)
+      expect(result.ok).toBe(true)
+
+      const check = service.listSections(resumeId)
+      if (!check.ok) throw new Error('listSections failed')
+      expect(check.data).toHaveLength(0)
+    })
+
+    test('deleteSection returns NOT_FOUND for wrong resume', () => {
+      const resumeId = seedResume(db)
+      const otherResumeId = seedResume(db)
+      const created = service.createSection(resumeId, { title: 'Sec', entry_type: 'experience' })
+      if (!created.ok) throw new Error('setup failed')
+
+      const result = service.deleteSection(otherResumeId, created.data.id)
+      expect(result.ok).toBe(false)
+    })
+  })
+
+  // ── Skills management ─────────────────────────────────────────────
+
+  describe('skills management', () => {
+    test('addSkill adds skill to section', () => {
+      const resumeId = seedResume(db)
+      const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+      const skillId = seedSkill(db, { name: 'Python', category: 'Languages' })
+
+      const result = service.addSkill(resumeId, secId, skillId)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.data.skill_id).toBe(skillId)
+    })
+
+    test('addSkill returns NOT_FOUND for wrong resume', () => {
+      const resumeId = seedResume(db)
+      const otherResumeId = seedResume(db)
+      const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+      const skillId = seedSkill(db)
+
+      const result = service.addSkill(otherResumeId, secId, skillId)
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.code).toBe('NOT_FOUND')
+    })
+
+    test('addSkill returns CONFLICT for duplicate', () => {
+      const resumeId = seedResume(db)
+      const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+      const skillId = seedSkill(db, { name: 'Go' })
+
+      service.addSkill(resumeId, secId, skillId)
+      const result = service.addSkill(resumeId, secId, skillId)
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.code).toBe('CONFLICT')
+    })
+
+    test('removeSkill removes skill', () => {
+      const resumeId = seedResume(db)
+      const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+      const skillId = seedSkill(db)
+      service.addSkill(resumeId, secId, skillId)
+
+      const result = service.removeSkill(resumeId, secId, skillId)
+      expect(result.ok).toBe(true)
+    })
+
+    test('removeSkill returns NOT_FOUND for missing skill', () => {
+      const resumeId = seedResume(db)
+      const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+
+      const result = service.removeSkill(resumeId, secId, crypto.randomUUID())
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error.code).toBe('NOT_FOUND')
+    })
+
+    test('listSkillsForSection returns skills', () => {
+      const resumeId = seedResume(db)
+      const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+      const s1 = seedSkill(db, { name: 'Python' })
+      const s2 = seedSkill(db, { name: 'Go' })
+      service.addSkill(resumeId, secId, s1)
+      service.addSkill(resumeId, secId, s2)
+
+      const result = service.listSkillsForSection(resumeId, secId)
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.data).toHaveLength(2)
+    })
+
+    test('listSkillsForSection returns NOT_FOUND for wrong resume', () => {
+      const resumeId = seedResume(db)
+      const otherResumeId = seedResume(db)
+      const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+
+      const result = service.listSkillsForSection(otherResumeId, secId)
+      expect(result.ok).toBe(false)
+    })
+
+    test('reorderSkills updates positions', () => {
+      const resumeId = seedResume(db)
+      const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+      const s1 = seedSkill(db, { name: 'Python' })
+      const s2 = seedSkill(db, { name: 'Go' })
+      service.addSkill(resumeId, secId, s1)
+      service.addSkill(resumeId, secId, s2)
+
+      const result = service.reorderSkills(resumeId, secId, [
+        { skill_id: s2, position: 0 },
+        { skill_id: s1, position: 1 },
+      ])
+      expect(result.ok).toBe(true)
+    })
+
+    test('reorderSkills returns NOT_FOUND for wrong resume', () => {
+      const resumeId = seedResume(db)
+      const otherResumeId = seedResume(db)
+      const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+
+      const result = service.reorderSkills(otherResumeId, secId, [])
+      expect(result.ok).toBe(false)
+    })
   })
 })

@@ -158,11 +158,12 @@ describe('compileResumeIR', () => {
 
   test('education section populates from source_education', () => {
     const resumeId = seedResume(db)
+    const orgId = seedOrganization(db, { name: 'Western Governors University' })
     const sourceId = seedSource(db, { title: 'WGU Degree', sourceType: 'education' })
     db.run(
-      `INSERT INTO source_education (source_id, education_type, institution, field, end_date)
+      `INSERT INTO source_education (source_id, education_type, organization_id, field, end_date)
        VALUES (?, ?, ?, ?, ?)`,
-      [sourceId, 'degree', 'Western Governors University', 'Cybersecurity', '2023-06-01']
+      [sourceId, 'degree', orgId, 'Cybersecurity', '2023-06-01']
     )
 
     const bulletId = seedBullet(db, [{ id: sourceId, isPrimary: true }], { content: 'B.S. Cybersecurity' })
@@ -218,11 +219,12 @@ describe('compileResumeIR', () => {
 
   test('education section has null campus fields when no campus_id', () => {
     const resumeId = seedResume(db)
+    const orgId = seedOrganization(db, { name: 'Western Governors University' })
     const sourceId = seedSource(db, { title: 'WGU Degree', sourceType: 'education' })
     db.run(
-      `INSERT INTO source_education (source_id, education_type, institution, field, end_date)
+      `INSERT INTO source_education (source_id, education_type, organization_id, field, end_date)
        VALUES (?, ?, ?, ?, ?)`,
-      [sourceId, 'degree', 'Western Governors University', 'Cybersecurity', '2023-06-01']
+      [sourceId, 'degree', orgId, 'Cybersecurity', '2023-06-01']
     )
 
     const bulletId = seedBullet(db, [{ id: sourceId, isPrimary: true }], { content: 'B.S. Cybersecurity' })
@@ -439,6 +441,47 @@ describe('compileResumeIR', () => {
 
     const result = compileResumeIR(db, resumeId)!
     expect(result.sections[0].title).toBe('My Custom Title')
+  })
+
+  test('empty sections appear in IR with no items', () => {
+    const resumeId = seedResume(db)
+    seedResumeSection(db, resumeId, 'Empty Section', 'experience', 0)
+
+    const ir = compileResumeIR(db, resumeId)!
+    expect(ir.sections).toHaveLength(1)
+    expect(ir.sections[0].title).toBe('Empty Section')
+    expect(ir.sections[0].items).toHaveLength(0)
+  })
+
+  test('two sections of same entry_type have entries in correct section', () => {
+    const resumeId = seedResume(db)
+    const orgId = seedOrganization(db, { name: 'CivilianCorp' })
+    const orgId2 = seedOrganization(db, { name: 'MilOrg' })
+    const s1 = seedResumeSection(db, resumeId, 'Civilian Work', 'experience', 0)
+    const s2 = seedResumeSection(db, resumeId, 'Military Service', 'experience', 1)
+
+    // Seed entries into each section
+    const sourceId1 = seedSource(db, { title: 'Civilian Role', sourceType: 'role' })
+    db.run('INSERT INTO source_roles (source_id, organization_id, start_date, is_current) VALUES (?, ?, ?, ?)',
+      [sourceId1, orgId, '2024-01-01', 1])
+    const bulletId1 = seedBullet(db, [{ id: sourceId1, isPrimary: true }], { content: 'Civilian work bullet' })
+    const p1 = seedPerspective(db, bulletId1, { content: 'Civilian perspective' })
+
+    const sourceId2 = seedSource(db, { title: 'Military Role', sourceType: 'role' })
+    db.run('INSERT INTO source_roles (source_id, organization_id, start_date, is_current) VALUES (?, ?, ?, ?)',
+      [sourceId2, orgId2, '2020-01-01', 0])
+    const bulletId2 = seedBullet(db, [{ id: sourceId2, isPrimary: true }], { content: 'Military work bullet' })
+    const p2 = seedPerspective(db, bulletId2, { content: 'Military perspective' })
+
+    seedResumeEntry(db, s1, { perspectiveId: p1, position: 0 })
+    seedResumeEntry(db, s2, { perspectiveId: p2, position: 0 })
+
+    const ir = compileResumeIR(db, resumeId)!
+    expect(ir.sections).toHaveLength(2)
+    expect(ir.sections[0].title).toBe('Civilian Work')
+    expect(ir.sections[1].title).toBe('Military Service')
+    expect(ir.sections[0].items).toHaveLength(1)
+    expect(ir.sections[1].items).toHaveLength(1)
   })
 
   // ── parseHeader with profile ────────────────────────────────────────

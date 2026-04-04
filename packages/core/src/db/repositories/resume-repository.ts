@@ -161,7 +161,15 @@ export const ResumeRepository = {
       )
       .all(id) as EntryJoinRow[]
 
-    // Group by section_id
+    // Also fetch all sections (including empty ones with no entries)
+    const allSections = db
+      .query(
+        `SELECT id, title, entry_type, position
+         FROM resume_sections WHERE resume_id = ? ORDER BY position`
+      )
+      .all(id) as Array<{ id: string; title: string; entry_type: string; position: number }>
+
+    // Build sections map, starting with all sections (even empty ones)
     const sectionMap = new Map<string, {
       id: string
       title: string
@@ -170,17 +178,21 @@ export const ResumeRepository = {
       entries: Array<ResumeEntry & { perspective_content: string | null }>
     }>()
 
+    for (const sec of allSections) {
+      sectionMap.set(sec.id, {
+        id: sec.id,
+        title: sec.title,
+        entry_type: sec.entry_type,
+        position: sec.position,
+        entries: [],
+      })
+    }
+
+    // Populate entries into their sections
     for (const row of rows) {
-      if (!sectionMap.has(row.section_id)) {
-        sectionMap.set(row.section_id, {
-          id: row.section_id,
-          title: row.section_title,
-          entry_type: row.section_entry_type,
-          position: row.section_position,
-          entries: [],
-        })
-      }
-      sectionMap.get(row.section_id)!.entries.push({
+      const section = sectionMap.get(row.section_id)
+      if (!section) continue
+      section.entries.push({
         id: row.entry_id,
         resume_id: id,
         section_id: row.section_id,
@@ -195,7 +207,7 @@ export const ResumeRepository = {
       })
     }
 
-    const sections = Array.from(sectionMap.values()).sort((a, b) => a.position - b.position)
+    const sections = [...sectionMap.values()].sort((a, b) => a.position - b.position)
 
     return { ...resume, sections }
   },

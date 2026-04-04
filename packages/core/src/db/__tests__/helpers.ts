@@ -29,14 +29,12 @@ export function seedOrganization(db: Database, opts: {
   size?: string
   worked?: boolean
   employmentType?: string
-  location?: string
-  headquarters?: string
   website?: string
 } = {}): string {
   const id = testUuid()
   db.run(
-    `INSERT INTO organizations (id, name, org_type, industry, size, worked, employment_type, location, headquarters, website)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO organizations (id, name, org_type, industry, size, worked, employment_type, website)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       opts.name ?? 'Test Corp',
@@ -45,8 +43,6 @@ export function seedOrganization(db: Database, opts: {
       opts.size ?? null,
       opts.worked === undefined ? 0 : (opts.worked ? 1 : 0),
       opts.employmentType ?? null,
-      opts.location ?? null,
-      opts.headquarters ?? null,
       opts.website ?? null,
     ]
   )
@@ -196,6 +192,20 @@ export function seedResumeSkill(db: Database, sectionId: string, skillId: string
     `INSERT INTO resume_skills (id, section_id, skill_id, position)
      VALUES (?, ?, ?, ?)`,
     [id, sectionId, skillId, position ?? 0]
+  )
+  return id
+}
+
+/** Seed a test skill and return its ID */
+export function seedSkill(db: Database, opts: {
+  name?: string
+  category?: string | null
+} = {}): string {
+  const id = testUuid()
+  db.run(
+    `INSERT INTO skills (id, name, category)
+     VALUES (?, ?, ?)`,
+    [id, opts.name ?? 'Python', opts.category ?? 'Languages']
   )
   return id
 }

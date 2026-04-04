@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { Database } from 'bun:sqlite'
 import { ResumeRepository } from '../resume-repository'
-import { createTestDb, seedSource, seedBullet, seedPerspective, seedResume, seedResumeEntry, seedResumeSection } from '../../__tests__/helpers'
+import { createTestDb, seedSource, seedBullet, seedPerspective, seedResume, seedResumeEntry, seedResumeSection, seedSkill } from '../../__tests__/helpers'
 
 describe('ResumeRepository', () => {
   let db: Database
@@ -384,6 +384,226 @@ describe('ResumeRepository', () => {
     })
   })
 
+  // ── getWithEntries — empty sections ──────────────────────────────────
+
+  describe('getWithEntries — empty sections', () => {
+    test('includes empty sections (sections with no entries)', () => {
+      const resumeId = seedResume(db)
+      seedResumeSection(db, resumeId, 'Empty Section', 'experience')
+
+      const resume = ResumeRepository.getWithEntries(db, resumeId)
+      expect(resume).not.toBeNull()
+      expect(resume!.sections).toHaveLength(1)
+      expect(resume!.sections[0].title).toBe('Empty Section')
+      expect(resume!.sections[0].entries).toHaveLength(0)
+    })
+
+    test('returns sections as array (not Record)', () => {
+      const resumeId = seedResume(db)
+      seedResumeSection(db, resumeId, 'Experience', 'experience', 0)
+      seedResumeSection(db, resumeId, 'Skills', 'skills', 1)
+
+      const resume = ResumeRepository.getWithEntries(db, resumeId)
+      expect(Array.isArray(resume!.sections)).toBe(true)
+      expect(resume!.sections).toHaveLength(2)
+      expect(resume!.sections[0].title).toBe('Experience')
+      expect(resume!.sections[1].title).toBe('Skills')
+    })
+
+    test('mixes empty and populated sections correctly', () => {
+      const resumeId = seedResume(db)
+      const srcId = seedSource(db)
+      const bulletId = seedBullet(db, [{ id: srcId }])
+      const perspId = seedPerspective(db, bulletId)
+      const expSec = seedResumeSection(db, resumeId, 'Experience', 'experience', 0)
+      seedResumeSection(db, resumeId, 'Empty Skills', 'skills', 1)
+      seedResumeEntry(db, expSec, { perspectiveId: perspId, position: 0 })
+
+      const resume = ResumeRepository.getWithEntries(db, resumeId)!
+      expect(resume.sections).toHaveLength(2)
+      expect(resume.sections[0].entries).toHaveLength(1)
+      expect(resume.sections[1].entries).toHaveLength(0)
+    })
+  })
+
+  // ── Section CRUD ────────────────────────────────────────────────────
+
+  describe('Section CRUD', () => {
+    test('createSection returns entity with UUID', () => {
+      const resumeId = seedResume(db)
+      const section = ResumeRepository.createSection(db, resumeId, {
+        title: 'Work History',
+        entry_type: 'experience',
+        position: 0,
+      })
+      expect(section.id).toHaveLength(36)
+      expect(section.title).toBe('Work History')
+      expect(section.entry_type).toBe('experience')
+      expect(section.resume_id).toBe(resumeId)
+      expect(section.position).toBe(0)
+      expect(section.created_at).toBeTruthy()
+      expect(section.updated_at).toBeTruthy()
+    })
+
+    test('getSection returns section by ID', () => {
+      const resumeId = seedResume(db)
+      const created = ResumeRepository.createSection(db, resumeId, {
+        title: 'Skills',
+        entry_type: 'skills',
+      })
+      const fetched = ResumeRepository.getSection(db, created.id)
+      expect(fetched).not.toBeNull()
+      expect(fetched!.id).toBe(created.id)
+      expect(fetched!.title).toBe('Skills')
+    })
+
+    test('getSection returns null for nonexistent ID', () => {
+      const result = ResumeRepository.getSection(db, crypto.randomUUID())
+      expect(result).toBeNull()
+    })
+
+    test('listSections returns ordered by position', () => {
+      const resumeId = seedResume(db)
+      ResumeRepository.createSection(db, resumeId, { title: 'Skills', entry_type: 'skills', position: 1 })
+      ResumeRepository.createSection(db, resumeId, { title: 'Summary', entry_type: 'freeform', position: 0 })
+
+      const sections = ResumeRepository.listSections(db, resumeId)
+      expect(sections).toHaveLength(2)
+      expect(sections[0].title).toBe('Summary')
+      expect(sections[1].title).toBe('Skills')
+    })
+
+    test('listSections returns empty array for resume with no sections', () => {
+      const resumeId = seedResume(db)
+      const sections = ResumeRepository.listSections(db, resumeId)
+      expect(sections).toHaveLength(0)
+    })
+
+    test('updateSection changes title, entry_type unchanged', () => {
+      const resumeId = seedResume(db)
+      const section = ResumeRepository.createSection(db, resumeId, { title: 'Old', entry_type: 'experience' })
+      const updated = ResumeRepository.updateSection(db, section.id, { title: 'New Title' })
+      expect(updated).not.toBeNull()
+      expect(updated!.title).toBe('New Title')
+      expect(updated!.entry_type).toBe('experience')  // immutable
+    })
+
+    test('updateSection changes position', () => {
+      const resumeId = seedResume(db)
+      const section = ResumeRepository.createSection(db, resumeId, { title: 'Sec', entry_type: 'experience', position: 0 })
+      const updated = ResumeRepository.updateSection(db, section.id, { position: 5 })
+      expect(updated!.position).toBe(5)
+    })
+
+    test('updateSection with empty input returns existing section', () => {
+      const resumeId = seedResume(db)
+      const section = ResumeRepository.createSection(db, resumeId, { title: 'Sec', entry_type: 'experience' })
+      const result = ResumeRepository.updateSection(db, section.id, {})
+      expect(result).not.toBeNull()
+      expect(result!.title).toBe('Sec')
+    })
+
+    test('updateSection returns null for nonexistent ID', () => {
+      const result = ResumeRepository.updateSection(db, crypto.randomUUID(), { title: 'Nope' })
+      expect(result).toBeNull()
+    })
+
+    test('deleteSection removes section', () => {
+      const resumeId = seedResume(db)
+      const section = ResumeRepository.createSection(db, resumeId, { title: 'Del', entry_type: 'experience' })
+      const deleted = ResumeRepository.deleteSection(db, section.id)
+      expect(deleted).toBe(true)
+      expect(ResumeRepository.getSection(db, section.id)).toBeNull()
+    })
+
+    test('deleteSection returns false for nonexistent ID', () => {
+      const result = ResumeRepository.deleteSection(db, crypto.randomUUID())
+      expect(result).toBe(false)
+    })
+
+    test('deleteSection cascades to entries', () => {
+      const resumeId = seedResume(db)
+      const sectionId = seedResumeSection(db, resumeId, 'Experience', 'experience')
+      const srcId = seedSource(db)
+      const bulletId = seedBullet(db, [{ id: srcId }])
+      const perspId = seedPerspective(db, bulletId)
+      seedResumeEntry(db, sectionId, { perspectiveId: perspId })
+
+      ResumeRepository.deleteSection(db, sectionId)
+      const entries = db.query('SELECT * FROM resume_entries WHERE section_id = ?').all(sectionId)
+      expect(entries).toHaveLength(0)
+    })
+  })
+
+  // ── Resume Skills ──────────────────────────────────────────────────
+
+  describe('Resume Skills', () => {
+    test('addSkill and listSkillsForSection', () => {
+      const resumeId = seedResume(db)
+      const sectionId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+      const skillId = seedSkill(db, { name: 'Python', category: 'Languages' })
+
+      const rs = ResumeRepository.addSkill(db, sectionId, skillId)
+      expect(rs.skill_id).toBe(skillId)
+      expect(rs.section_id).toBe(sectionId)
+      expect(rs.id).toHaveLength(36)
+
+      const skills = ResumeRepository.listSkillsForSection(db, sectionId)
+      expect(skills).toHaveLength(1)
+      expect(skills[0].skill_id).toBe(skillId)
+    })
+
+    test('removeSkill deletes the skill', () => {
+      const resumeId = seedResume(db)
+      const sectionId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+      const skillId = seedSkill(db, { name: 'Go' })
+
+      ResumeRepository.addSkill(db, sectionId, skillId)
+      const removed = ResumeRepository.removeSkill(db, sectionId, skillId)
+      expect(removed).toBe(true)
+
+      const skills = ResumeRepository.listSkillsForSection(db, sectionId)
+      expect(skills).toHaveLength(0)
+    })
+
+    test('removeSkill returns false for nonexistent skill', () => {
+      const resumeId = seedResume(db)
+      const sectionId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+      const result = ResumeRepository.removeSkill(db, sectionId, crypto.randomUUID())
+      expect(result).toBe(false)
+    })
+
+    test('duplicate skill throws UNIQUE constraint error', () => {
+      const resumeId = seedResume(db)
+      const sectionId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+      const skillId = seedSkill(db, { name: 'Rust' })
+
+      ResumeRepository.addSkill(db, sectionId, skillId)
+      expect(() => ResumeRepository.addSkill(db, sectionId, skillId)).toThrow(/UNIQUE/)
+    })
+
+    test('reorderSkills updates positions', () => {
+      const resumeId = seedResume(db)
+      const sectionId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+      const s1 = seedSkill(db, { name: 'Python' })
+      const s2 = seedSkill(db, { name: 'Go' })
+      ResumeRepository.addSkill(db, sectionId, s1, 0)
+      ResumeRepository.addSkill(db, sectionId, s2, 1)
+
+      // Swap positions
+      ResumeRepository.reorderSkills(db, sectionId, [
+        { skill_id: s2, position: 0 },
+        { skill_id: s1, position: 1 },
+      ])
+
+      const skills = ResumeRepository.listSkillsForSection(db, sectionId)
+      expect(skills[0].skill_id).toBe(s2)
+      expect(skills[0].position).toBe(0)
+      expect(skills[1].skill_id).toBe(s1)
+      expect(skills[1].position).toBe(1)
+    })
+  })
+
   // ── delete cascades ────────────────────────────────────────────────
 
   describe('delete cascades', () => {
@@ -406,6 +626,18 @@ describe('ResumeRepository', () => {
       const secRow = db.query('SELECT COUNT(*) AS count FROM resume_sections WHERE resume_id = ?')
         .get(resumeId) as { count: number }
       expect(secRow.count).toBe(0)
+    })
+
+    test('deleting section cascades to resume_skills', () => {
+      const resumeId = seedResume(db)
+      const sectionId = seedResumeSection(db, resumeId, 'Skills', 'skills')
+      const skillId = seedSkill(db, { name: 'Python' })
+      ResumeRepository.addSkill(db, sectionId, skillId)
+
+      ResumeRepository.deleteSection(db, sectionId)
+
+      const skills = db.query('SELECT * FROM resume_skills WHERE section_id = ?').all(sectionId)
+      expect(skills).toHaveLength(0)
     })
   })
 })

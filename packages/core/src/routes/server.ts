@@ -100,7 +100,7 @@ export function createApp(services: Services, db: Database) {
   // ── Routes ─────────────────────────────────────────────────────────
 
   app.route('/', sourceRoutes(services, db))
-  app.route('/', bulletRoutes(services))
+  app.route('/', bulletRoutes(services, db))
   app.route('/', perspectiveRoutes(services))
   app.route('/', resumeRoutes(services))
   app.route('/', reviewRoutes(services))
@@ -111,7 +111,7 @@ export function createApp(services: Services, db: Database) {
   app.route('/', integrityRoutes(services))
   app.route('/', domainRoutes(services))
   app.route('/', archetypeRoutes(services))
-  app.route('/', jobDescriptionRoutes(services))
+  app.route('/', jobDescriptionRoutes(services, db))
   app.route('/', templateRoutes(services))
   app.route('/', profileRoutes(services))
   app.route('/', summaryRoutes(services))

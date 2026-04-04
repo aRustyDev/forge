@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
-import { Database } from 'bun:sqlite'
+import type { Database } from 'bun:sqlite'
 import { createTestApp, apiRequest, type TestContext } from './helpers'
 import { seedSource, seedBullet, seedPerspective } from '../../db/__tests__/helpers'
 
@@ -134,5 +134,218 @@ describe('Bullet Routes', () => {
     expect(res.status).toBe(409)
     const body = await res.json()
     expect(body.error.code).toBe('CONFLICT')
+  })
+
+  // ── PATCH /bullets/:id (extended fields) ───────────────────────────
+
+  test('PATCH /bullets/:id with notes updates notes', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+
+    const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}`, { notes: 'new note' })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.notes).toBe('new note')
+  })
+
+  test('PATCH /bullets/:id with domain updates domain', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+
+    const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}`, { domain: 'security' })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.domain).toBe('security')
+  })
+
+  test('PATCH /bullets/:id with domain null clears domain', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { domain: 'security' })
+
+    const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}`, { domain: null })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.domain).toBeNull()
+  })
+
+  test('PATCH /bullets/:id with technologies replaces all', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+
+    const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}`, {
+      technologies: ['python', 'rust'],
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.technologies).toEqual(['python', 'rust'])
+  })
+
+  test('PATCH /bullets/:id with empty technologies clears all', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+    // Seed initial technologies
+    ctx.db.run('INSERT INTO bullet_technologies (bullet_id, technology) VALUES (?, ?)', [bulletId, 'ts'])
+
+    const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}`, { technologies: [] })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.technologies).toEqual([])
+  })
+
+  // ── PATCH /bullets/:id/submit ──────────────────────────────────────
+
+  test('PATCH /bullets/:id/submit transitions draft to pending_review', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { status: 'draft' })
+
+    const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/submit`)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.status).toBe('pending_review')
+  })
+
+  test('PATCH /bullets/:id/submit on non-draft returns 400', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }], { status: 'pending_review' })
+
+    const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/submit`)
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  test('PATCH /bullets/nonexistent/submit returns 404', async () => {
+    const res = await apiRequest(ctx.app, 'PATCH', '/bullets/nonexistent/submit')
+    expect(res.status).toBe(404)
+  })
+
+  // ── Bullet Skills ──────────────────────────────────────────────────
+
+  test('GET /bullets/:id/skills returns linked skills', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+
+    // Create a skill and link it
+    const skillId = crypto.randomUUID()
+    ctx.db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId, 'Python', 'language'])
+    ctx.db.run('INSERT INTO bullet_skills (bullet_id, skill_id) VALUES (?, ?)', [bulletId, skillId])
+
+    const res = await apiRequest(ctx.app, 'GET', `/bullets/${bulletId}/skills`)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data).toBeArray()
+    expect(body.data.length).toBe(1)
+    expect(body.data[0].name).toBe('Python')
+  })
+
+  test('POST /bullets/:id/skills with skill_id links existing skill', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+
+    const skillId = crypto.randomUUID()
+    ctx.db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId, 'Go', 'language'])
+
+    const res = await apiRequest(ctx.app, 'POST', `/bullets/${bulletId}/skills`, { skill_id: skillId })
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.data.id).toBe(skillId)
+  })
+
+  test('POST /bullets/:id/skills with name creates new skill (capitalizeFirst)', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+
+    const res = await apiRequest(ctx.app, 'POST', `/bullets/${bulletId}/skills`, { name: 'newskill' })
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.data.name).toBe('Newskill')
+  })
+
+  test('POST /bullets/:id/skills with name case-insensitive dedup links existing', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+
+    const skillId = crypto.randomUUID()
+    ctx.db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId, 'Python', 'language'])
+
+    const res = await apiRequest(ctx.app, 'POST', `/bullets/${bulletId}/skills`, { name: 'python' })
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.data.id).toBe(skillId)
+    expect(body.data.name).toBe('Python')
+  })
+
+  test('POST /bullets/:id/skills duplicate is idempotent', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+
+    const skillId = crypto.randomUUID()
+    ctx.db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId, 'Rust', 'language'])
+    ctx.db.run('INSERT INTO bullet_skills (bullet_id, skill_id) VALUES (?, ?)', [bulletId, skillId])
+
+    const res = await apiRequest(ctx.app, 'POST', `/bullets/${bulletId}/skills`, { skill_id: skillId })
+    expect(res.status).toBe(201)
+
+    // Verify only one link exists
+    const getRes = await apiRequest(ctx.app, 'GET', `/bullets/${bulletId}/skills`)
+    const getBody = await getRes.json()
+    expect(getBody.data.length).toBe(1)
+  })
+
+  test('POST /bullets/:id/skills without name or skill_id returns 400', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+
+    const res = await apiRequest(ctx.app, 'POST', `/bullets/${bulletId}/skills`, {})
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  test('DELETE /bullets/:bulletId/skills/:skillId returns 204', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+
+    const skillId = crypto.randomUUID()
+    ctx.db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId, 'Go', 'language'])
+    ctx.db.run('INSERT INTO bullet_skills (bullet_id, skill_id) VALUES (?, ?)', [bulletId, skillId])
+
+    const res = await apiRequest(ctx.app, 'DELETE', `/bullets/${bulletId}/skills/${skillId}`)
+    expect(res.status).toBe(204)
+  })
+
+  test('DELETE /bullets/:bulletId/skills/:skillId not found returns 404', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
+
+    const res = await apiRequest(ctx.app, 'DELETE', `/bullets/${bulletId}/skills/${crypto.randomUUID()}`)
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.error.code).toBe('NOT_FOUND')
+  })
+
+  // ── Bullet Sources ─────────────────────────────────────────────────
+
+  test('GET /bullets/:id/sources returns sources with is_primary', async () => {
+    const sourceId = seedSource(ctx.db, { title: 'My Source' })
+    const bulletId = seedBullet(ctx.db, [{ id: sourceId, isPrimary: true }])
+
+    const res = await apiRequest(ctx.app, 'GET', `/bullets/${bulletId}/sources`)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data).toBeArray()
+    expect(body.data.length).toBe(1)
+    expect(body.data[0].title).toBe('My Source')
+    expect(body.data[0].is_primary).toBe(1)
+  })
+
+  test('GET /bullets/:id/sources for bullet with no sources returns empty', async () => {
+    const sourceId = seedSource(ctx.db)
+    const bulletId = seedBullet(ctx.db, [])
+
+    const res = await apiRequest(ctx.app, 'GET', `/bullets/${bulletId}/sources`)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data).toEqual([])
   })
 })

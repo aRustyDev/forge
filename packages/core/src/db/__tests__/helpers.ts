@@ -200,6 +200,32 @@ export function seedResumeSkill(db: Database, sectionId: string, skillId: string
   return id
 }
 
+/** Seed a test summary and return its ID */
+export function seedSummary(db: Database, opts: {
+  title?: string
+  role?: string | null
+  tagline?: string | null
+  description?: string | null
+  isTemplate?: number
+  notes?: string | null
+} = {}): string {
+  const id = testUuid()
+  db.run(
+    `INSERT INTO summaries (id, title, role, tagline, description, is_template, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      opts.title ?? 'Test Summary',
+      opts.role ?? 'Security Engineer',
+      opts.tagline ?? 'Cloud + DevSecOps',
+      opts.description ?? null,
+      opts.isTemplate ?? 0,
+      opts.notes ?? null,
+    ]
+  )
+  return id
+}
+
 /** Seed a test user note and return its ID */
 export function seedUserNote(db: Database, opts: {
   title?: string

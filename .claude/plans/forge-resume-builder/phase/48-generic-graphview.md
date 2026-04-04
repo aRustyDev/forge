@@ -4,7 +4,7 @@
 **Date:** 2026-04-03
 **Spec:** [2026-04-03-generic-graphview.md](../refs/specs/2026-04-03-generic-graphview.md)
 **Depends on:** None (foundational for H2-H7)
-**Blocks:** H2 (GraphToolbar), H3 (Skill Relationship Graph), H4 (Org-JD-Resume Graph), H5 (Source-Bullet Sub-Graph), H6 (Graph Search + Filter Controllers), H7 (Graph Export)
+**Blocks:** Phase 51 (Edge Rendering), Phase 52 (Node Labels), Phase 53 (Filters), Phase 54 (Search), Phase 55 (Toolbar), Phase 56 (Local Widget)
 **Parallelizable with:** All other phases -- creates new files only, modifies nothing
 
 ## Goal
@@ -354,6 +354,10 @@ This is the core component. It handles graph construction, layout, Sigma initial
 <script lang="ts">
   import { browser } from '$app/environment'
   import { onDestroy } from 'svelte'
+  // NOTE: Move `import Graph from 'graphology'` inside the browser-guarded
+  // `$effect` or use dynamic import (`const { default: Graph } = await import('graphology')`).
+  // Static import at module level causes SSR issues because graphology
+  // references browser globals during module evaluation.
   import Graph from 'graphology'
   import type { GraphNode, GraphEdge, GraphViewProps } from './graph.types'
   import { mergeConfig } from './graph.config'
@@ -468,13 +472,13 @@ This is the core component. It handles graph construction, layout, Sigma initial
       for (const edge of _edges) {
         if (!g.hasNode(edge.source) || !g.hasNode(edge.target)) continue
         g.addEdge(edge.source, edge.target, {
+          ...edge,
           size: edge.weight ?? _config.edgeDefaults.size,
           color: edge.color
             ?? (edge.type ? _config.edgeColorMap?.[edge.type] : undefined)
             ?? _config.edgeDefaults.color,
           type: _config.edgeDefaults.type,
           edgeType: edge.type,  // entity classification stored separately
-          ...edge,
         })
       }
 
@@ -705,6 +709,16 @@ This is the core component. It handles graph construction, layout, Sigma initial
    */
   export function getGraph(): Graph | null {
     return graph
+  }
+
+  /**
+   * Returns the graph container DOM element.
+   * Used by GraphToolbar (Phase 55) for fullscreen toggle.
+   * NOTE: Phase 55 will add `getContainer()`. The `container` variable is
+   * already in scope — Phase 55's addition is a one-line export.
+   */
+  export function getContainer(): HTMLElement | null {
+    return container
   }
 
   /**

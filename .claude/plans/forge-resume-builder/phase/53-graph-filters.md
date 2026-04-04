@@ -233,12 +233,29 @@ let {
  * This avoids stale closures — the reducer does not read filterState directly.
  */
 $effect(() => {
-  if (!graph || !filterState) return
+  if (!graph) return
+
+  // When filterState is undefined (not provided or cleared), iterate all
+  // nodes and set hidden = false to clear previously-applied filters.
+  if (!filterState) {
+    graph.forEachNode((nodeId) => {
+      graph!.setNodeAttribute(nodeId, 'hidden', false)
+    })
+    sigmaInstance?.refresh()
+    return
+  }
 
   const _filter = filterState  // track reactive dependency
 
+  // CRITICAL: Pass `{ ...attrs, type: attrs.nodeType ?? attrs.type }` to
+  // `nodePassesFilter`. The graphology `type` attribute is `'circle'` (Sigma
+  // node program), not the entity type. The entity classification is stored
+  // as `nodeType` on graphology nodes (set in Phase 48's node construction).
   graph.forEachNode((nodeId, attrs) => {
-    const passes = nodePassesFilter(attrs as GraphNode, _filter)
+    const passes = nodePassesFilter(
+      { ...attrs, type: attrs.nodeType ?? attrs.type } as GraphNode,
+      _filter,
+    )
     graph!.setNodeAttribute(nodeId, 'hidden', !passes)
   })
 

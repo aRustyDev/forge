@@ -5,6 +5,8 @@
 **Spec:** [2026-04-03-contacts-support.md](../refs/specs/2026-04-03-contacts-support.md)
 **Depends on:** None (but Spec E1 should exist for JD contact linking to be meaningful)
 **Blocks:** None currently
+
+> **Dependency on Phase 49:** Phase 49's JD detail page is incomplete until Phase 50 provides `ContactLinkSection.svelte` and cross-entity endpoints.
 **Parallelizable with:** Phase 49 (JD Detail Page), Phase 48 (Generic GraphView) -- no file conflicts except Phase 49's JD routes file (which gets a contacts reverse lookup added here)
 
 ## Goal
@@ -551,15 +553,16 @@ export function addOrganization(
   )
 }
 
-/** Remove a contact-organization link. */
+/** Remove a specific contact-organization link by relationship. */
 export function removeOrganization(
   db: Database,
   contactId: string,
   orgId: string,
+  relationship: ContactOrgRelationship,
 ): void {
   db.run(
-    'DELETE FROM contact_organizations WHERE contact_id = ? AND organization_id = ?',
-    [contactId, orgId],
+    'DELETE FROM contact_organizations WHERE contact_id = ? AND organization_id = ? AND relationship = ?',
+    [contactId, orgId, relationship],
   )
 }
 
@@ -594,15 +597,16 @@ export function addJobDescription(
   )
 }
 
-/** Remove a contact-job description link. */
+/** Remove a specific contact-job description link by relationship. */
 export function removeJobDescription(
   db: Database,
   contactId: string,
   jdId: string,
+  relationship: ContactJDRelationship,
 ): void {
   db.run(
-    'DELETE FROM contact_job_descriptions WHERE contact_id = ? AND job_description_id = ?',
-    [contactId, jdId],
+    'DELETE FROM contact_job_descriptions WHERE contact_id = ? AND job_description_id = ? AND relationship = ?',
+    [contactId, jdId, relationship],
   )
 }
 
@@ -638,15 +642,16 @@ export function addResume(
   )
 }
 
-/** Remove a contact-resume link. */
+/** Remove a specific contact-resume link by relationship. */
 export function removeResume(
   db: Database,
   contactId: string,
   resumeId: string,
+  relationship: ContactResumeRelationship,
 ): void {
   db.run(
-    'DELETE FROM contact_resumes WHERE contact_id = ? AND resume_id = ?',
-    [contactId, resumeId],
+    'DELETE FROM contact_resumes WHERE contact_id = ? AND resume_id = ? AND relationship = ?',
+    [contactId, resumeId, relationship],
   )
 }
 
@@ -725,7 +730,7 @@ export function listByResume(
 **Failure criteria:**
 - Search uses exact match instead of LIKE substring.
 - Missing COLLATE NOCASE on search queries.
-- `removeOrganization` deletes ALL relationship types between contact and org (should delete all -- this is correct per the spec's two-column DELETE).
+- `removeOrganization` deletes a specific relationship between contact and org. The three-column DELETE (`WHERE contact_id = ? AND organization_id = ? AND relationship = ?`) targets only the specified relationship, preserving other relationship types between the same contact and org.
 - Reverse lookup queries missing JOIN to contacts table.
 
 ---
@@ -887,8 +892,17 @@ export class ContactService {
     return { ok: true, data: undefined }
   }
 
-  unlinkOrganization(contactId: string, orgId: string): Result<void> {
-    ContactRepo.removeOrganization(this.db, contactId, orgId)
+  unlinkOrganization(contactId: string, orgId: string, relationship: string): Result<void> {
+    if (!VALID_ORG_RELATIONSHIPS.includes(relationship as ContactOrgRelationship)) {
+      return {
+        ok: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: `Invalid relationship: ${relationship}. Must be one of: ${VALID_ORG_RELATIONSHIPS.join(', ')}`,
+        },
+      }
+    }
+    ContactRepo.removeOrganization(this.db, contactId, orgId, relationship as ContactOrgRelationship)
     return { ok: true, data: undefined }
   }
 
@@ -917,8 +931,17 @@ export class ContactService {
     return { ok: true, data: undefined }
   }
 
-  unlinkJobDescription(contactId: string, jdId: string): Result<void> {
-    ContactRepo.removeJobDescription(this.db, contactId, jdId)
+  unlinkJobDescription(contactId: string, jdId: string, relationship: string): Result<void> {
+    if (!VALID_JD_RELATIONSHIPS.includes(relationship as ContactJDRelationship)) {
+      return {
+        ok: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: `Invalid relationship: ${relationship}. Must be one of: ${VALID_JD_RELATIONSHIPS.join(', ')}`,
+        },
+      }
+    }
+    ContactRepo.removeJobDescription(this.db, contactId, jdId, relationship as ContactJDRelationship)
     return { ok: true, data: undefined }
   }
 
@@ -947,8 +970,17 @@ export class ContactService {
     return { ok: true, data: undefined }
   }
 
-  unlinkResume(contactId: string, resumeId: string): Result<void> {
-    ContactRepo.removeResume(this.db, contactId, resumeId)
+  unlinkResume(contactId: string, resumeId: string, relationship: string): Result<void> {
+    if (!VALID_RESUME_RELATIONSHIPS.includes(relationship as ContactResumeRelationship)) {
+      return {
+        ok: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: `Invalid relationship: ${relationship}. Must be one of: ${VALID_RESUME_RELATIONSHIPS.join(', ')}`,
+        },
+      }
+    }
+    ContactRepo.removeResume(this.db, contactId, resumeId, relationship as ContactResumeRelationship)
     return { ok: true, data: undefined }
   }
 
@@ -1095,11 +1127,14 @@ export function contactRoutes(services: Services, db: Database) {
     return c.body(null, 201)
   })
 
-  app.delete('/contacts/:contactId/organizations/:orgId', (c) => {
-    services.contacts.unlinkOrganization(
+  app.delete('/contacts/:contactId/organizations/:orgId/:relationship', (c) => {
+    const result = services.contacts.unlinkOrganization(
       c.req.param('contactId'),
       c.req.param('orgId'),
+      c.req.param('relationship'),
     )
+    if (!result.ok)
+      return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 
@@ -1124,11 +1159,14 @@ export function contactRoutes(services: Services, db: Database) {
     return c.body(null, 201)
   })
 
-  app.delete('/contacts/:contactId/job-descriptions/:jdId', (c) => {
-    services.contacts.unlinkJobDescription(
+  app.delete('/contacts/:contactId/job-descriptions/:jdId/:relationship', (c) => {
+    const result = services.contacts.unlinkJobDescription(
       c.req.param('contactId'),
       c.req.param('jdId'),
+      c.req.param('relationship'),
     )
+    if (!result.ok)
+      return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 
@@ -1153,11 +1191,14 @@ export function contactRoutes(services: Services, db: Database) {
     return c.body(null, 201)
   })
 
-  app.delete('/contacts/:contactId/resumes/:resumeId', (c) => {
-    services.contacts.unlinkResume(
+  app.delete('/contacts/:contactId/resumes/:resumeId/:relationship', (c) => {
+    const result = services.contacts.unlinkResume(
       c.req.param('contactId'),
       c.req.param('resumeId'),
+      c.req.param('relationship'),
     )
+    if (!result.ok)
+      return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 
@@ -1350,10 +1391,10 @@ export class ContactsResource {
     })
   }
 
-  unlinkOrganization(contactId: string, orgId: string): Promise<Result<void>> {
+  unlinkOrganization(contactId: string, orgId: string, relationship: string): Promise<Result<void>> {
     return this.request<void>(
       'DELETE',
-      `/api/contacts/${contactId}/organizations/${orgId}`,
+      `/api/contacts/${contactId}/organizations/${orgId}/${encodeURIComponent(relationship)}`,
     )
   }
 
@@ -1376,10 +1417,10 @@ export class ContactsResource {
     })
   }
 
-  unlinkJobDescription(contactId: string, jdId: string): Promise<Result<void>> {
+  unlinkJobDescription(contactId: string, jdId: string, relationship: string): Promise<Result<void>> {
     return this.request<void>(
       'DELETE',
-      `/api/contacts/${contactId}/job-descriptions/${jdId}`,
+      `/api/contacts/${contactId}/job-descriptions/${jdId}/${encodeURIComponent(relationship)}`,
     )
   }
 
@@ -1402,10 +1443,10 @@ export class ContactsResource {
     })
   }
 
-  unlinkResume(contactId: string, resumeId: string): Promise<Result<void>> {
+  unlinkResume(contactId: string, resumeId: string, relationship: string): Promise<Result<void>> {
     return this.request<void>(
       'DELETE',
-      `/api/contacts/${contactId}/resumes/${resumeId}`,
+      `/api/contacts/${contactId}/resumes/${resumeId}/${encodeURIComponent(relationship)}`,
     )
   }
 
@@ -1835,14 +1876,14 @@ this.contacts = new ContactsResource(req, reqList)
     showLinkDialog = false
   }
 
-  async function handleUnlink(contactId: string) {
+  async function handleUnlink(contactId: string, relationship: string) {
     let res: any
     if (entityType === 'organization') {
-      res = await forge.contacts.unlinkOrganization(contactId, entityId)
+      res = await forge.contacts.unlinkOrganization(contactId, entityId, relationship)
     } else if (entityType === 'job_description') {
-      res = await forge.contacts.unlinkJobDescription(contactId, entityId)
+      res = await forge.contacts.unlinkJobDescription(contactId, entityId, relationship)
     } else if (entityType === 'resume') {
-      res = await forge.contacts.unlinkResume(contactId, entityId)
+      res = await forge.contacts.unlinkResume(contactId, entityId, relationship)
     }
 
     if (res?.ok) {

@@ -159,6 +159,14 @@ export function isInputFocused(e: KeyboardEvent): boolean {
     graphView: any
     /** The graph config (for layout parameters) */
     config: GraphConfig
+    /**
+     * The graphology Graph instance, passed as a direct prop from the parent.
+     * CRITICAL: The `$effect` tracking `graphView?.getGraph?.()` will not detect
+     * inner state changes. Instead, accept `graph` as a direct prop. Svelte 5
+     * reactivity tracks prop changes, so when the parent rebuilds the graph and
+     * passes a new reference, this component reacts correctly.
+     */
+    graph?: Graph | null
     /** Position of the toolbar */
     position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
     /** Show layout preset buttons */
@@ -170,6 +178,7 @@ export function isInputFocused(e: KeyboardEvent): boolean {
   let {
     graphView,
     config,
+    graph = null,
     position = 'top-right',
     showPresets = false,
     showFullscreen = true,
@@ -180,9 +189,12 @@ export function isInputFocused(e: KeyboardEvent): boolean {
   let layoutRunning = $state(false)
   let isFullscreen = $state(false)
 
-  // Track graph changes to kill stale FA2 instances
+  // Track graph changes to kill stale FA2 instances.
+  // Uses the `graph` prop (direct reference) instead of `graphView?.getGraph?.()`.
+  // Svelte 5 reactivity tracks prop changes, so this $effect runs when the
+  // parent passes a new Graph reference.
   $effect(() => {
-    const currentGraph = graphView?.getGraph?.()
+    const _graph = graph  // track reactive dependency on the prop
     // Kill stale instance when graph reference changes
     if (fa2Instance) {
       fa2Instance.kill()
@@ -201,7 +213,6 @@ export function isInputFocused(e: KeyboardEvent): boolean {
   })
 
   async function toggleLayout() {
-    const graph = graphView?.getGraph?.() as Graph | null
     if (!graph) return
 
     if (layoutRunning && fa2Instance) {
@@ -243,7 +254,6 @@ export function isInputFocused(e: KeyboardEvent): boolean {
 
   async function resetGraph() {
     const sigma = graphView?.getSigma?.()
-    const graph = graphView?.getGraph?.() as Graph | null
     if (!sigma || !graph) return
 
     stopLayout()
@@ -293,7 +303,7 @@ export function isInputFocused(e: KeyboardEvent): boolean {
       e.preventDefault()
       toggleLayout()
     }
-    if (e.key === 'f' && !isInputFocused(e)) {
+    if ((e.key === 'f' || e.key === 'F11') && !isInputFocused(e)) {
       const container = graphView?.getContainer?.()
       if (container) {
         e.preventDefault()

@@ -5,7 +5,9 @@
 **Spec:** [2026-04-03-jd-detail-page.md](../refs/specs/2026-04-03-jd-detail-page.md)
 **Depends on:** None (foundational for E2-E6)
 **Blocks:** E2 (JD Parsing), E3 (JD Pipeline/Kanban), E4 (JD-Resume Matching), E5 (JD Skill Gap Analysis), E6 (JD Prompt Logging)
-**Parallelizable with:** Phase 50 (Contacts Support), Phase 48 (Generic GraphView) -- no file conflicts
+**Parallelizable with:** Phase 50 (Contacts Support), Phase 48 (Generic GraphView) -- no file conflicts except `job-descriptions.ts` (see note below)
+
+> **Parallelization conflict with Phase 50:** Phase 50 (Contacts) also modifies `packages/core/src/routes/job-descriptions.ts` routes file. These phases require merge coordination on this file.
 
 ## Goal
 
@@ -56,8 +58,9 @@ Phase 31 built the full JD backend: migration 007 (`job_descriptions` table), `J
 |------|--------|
 | `packages/webui/src/routes/opportunities/job-descriptions/+page.svelte` | Replace placeholder EmptyState with full split-panel CRUD layout |
 | `packages/core/src/routes/job-descriptions.ts` | Add JD skills endpoints: `GET/POST /:id/skills`, `DELETE /:jdId/skills/:skillId` |
-| `packages/core/src/routes/sources.ts` | Reference only -- pattern source for skill endpoints (no changes) |
 | `packages/sdk/src/resources/job-descriptions.ts` | Add `listSkills(jdId)`, `addSkill(jdId, input)`, `removeSkill(jdId, skillId)` methods |
+
+> **Reference file:** `packages/core/src/routes/sources.ts` is the pattern source for the skill endpoint implementation (no changes made to it).
 | `packages/webui/src/lib/components/StatusBadge.svelte` | Add JD status color + label mappings for all 8 statuses |
 | `packages/core/src/db/repositories/job-description-repository.ts` | Update `list()` to order by `updated_at DESC` instead of `created_at DESC` |
 

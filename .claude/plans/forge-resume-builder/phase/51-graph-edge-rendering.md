@@ -178,13 +178,13 @@ import { edgeSizeFromWeight } from './graph.constants'
 for (const edge of _edges) {
   if (!g.hasNode(edge.source) || !g.hasNode(edge.target)) continue
   g.addEdge(edge.source, edge.target, {
+    ...edge,
     size: edgeSizeFromWeight(edge.weight),  // <-- changed
     color: edge.color
       ?? (edge.type ? _config.edgeColorMap?.[edge.type] : undefined)
       ?? _config.edgeDefaults.color,
     type: _config.edgeDefaults.type,
     edgeType: edge.type,
-    ...edge,
   })
 }
 ```

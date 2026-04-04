@@ -172,6 +172,12 @@ export function prePositionLocalNodes(
  * scroll-wheel zoom, the GraphView component should translate
  * `enableZoom: false` into Sigma-native settings (e.g., zoomingRatio: 1
  * or maxCameraRatio: 1, minCameraRatio: 1).
+ *
+ * IMPORTANT: Phase 48's `GraphView` must translate `enableZoom: false` into
+ * Sigma-native settings (`zoomingRatio: 1` or `maxCameraRatio: minCameraRatio: 1`).
+ * If Phase 48 does not implement this translation, LocalGraphWidget's zoom
+ * disabling will silently not work -- the user will still be able to scroll-zoom
+ * inside the mini widget.
  */
 export const LOCAL_WIDGET_CONFIG: Partial<GraphConfig> = {
   layout: 'forceatlas2',

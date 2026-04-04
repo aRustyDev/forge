@@ -9,7 +9,9 @@
 
 ## Goal
 
-Establish a label display strategy for dense graphs: labels are hidden by default, revealed on hover and selection, and use auto-generated shortname slugs (`src:raytheon-pcfe`, `blt:ai-taxonomy`) for compact identification. Slugs are computed during graph construction and stored as graphology node attributes for downstream consumers (H5 search). Selected nodes and their immediate neighbors show labels; all others remain hidden.
+Establish a label display strategy for dense graphs: labels are hidden by default, revealed on hover and selection, and use auto-generated shortname slugs (`src:raytheon-pcfe`, `blt:built-ai`) for compact identification. Slugs are computed during graph construction and stored as graphology node attributes for downstream consumers (H5 search). Selected nodes and their immediate neighbors show labels; all others remain hidden.
+
+> **Spec correction:** The spec example `'blt:ai-taxonomy'` is incorrect per the slug algorithm (stop words are not filtered before the type prefix, and the first two significant words of "Built an AI taxonomy pipeline" are "built" and "ai"). The plan's `'blt:built-ai'` is correct.
 
 ## Non-Goals
 
@@ -313,8 +315,10 @@ describe('slugifyName', () => {
     expect(slugifyName('  word1   word2  ')).toBe('word1-word2')
   })
 
-  it('handles hyphenated input', () => {
-    expect(slugifyName('cloud-native infrastructure')).toBe('cloud-native-infrastructure')
+  it('handles hyphenated input and truncates at word boundary', () => {
+    // 'cloud-native-infrastructure' is 27 chars, truncated at 20 = 'cloud-native-infrastr',
+    // lastIndexOf('-') > 5 gives 'cloud-native'
+    expect(slugifyName('cloud-native infrastructure')).toBe('cloud-native')
   })
 })
 

@@ -180,7 +180,6 @@
     gap: var(--space-3, 0.75rem);
     padding: var(--space-4, 1rem);
     flex: 1;
-    overflow-x: auto;
     align-items: flex-start;
   }
 </style>

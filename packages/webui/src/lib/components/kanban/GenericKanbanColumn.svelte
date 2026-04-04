@@ -154,8 +154,6 @@
   }
 
   .column-body {
-    flex: 1;
-    overflow-y: auto;
     padding: var(--space-2, 0.5rem);
     min-height: 60px;
   }

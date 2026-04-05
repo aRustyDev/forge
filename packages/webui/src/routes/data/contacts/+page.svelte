@@ -4,7 +4,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { LoadingSpinner, EmptyState, PageWrapper, SplitPanel, ListPanelHeader } from '$lib/components'
+  import { LoadingSpinner, EmptyState, EmptyPanel, ListSearchInput, PageWrapper, SplitPanel, ListPanelHeader } from '$lib/components'
   import ContactCard from '$lib/components/contacts/ContactCard.svelte'
   import ContactEditor from '$lib/components/contacts/ContactEditor.svelte'
   import type { ContactWithOrg, Organization } from '@forge/sdk'
@@ -95,12 +95,7 @@
         <ListPanelHeader title="Contacts" onNew={startCreate} />
 
         <div class="list-filters">
-          <input
-            type="text"
-            class="search-input"
-            placeholder="Search name, title, email..."
-            bind:value={searchText}
-          />
+          <ListSearchInput bind:value={searchText} placeholder="Search name, title, email..." />
         </div>
 
         <div class="card-list">
@@ -139,12 +134,7 @@
             />
           {/key}
         {:else}
-          <div class="empty-editor">
-            <EmptyState
-              title="No contact selected"
-              description="Select a contact or create a new one"
-            />
-          </div>
+          <EmptyPanel message="Select a contact or create a new one." />
         {/if}
       {/snippet}
     </SplitPanel>
@@ -164,19 +154,6 @@
     border-bottom: 1px solid var(--color-ghost);
   }
 
-  .search-input {
-    width: 100%;
-    padding: 0.35rem 0.5rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: 0.375rem;
-    font-size: 0.8rem;
-    outline: none;
-  }
-
-  .search-input:focus {
-    border-color: var(--color-border-focus);
-  }
-
   .card-list {
     flex: 1;
     overflow-y: auto;
@@ -193,10 +170,5 @@
     font-size: 0.85rem;
   }
 
-  .empty-editor {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-  }
+
 </style>

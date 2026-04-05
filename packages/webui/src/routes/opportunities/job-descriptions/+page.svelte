@@ -7,7 +7,7 @@
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
   import { page } from '$app/state'
-  import { LoadingSpinner, EmptyState, PageWrapper, SplitPanel, ListPanelHeader } from '$lib/components'
+  import { LoadingSpinner, EmptyState, EmptyPanel, ListSearchInput, PageWrapper, SplitPanel, ListPanelHeader } from '$lib/components'
   import ViewToggle from '$lib/components/ViewToggle.svelte'
   import GenericKanban from '$lib/components/kanban/GenericKanban.svelte'
   import JDKanbanCard from '$lib/components/kanban/JDKanbanCard.svelte'
@@ -261,12 +261,7 @@
               <option value="withdrawn">Withdrawn</option>
               <option value="closed">Closed</option>
             </select>
-            <input
-              type="text"
-              class="search-input"
-              placeholder="Search title or org..."
-              bind:value={searchText}
-            />
+            <ListSearchInput bind:value={searchText} placeholder="Search title or org..." />
             {#if locationFilter}
               <button
                 class="location-badge"
@@ -314,12 +309,7 @@
               />
             {/key}
           {:else}
-            <div class="empty-editor">
-              <EmptyState
-                title="No job description selected"
-                description="Select a job description or create a new one"
-              />
-            </div>
+            <EmptyPanel message="Select a job description or create a new one." />
           {/if}
         {/snippet}
       </SplitPanel>
@@ -359,16 +349,6 @@
     outline: none;
   }
 
-  .search-input {
-    flex: 1;
-    padding: 0.35rem 0.5rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: 0.375rem;
-    font-size: 0.8rem;
-    outline: none;
-  }
-
-  .search-input:focus,
   .status-filter:focus {
     border-color: var(--color-info);
   }
@@ -409,10 +389,5 @@
     font-size: 0.85rem;
   }
 
-  .empty-editor {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-  }
+
 </style>

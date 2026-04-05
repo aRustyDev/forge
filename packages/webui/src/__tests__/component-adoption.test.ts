@@ -72,14 +72,14 @@ const ANTI_PATTERNS: AntiPattern[] = [
     pattern: /\.editor-empty\s*\{|\.empty-editor\s*\{/,
     allowedIn: ['EmptyPanel.svelte'],
     message: 'Use <EmptyPanel> instead of page-scoped .editor-empty / .empty-editor styles',
-    expectedViolations: 6,
+    expectedViolations: 3,
   },
   {
     name: 'ListSearchInput',
     pattern: /\.search-input\s*\{/,
     allowedIn: ['ListSearchInput.svelte'],
     message: 'Use <ListSearchInput> instead of page-scoped .search-input styles',
-    expectedViolations: 10,
+    expectedViolations: 6,
   },
 ]
 

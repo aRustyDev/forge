@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { StatusBadge, LoadingSpinner, EmptyState, PageHeader } from '$lib/components'
+  import { StatusBadge, LoadingSpinner, EmptyState, PageHeader, ListSearchInput } from '$lib/components'
   import BulletDetailModal from '$lib/components/BulletDetailModal.svelte'
   import ViewToggle from '$lib/components/ViewToggle.svelte'
   import GenericKanban from '$lib/components/kanban/GenericKanban.svelte'
@@ -244,12 +244,7 @@
       {/each}
     </div>
 
-    <input
-      type="text"
-      class="search-input"
-      placeholder="Search content..."
-      bind:value={searchQuery}
-    />
+    <ListSearchInput bind:value={searchQuery} placeholder="Search content..." />
 
     <select class="status-select" bind:value={statusFilter}>
       <option value="all">All statuses</option>
@@ -448,22 +443,6 @@
     background: var(--color-surface);
     color: var(--color-primary);
     box-shadow: var(--shadow-sm);
-  }
-
-  .search-input {
-    padding: 0.45rem 0.75rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: 6px;
-    font-size: 0.825rem;
-    color: var(--text-primary);
-    flex: 1;
-    min-width: 200px;
-  }
-
-  .search-input:focus {
-    outline: none;
-    border-color: var(--color-border-focus);
-    box-shadow: 0 0 0 2px var(--color-primary-subtle);
   }
 
   .status-select {

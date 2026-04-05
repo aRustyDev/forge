@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { LoadingSpinner, EmptyState, ConfirmDialog, PageWrapper, SplitPanel, ListPanelHeader } from '$lib/components'
+  import { LoadingSpinner, EmptyState, EmptyPanel, ListSearchInput, ConfirmDialog, PageWrapper, SplitPanel, ListPanelHeader } from '$lib/components'
   import type { Organization, OrgTag, OrgCampus } from '@forge/sdk'
 
   const ORG_TYPES = ['company', 'nonprofit', 'government', 'military', 'education', 'volunteer', 'freelance', 'other']
@@ -439,7 +439,7 @@
       <ListPanelHeader title="All Organizations" onNew={startNew} />
 
     <div class="filter-bar">
-      <input class="search-input" type="text" placeholder="Search..." bind:value={searchQuery} />
+      <ListSearchInput bind:value={searchQuery} placeholder="Search..." />
       <select class="filter-select" bind:value={tagFilter}>
         <option value="all">All tags</option>
         {#each ALL_TAGS as t}
@@ -549,9 +549,7 @@
     {/snippet}
     {#snippet detail()}
     {#if !selectedOrg && !editing}
-      <div class="editor-empty">
-        <p>Select an organization or create a new one.</p>
-      </div>
+      <EmptyPanel message="Select an organization or create a new one." />
     {:else}
       <div class="editor-content">
         <h3 class="editor-heading">{editing ? 'New Organization' : 'Edit Organization'}</h3>
@@ -886,8 +884,8 @@
 
 <style>
   .filter-bar { display: flex; gap: 0.5rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--color-border); }
-  .search-input { flex: 1; padding: 0.35rem 0.5rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-size: var(--text-sm); }
-  .search-input:focus { outline: none; border-color: var(--color-border-focus); }
+
+
   .filter-select { padding: 0.35rem 0.5rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); font-size: var(--text-sm); }
   .filter-select:focus { outline: none; border-color: var(--color-border-focus); }
 
@@ -911,7 +909,6 @@
   .meta-item { font-size: var(--text-xs); color: var(--text-muted); }
 
   /* Editor */
-  .editor-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-faint); font-size: var(--text-base); }
   .editor-content { max-width: 640px; padding: 2rem; }
   .editor-heading { font-size: var(--text-xl); font-weight: var(--font-semibold); color: var(--text-primary); margin-bottom: 1.5rem; }
 
@@ -970,8 +967,6 @@
 
   .campus-edit-form label { display: block; font-size: var(--text-xs); color: var(--text-muted); margin-bottom: 0.15rem; }
   .campus-edit-form input, .campus-edit-form select { width: 100%; padding: 0.3rem 0.5rem; font-size: var(--text-sm); border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); }
-  .btn-delete { background: var(--color-danger-subtle); color: var(--color-danger-text); margin-left: auto; }
-  .btn-delete:hover { background: var(--color-danger-subtle); }
   .campus-editing { padding: 0.75rem; }
   .campus-edit-form { width: 100%; }
   .campus-edit-form .form-row { display: flex; gap: 0.5rem; margin-bottom: 0.4rem; }
@@ -979,8 +974,6 @@
   .campus-edit-actions { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
   .campus-info[role="button"] { cursor: pointer; }
   .campus-info[role="button"]:hover { opacity: 0.8; }
-  .btn-cancel { background: var(--color-ghost); color: var(--text-secondary); border: 1px solid var(--color-border-strong); }
-  .btn-cancel:hover:not(:disabled) { background: var(--color-ghost-hover); }
 
   /* Group bar and collapsible sections */
   .group-bar {

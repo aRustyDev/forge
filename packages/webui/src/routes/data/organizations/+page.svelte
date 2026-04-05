@@ -568,6 +568,8 @@
               {/each}
             </select>
           </div>
+          <!-- TODO(T97.5): Replace free-text industry with industries entity dropdown once Phase 90 lands.
+               Also add backend validation to strip industry_id for education-type orgs on save. -->
           {#if formOrgType !== 'education'}
             <div class="form-group">
               <label for="org-industry">Industry</label>

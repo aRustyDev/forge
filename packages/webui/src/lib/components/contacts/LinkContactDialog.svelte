@@ -44,7 +44,7 @@
         <label for="link-contact">Contact</label>
         <select id="link-contact" bind:value={selectedContactId}>
           <option value="" disabled>Select a contact...</option>
-          {#each contacts.sort((a, b) => a.name.localeCompare(b.name)) as c (c.id)}
+          {#each [...contacts].sort((a, b) => a.name.localeCompare(b.name)) as c (c.id)}
             <option value={c.id}>{c.name}{c.title ? ` -- ${c.title}` : ''}</option>
           {/each}
         </select>

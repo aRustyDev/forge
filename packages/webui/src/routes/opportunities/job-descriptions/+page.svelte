@@ -216,7 +216,7 @@
       <LoadingSpinner />
     </div>
   {:else}
-    <ListPanelHeader title="Job Descriptions" onNew={startCreate} newLabel="+ New JD">
+    <ListPanelHeader title="Job Descriptions" onNew={startCreate}>
       {#snippet actions()}
         <ViewToggle mode={viewMode} onchange={(m) => viewMode = m} />
       {/snippet}

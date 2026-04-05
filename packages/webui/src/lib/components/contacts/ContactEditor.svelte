@@ -211,7 +211,7 @@
     <label for="contact-org">Organization</label>
     <select id="contact-org" bind:value={organizationId}>
       <option value={null}>None</option>
-      {#each organizations.sort((a, b) => a.name.localeCompare(b.name)) as org (org.id)}
+      {#each [...organizations].sort((a, b) => a.name.localeCompare(b.name)) as org (org.id)}
         <option value={org.id}>{org.name}</option>
       {/each}
     </select>

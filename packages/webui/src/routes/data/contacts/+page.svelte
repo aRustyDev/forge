@@ -92,7 +92,7 @@
   {:else}
     <SplitPanel>
       {#snippet list()}
-        <ListPanelHeader title="Contacts" onNew={startCreate} newLabel="+ New Contact" />
+        <ListPanelHeader title="Contacts" onNew={startCreate} />
 
         <div class="list-filters">
           <input

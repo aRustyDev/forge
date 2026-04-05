@@ -537,6 +537,14 @@ export interface ResumeEntry {
   resume_id: string
   section_id: string
   perspective_id: string | null
+  /**
+   * Optional direct link to a source. Populated when the entry was added
+   * from a source that has no derived perspectives (e.g. an education
+   * degree, a clearance, a certification). Lets the IR compiler reach the
+   * source's structured data (source_education, source_clearances, etc.)
+   * without going through the perspective→bullet→bullet_sources chain.
+   */
+  source_id: string | null
   content: string | null
   perspective_content_snapshot: string | null
   position: number
@@ -1166,6 +1174,14 @@ export interface UpdateResume {
 export interface AddResumeEntry {
   section_id: string
   perspective_id?: string
+  /**
+   * Direct link to a source. Use for entries where the source has no
+   * derived perspectives (education degrees, clearances, certain
+   * certifications). Pairs with `content` so the picker can record the
+   * source provenance even when the entry text comes from the source
+   * description rather than a perspective.
+   */
+  source_id?: string
   /**
    * Entry position within the section. Optional — when omitted the server
    * appends the entry at the next available position for the section. Most

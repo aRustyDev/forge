@@ -69,7 +69,12 @@
   async function addSource(source: Source) {
     adding = source.id
     try {
-      // Check if source has approved perspectives
+      // Check if source has approved perspectives. When present we prefer
+      // linking via perspective_id (the canonical derivation chain). When
+      // absent — common for education, clearance, and certification
+      // sources that don't go through bullet derivation — we fall back to
+      // a direct source_id link so the IR compiler can still reach the
+      // source's structured extension data (source_education etc.).
       const perspResult = await forge.perspectives.list({
         source_id: source.id,
         status: 'approved',
@@ -89,13 +94,18 @@
           addToast({ message: friendlyError(result.error), type: 'error' })
         }
       } else {
-        // No perspectives -- add as direct content entry
+        // No perspectives -- add as a direct-source entry. We pass BOTH
+        // source_id (for provenance + structured data in the IR) AND
+        // content (as the visible text fallback). The compiler reaches
+        // the source's extension row via re.source_id and can format
+        // institution/credential/date/etc. from there.
         const result = await forge.resumes.addEntry(resumeId, {
           section_id: sectionId,
+          source_id: source.id,
           content: source.description,
         })
         if (result.ok) {
-          addToast({ message: `Added ${source.title} (direct)`, type: 'success' })
+          addToast({ message: `Added ${source.title}`, type: 'success' })
           await onUpdate()
         } else {
           addToast({ message: friendlyError(result.error), type: 'error' })

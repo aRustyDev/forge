@@ -164,6 +164,7 @@ export function seedResumeSection(db: Database, resumeId: string, title: string,
 /** Seed a test resume entry and return its ID */
 export function seedResumeEntry(db: Database, sectionId: string, opts: {
   perspectiveId?: string
+  sourceId?: string
   content?: string | null
   position?: number
 } = {}): string {
@@ -171,13 +172,14 @@ export function seedResumeEntry(db: Database, sectionId: string, opts: {
   // Look up resume_id from the section
   const section = db.query('SELECT resume_id FROM resume_sections WHERE id = ?').get(sectionId) as { resume_id: string }
   db.run(
-    `INSERT INTO resume_entries (id, resume_id, section_id, perspective_id, content, position)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO resume_entries (id, resume_id, section_id, perspective_id, source_id, content, position)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       section.resume_id,
       sectionId,
       opts.perspectiveId ?? null,
+      opts.sourceId ?? null,
       opts.content ?? null,
       opts.position ?? 0,
     ]

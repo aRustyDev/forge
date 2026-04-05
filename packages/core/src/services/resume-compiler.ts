@@ -55,12 +55,16 @@ interface ResumeSectionRow {
 interface ExperienceEntryRow {
   entry_id: string
   entry_content: string | null
-  perspective_id: string
-  perspective_content: string
-  bullet_id: string
-  bullet_content: string
-  source_id: string
-  source_title: string
+  // Nullable after the compiler LEFT JOINs perspectives to support entries
+  // that link to a source directly (re.source_id) without going through
+  // the perspective → bullet chain. The row-mapper below coalesces
+  // content across entry_content → perspective_content → source.description.
+  perspective_id: string | null
+  perspective_content: string | null
+  bullet_id: string | null
+  bullet_content: string | null
+  source_id: string | null
+  source_title: string | null
   organization_id: string | null
   org_name: string | null
   org_city: string | null
@@ -68,7 +72,7 @@ interface ExperienceEntryRow {
   work_arrangement: string | null
   start_date: string | null
   end_date: string | null
-  is_current: number
+  is_current: number | null
   position: number
 }
 
@@ -210,6 +214,10 @@ function buildFreeformItems(db: Database, sectionId: string): SummaryItem[] {
 }
 
 function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[] {
+  // Dual-path source resolution via COALESCE(bs.source_id, re.source_id).
+  // Experience entries almost always come through the perspective chain
+  // (bullets are the main derivation output for role sources), but the
+  // LEFT JOIN keeps the query robust against direct-source entries too.
   const rows = db
     .query(
       `SELECT
@@ -220,7 +228,7 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
         p.content AS perspective_content,
         p.bullet_id,
         b.content AS bullet_content,
-        bs.source_id,
+        COALESCE(bs.source_id, re.source_id) AS source_id,
         s.title AS source_title,
         sr.organization_id,
         sr.start_date,
@@ -231,10 +239,10 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
         oc.city AS org_city,
         oc.state AS org_state
       FROM resume_entries re
-      JOIN perspectives p ON p.id = re.perspective_id
-      JOIN bullets b ON b.id = p.bullet_id
-      JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
-      JOIN sources s ON s.id = bs.source_id
+      LEFT JOIN perspectives p ON p.id = re.perspective_id
+      LEFT JOIN bullets b ON b.id = p.bullet_id
+      LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
+      LEFT JOIN sources s ON s.id = COALESCE(bs.source_id, re.source_id)
       LEFT JOIN source_roles sr ON sr.source_id = s.id
       LEFT JOIN organizations o ON o.id = sr.organization_id
       LEFT JOIN org_campuses oc ON oc.organization_id = o.id AND oc.is_headquarters = 1
@@ -251,7 +259,10 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
     const orgKey = row.organization_id ?? row.org_name ?? 'Other'
     if (!orgMap.has(orgKey)) orgMap.set(orgKey, new Map())
     const roleMap = orgMap.get(orgKey)!
-    const roleKey = row.source_title
+    // Role key: prefer the source title; fall back to a stable "untitled"
+    // token so direct-source entries without a title still group per-source
+    // instead of colliding across unrelated sources.
+    const roleKey = row.source_title ?? `untitled:${row.source_id ?? row.entry_id}`
     if (!roleMap.has(roleKey)) roleMap.set(roleKey, [])
     roleMap.get(roleKey)!.push(row)
   }
@@ -274,23 +285,36 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
       const first = entries[0]
       const dateRange = formatDateRange(first.start_date, first.end_date, !!first.is_current)
 
-      const bullets: ExperienceBullet[] = entries.map(e => ({
-        content: e.entry_content ?? e.perspective_content,
-        entry_id: e.entry_id,
-        source_chain: {
-          source_id: e.source_id,
-          source_title: truncate(e.source_title, 60),
-          bullet_id: e.bullet_id,
-          bullet_preview: truncate(e.bullet_content, 60),
-          perspective_id: e.perspective_id,
-          perspective_preview: truncate(e.perspective_content, 60),
-        },
-        is_cloned: e.entry_content !== null,
-      }))
+      const bullets: ExperienceBullet[] = entries.map(e => {
+        // Only attach a source_chain when the full perspective-chain is
+        // present. Direct-source entries (re.source_id set, perspective
+        // null) omit source_chain since there's no bullet/perspective
+        // provenance to point to — the entry itself is the only record.
+        const hasChain =
+          e.perspective_id !== null &&
+          e.bullet_id !== null &&
+          e.source_id !== null &&
+          e.source_title !== null
+        return {
+          content: e.entry_content ?? e.perspective_content ?? '',
+          entry_id: e.entry_id,
+          source_chain: hasChain
+            ? {
+                source_id: e.source_id!,
+                source_title: truncate(e.source_title!, 60),
+                bullet_id: e.bullet_id!,
+                bullet_preview: truncate(e.bullet_content ?? '', 60),
+                perspective_id: e.perspective_id!,
+                perspective_preview: truncate(e.perspective_content ?? '', 60),
+              }
+            : undefined,
+          is_cloned: e.entry_content !== null,
+        }
+      })
 
       subheadings.push({
         id: syntheticUUID('subheading', `${orgKey}-${roleTitle}`),
-        title: roleTitle,
+        title: roleTitle.startsWith('untitled:') ? 'Untitled Role' : roleTitle,
         date_range: dateRange,
         source_id: first.source_id,
         bullets,
@@ -353,13 +377,20 @@ function buildSkillItems(db: Database, sectionId: string): SkillGroup[] {
 }
 
 function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
+  // Entries may reach their source via two paths:
+  //   1. perspective-chain:  re → perspective → bullet → bullet_sources → source
+  //   2. direct:             re.source_id → source
+  // We LEFT JOIN the perspective chain and use COALESCE to pick whichever
+  // source id is present, preferring the perspective-chain source when both
+  // are set. This lets education entries added from sources without
+  // derived perspectives still render with structured data.
   const rows = db
     .query(
       `SELECT
         re.id AS entry_id,
         re.content AS entry_content,
         p.content AS perspective_content,
-        bs.source_id,
+        COALESCE(bs.source_id, re.source_id) AS source_id,
         se.education_type,
         o.name AS institution,
         se.field,
@@ -384,9 +415,9 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
         oc.city AS campus_city,
         oc.state AS campus_state
       FROM resume_entries re
-      JOIN perspectives p ON p.id = re.perspective_id
-      JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
-      JOIN sources s ON s.id = bs.source_id
+      LEFT JOIN perspectives p ON p.id = re.perspective_id
+      LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
+      LEFT JOIN sources s ON s.id = COALESCE(bs.source_id, re.source_id)
       LEFT JOIN source_education se ON se.source_id = s.id
       LEFT JOIN organizations o ON o.id = se.organization_id
       LEFT JOIN org_campuses oc ON oc.id = se.campus_id
@@ -396,8 +427,8 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
     .all(sectionId) as Array<{
       entry_id: string
       entry_content: string | null
-      perspective_content: string
-      source_id: string
+      perspective_content: string | null
+      source_id: string | null
       education_type: string | null
       institution: string | null
       field: string | null
@@ -419,7 +450,7 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
   return rows.map(row => ({
     kind: 'education' as const,
     institution: row.institution ?? 'Unknown',
-    degree: row.entry_content ?? row.perspective_content,
+    degree: row.entry_content ?? row.perspective_content ?? '',
     date: row.end_date ? new Date(row.end_date).getFullYear().toString() : '',
     entry_id: row.entry_id,
     source_id: row.source_id,
@@ -440,6 +471,7 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
 }
 
 function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
+  // Dual-path source resolution: see buildEducationItems for rationale.
   const rows = db
     .query(
       `SELECT
@@ -449,15 +481,15 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
         p.content AS perspective_content,
         p.bullet_id,
         b.content AS bullet_content,
-        bs.source_id,
+        COALESCE(bs.source_id, re.source_id) AS source_id,
         s.title AS source_title,
         sp.start_date,
         sp.end_date
       FROM resume_entries re
-      JOIN perspectives p ON p.id = re.perspective_id
-      JOIN bullets b ON b.id = p.bullet_id
-      JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
-      JOIN sources s ON s.id = bs.source_id
+      LEFT JOIN perspectives p ON p.id = re.perspective_id
+      LEFT JOIN bullets b ON b.id = p.bullet_id
+      LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
+      LEFT JOIN sources s ON s.id = COALESCE(bs.source_id, re.source_id)
       LEFT JOIN source_projects sp ON sp.source_id = s.id
       WHERE re.section_id = ?
       ORDER BY re.position ASC`
@@ -465,60 +497,76 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
     .all(sectionId) as Array<{
       entry_id: string
       entry_content: string | null
-      perspective_id: string
-      perspective_content: string
-      bullet_id: string
-      bullet_content: string
-      source_id: string
-      source_title: string
+      perspective_id: string | null
+      perspective_content: string | null
+      bullet_id: string | null
+      bullet_content: string | null
+      source_id: string | null
+      source_title: string | null
       start_date: string | null
       end_date: string | null
     }>
 
-  // Group by source_title (project name)
+  // Group by source_title (project name). Direct-source entries without a
+  // linked source get bucketed into a synthetic untitled group per entry so
+  // they don't collide with each other.
   const projectMap = new Map<string, typeof rows>()
   for (const row of rows) {
-    if (!projectMap.has(row.source_title)) projectMap.set(row.source_title, [])
-    projectMap.get(row.source_title)!.push(row)
+    const key = row.source_title ?? `untitled:${row.source_id ?? row.entry_id}`
+    if (!projectMap.has(key)) projectMap.set(key, [])
+    projectMap.get(key)!.push(row)
   }
 
   return Array.from(projectMap.entries()).map(([name, entries]) => ({
     kind: 'project' as const,
-    name,
+    name: name.startsWith('untitled:') ? 'Untitled Project' : name,
     date: entries[0].end_date ? new Date(entries[0].end_date).getFullYear().toString() : null,
     entry_id: entries[0].entry_id,
     source_id: entries[0].source_id,
-    bullets: entries.map(e => ({
-      content: e.entry_content ?? e.perspective_content,
-      entry_id: e.entry_id,
-      source_chain: {
-        source_id: e.source_id,
-        source_title: truncate(e.source_title, 60),
-        bullet_id: e.bullet_id,
-        bullet_preview: truncate(e.bullet_content, 60),
-        perspective_id: e.perspective_id,
-        perspective_preview: truncate(e.perspective_content, 60),
-      },
-      is_cloned: e.entry_content !== null,
-    })),
+    bullets: entries.map(e => {
+      const hasChain =
+        e.perspective_id !== null &&
+        e.bullet_id !== null &&
+        e.source_id !== null &&
+        e.source_title !== null
+      return {
+        content: e.entry_content ?? e.perspective_content ?? '',
+        entry_id: e.entry_id,
+        source_chain: hasChain
+          ? {
+              source_id: e.source_id!,
+              source_title: truncate(e.source_title!, 60),
+              bullet_id: e.bullet_id!,
+              bullet_preview: truncate(e.bullet_content ?? '', 60),
+              perspective_id: e.perspective_id!,
+              perspective_preview: truncate(e.perspective_content ?? '', 60),
+            }
+          : undefined,
+        is_cloned: e.entry_content !== null,
+      }
+    }),
   }))
 }
 
 function buildClearanceItems(db: Database, sectionId: string): ClearanceItem[] {
+  // Dual-path source resolution: see buildEducationItems for rationale.
+  // Clearances historically came from sources that weren't linked to the
+  // bullet/perspective derivation flow, so most clearance entries reach
+  // source_clearances via re.source_id directly.
   const rows = db
     .query(
       `SELECT
         re.id AS entry_id,
         re.content AS entry_content,
         p.content AS perspective_content,
-        bs.source_id,
+        COALESCE(bs.source_id, re.source_id) AS source_id,
         sc.level,
         sc.polygraph,
         sc.status AS clearance_status
       FROM resume_entries re
-      JOIN perspectives p ON p.id = re.perspective_id
-      JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
-      JOIN sources s ON s.id = bs.source_id
+      LEFT JOIN perspectives p ON p.id = re.perspective_id
+      LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
+      LEFT JOIN sources s ON s.id = COALESCE(bs.source_id, re.source_id)
       LEFT JOIN source_clearances sc ON sc.source_id = s.id
       WHERE re.section_id = ?
       ORDER BY re.position ASC`
@@ -526,16 +574,18 @@ function buildClearanceItems(db: Database, sectionId: string): ClearanceItem[] {
     .all(sectionId) as Array<{
       entry_id: string
       entry_content: string | null
-      perspective_content: string
-      source_id: string
+      perspective_content: string | null
+      source_id: string | null
       level: string | null
       polygraph: string | null
       clearance_status: string | null
     }>
 
   return rows.map(row => {
-    // Build clearance string from structured data if available
-    let content = row.entry_content ?? row.perspective_content
+    // Build clearance string from structured data if available, else fall
+    // back to entry content (clone-mode or direct-source), else perspective
+    // content (reference-mode entries).
+    let content = row.entry_content ?? row.perspective_content ?? ''
     if (row.level) {
       content = row.level
       if (row.polygraph) content += ` with ${row.polygraph}`
@@ -551,6 +601,7 @@ function buildClearanceItems(db: Database, sectionId: string): ClearanceItem[] {
 }
 
 function buildPresentationItems(db: Database, sectionId: string): PresentationItem[] {
+  // Dual-path source resolution: see buildEducationItems for rationale.
   const rows = db
     .query(
       `SELECT
@@ -560,60 +611,75 @@ function buildPresentationItems(db: Database, sectionId: string): PresentationIt
         p.content AS perspective_content,
         p.bullet_id,
         b.content AS bullet_content,
-        bs.source_id,
+        COALESCE(bs.source_id, re.source_id) AS source_id,
         s.title AS source_title,
         s.end_date
       FROM resume_entries re
-      JOIN perspectives p ON p.id = re.perspective_id
-      JOIN bullets b ON b.id = p.bullet_id
-      JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
-      JOIN sources s ON s.id = bs.source_id
+      LEFT JOIN perspectives p ON p.id = re.perspective_id
+      LEFT JOIN bullets b ON b.id = p.bullet_id
+      LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
+      LEFT JOIN sources s ON s.id = COALESCE(bs.source_id, re.source_id)
       WHERE re.section_id = ?
       ORDER BY re.position ASC`
     )
     .all(sectionId) as Array<{
       entry_id: string
       entry_content: string | null
-      perspective_id: string
-      perspective_content: string
-      bullet_id: string
-      bullet_content: string
-      source_id: string
-      source_title: string
+      perspective_id: string | null
+      perspective_content: string | null
+      bullet_id: string | null
+      bullet_content: string | null
+      source_id: string | null
+      source_title: string | null
       end_date: string | null
     }>
 
-  // Group by source_title (presentation name)
+  // Group by source_title (presentation name). Direct-source entries
+  // without a linked source fall back to per-entry untitled keys.
   const presMap = new Map<string, typeof rows>()
   for (const row of rows) {
-    if (!presMap.has(row.source_title)) presMap.set(row.source_title, [])
-    presMap.get(row.source_title)!.push(row)
+    const key = row.source_title ?? `untitled:${row.source_id ?? row.entry_id}`
+    if (!presMap.has(key)) presMap.set(key, [])
+    presMap.get(key)!.push(row)
   }
 
   return Array.from(presMap.entries()).map(([title, entries]) => ({
     kind: 'presentation' as const,
-    title,
+    title: title.startsWith('untitled:') ? 'Untitled Presentation' : title,
     venue: '', // TODO: extract from source metadata when available
     date: entries[0].end_date ? new Date(entries[0].end_date).getFullYear().toString() : null,
     entry_id: entries[0].entry_id,
     source_id: entries[0].source_id,
-    bullets: entries.map(e => ({
-      content: e.entry_content ?? e.perspective_content,
-      entry_id: e.entry_id,
-      source_chain: {
-        source_id: e.source_id,
-        source_title: truncate(e.source_title, 60),
-        bullet_id: e.bullet_id,
-        bullet_preview: truncate(e.bullet_content, 60),
-        perspective_id: e.perspective_id,
-        perspective_preview: truncate(e.perspective_content, 60),
-      },
-      is_cloned: e.entry_content !== null,
-    })),
+    bullets: entries.map(e => {
+      const hasChain =
+        e.perspective_id !== null &&
+        e.bullet_id !== null &&
+        e.source_id !== null &&
+        e.source_title !== null
+      return {
+        content: e.entry_content ?? e.perspective_content ?? '',
+        entry_id: e.entry_id,
+        source_chain: hasChain
+          ? {
+              source_id: e.source_id!,
+              source_title: truncate(e.source_title!, 60),
+              bullet_id: e.bullet_id!,
+              bullet_preview: truncate(e.bullet_content ?? '', 60),
+              perspective_id: e.perspective_id!,
+              perspective_preview: truncate(e.perspective_content ?? '', 60),
+            }
+          : undefined,
+        is_cloned: e.entry_content !== null,
+      }
+    }),
   }))
 }
 
 function buildCertificationItems(db: Database, sectionId: string): CertificationGroup[] {
+  // Same dual-path source resolution as buildEducationItems — see that
+  // function's comment for the reasoning. Certifications in particular
+  // rarely have derived perspectives, so almost every cert entry reaches
+  // its source via the direct re.source_id path.
   const rows = db
     .query(
       `SELECT
@@ -621,16 +687,16 @@ function buildCertificationItems(db: Database, sectionId: string): Certification
         re.content AS entry_content,
         re.perspective_id,
         p.content AS perspective_content,
-        bs.source_id,
+        COALESCE(bs.source_id, re.source_id) AS source_id,
         s.title AS source_title,
         o.name AS institution,
         se.field,
         se.credential_id,
         se.end_date
       FROM resume_entries re
-      JOIN perspectives p ON p.id = re.perspective_id
-      JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
-      JOIN sources s ON s.id = bs.source_id
+      LEFT JOIN perspectives p ON p.id = re.perspective_id
+      LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
+      LEFT JOIN sources s ON s.id = COALESCE(bs.source_id, re.source_id)
       LEFT JOIN source_education se ON se.source_id = s.id
       LEFT JOIN organizations o ON o.id = se.organization_id
       WHERE re.section_id = ?
@@ -639,10 +705,10 @@ function buildCertificationItems(db: Database, sectionId: string): Certification
     .all(sectionId) as Array<{
       entry_id: string
       entry_content: string | null
-      perspective_id: string
-      perspective_content: string
-      source_id: string
-      source_title: string
+      perspective_id: string | null
+      perspective_content: string | null
+      source_id: string | null
+      source_title: string | null
       institution: string | null
       field: string | null
       credential_id: string | null
@@ -651,14 +717,15 @@ function buildCertificationItems(db: Database, sectionId: string): Certification
 
   if (rows.length === 0) return []
 
-  // Group by institution (issuing body)
-  const catMap = new Map<string, Array<{ name: string; entry_id: string; source_id: string }>>()
+  // Group by institution (issuing body). Fall back to source title when
+  // the source isn't linked to an organization yet, then to "Other".
+  const catMap = new Map<string, Array<{ name: string; entry_id: string; source_id: string | null }>>()
 
   for (const row of rows) {
-    const label = row.institution ?? 'Other'
+    const label = row.institution ?? row.source_title ?? 'Other'
     if (!catMap.has(label)) catMap.set(label, [])
     catMap.get(label)!.push({
-      name: row.entry_content ?? row.perspective_content,
+      name: row.entry_content ?? row.perspective_content ?? row.source_title ?? '',
       entry_id: row.entry_id,
       source_id: row.source_id,
     })

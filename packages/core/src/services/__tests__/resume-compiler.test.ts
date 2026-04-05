@@ -182,6 +182,118 @@ describe('compileResumeIR', () => {
     }
   })
 
+  test('education section renders direct-source entries (no perspective chain)', () => {
+    // Regression test for T95.5-class bug: education/certification/clearance
+    // entries added via SourcePicker's content-only path have
+    // perspective_id=NULL and source_id set directly. The compiler must
+    // LEFT JOIN perspectives + COALESCE the source chain so these still
+    // render with full structured data from source_education.
+    const resumeId = seedResume(db)
+    const orgId = seedOrganization(db, { name: 'Western Governors University' })
+    const sourceId = seedSource(db, {
+      title: 'WGU Degree',
+      sourceType: 'education',
+      description: 'B.S. Cybersecurity & Information Assurance',
+    })
+    db.run(
+      `INSERT INTO source_education (source_id, education_type, organization_id, field, end_date, degree_level, degree_type, gpa)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [sourceId, 'degree', orgId, 'Cybersecurity', '2023-06-01', 'bachelors', 'bs', '3.8']
+    )
+
+    // NO bullet, NO perspective — the entry points directly at the source.
+    const secId = seedResumeSection(db, resumeId, 'Education', 'education', 0)
+    seedResumeEntry(db, secId, {
+      sourceId,
+      content: 'B.S. Cybersecurity & Information Assurance',
+      position: 0,
+    })
+
+    const result = compileResumeIR(db, resumeId)!
+    const eduSection = result.sections.find(s => s.type === 'education')
+    expect(eduSection).toBeDefined()
+    expect(eduSection!.items).toHaveLength(1)
+    const item = eduSection!.items[0] as EducationItem
+    expect(item.kind).toBe('education')
+    expect(item.institution).toBe('Western Governors University')
+    expect(item.degree).toBe('B.S. Cybersecurity & Information Assurance')
+    expect(item.date).toBe('2023')
+    expect(item.degree_level).toBe('bachelors')
+    expect(item.degree_type).toBe('bs')
+    expect(item.field).toBe('Cybersecurity')
+    expect(item.gpa).toBe('3.8')
+    expect(item.source_id).toBe(sourceId)
+  })
+
+  test('certification section renders direct-source entries (no perspective chain)', () => {
+    const resumeId = seedResume(db)
+    const sourceId = seedSource(db, {
+      title: 'AWS Certified Solutions Architect',
+      sourceType: 'education',
+      description: 'AWS Certified Solutions Architect — Associate',
+    })
+    db.run(
+      `INSERT INTO source_education (source_id, education_type, credential_id, end_date)
+       VALUES (?, ?, ?, ?)`,
+      [sourceId, 'certificate', 'AWS-SAA-12345', '2024-08-15']
+    )
+
+    const secId = seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+    seedResumeEntry(db, secId, {
+      sourceId,
+      content: 'AWS Certified Solutions Architect — Associate',
+      position: 0,
+    })
+
+    const result = compileResumeIR(db, resumeId)!
+    const certSection = result.sections.find(s => s.type === 'certifications')
+    expect(certSection).toBeDefined()
+    expect(certSection!.items).toHaveLength(1)
+    const group = certSection!.items[0]
+    expect(group.kind).toBe('certification_group')
+    if (group.kind === 'certification_group') {
+      // No organization linked → falls back to source title as the category
+      // label, and the cert name is the entry content.
+      expect(group.categories).toHaveLength(1)
+      expect(group.categories[0].certs).toHaveLength(1)
+      expect(group.categories[0].certs[0].name).toBe('AWS Certified Solutions Architect — Associate')
+      expect(group.categories[0].certs[0].source_id).toBe(sourceId)
+    }
+  })
+
+  test('clearance section renders direct-source entries (no perspective chain)', () => {
+    const resumeId = seedResume(db)
+    const sourceId = seedSource(db, {
+      title: 'TS/SCI Clearance',
+      sourceType: 'clearance',
+      description: 'Top Secret / Sensitive Compartmented Information',
+    })
+    db.run(
+      `INSERT INTO source_clearances (source_id, level, polygraph, status, type)
+       VALUES (?, ?, ?, ?, ?)`,
+      [sourceId, 'top_secret', 'ci', 'active', 'personnel']
+    )
+
+    const secId = seedResumeSection(db, resumeId, 'Security Clearance', 'clearance', 0)
+    seedResumeEntry(db, secId, {
+      sourceId,
+      content: 'Top Secret / Sensitive Compartmented Information',
+      position: 0,
+    })
+
+    const result = compileResumeIR(db, resumeId)!
+    const clearanceSection = result.sections.find(s => s.type === 'clearance')
+    expect(clearanceSection).toBeDefined()
+    expect(clearanceSection!.items).toHaveLength(1)
+    const item = clearanceSection!.items[0]
+    expect(item.kind).toBe('clearance')
+    if (item.kind === 'clearance') {
+      // Structured data takes precedence over raw content
+      expect(item.content).toBe('top_secret with ci - active')
+      expect(item.source_id).toBe(sourceId)
+    }
+  })
+
   test('education section includes campus fields when campus_id is set', () => {
     const resumeId = seedResume(db)
     const orgId = seedOrganization(db, { name: 'Western Governors University' })

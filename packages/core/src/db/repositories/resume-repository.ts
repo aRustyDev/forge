@@ -334,10 +334,10 @@ export const ResumeRepository = {
       ).next
     )
     db.run(
-      `INSERT INTO resume_entries (id, resume_id, section_id, perspective_id, content, position, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, resumeId, input.section_id, input.perspective_id ?? null, input.content ?? null,
-       position, input.notes ?? null],
+      `INSERT INTO resume_entries (id, resume_id, section_id, perspective_id, source_id, content, position, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, resumeId, input.section_id, input.perspective_id ?? null, input.source_id ?? null,
+       input.content ?? null, position, input.notes ?? null],
     )
     return db.query('SELECT * FROM resume_entries WHERE id = ?').get(id) as ResumeEntry
   },

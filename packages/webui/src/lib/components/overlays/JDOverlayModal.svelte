@@ -194,7 +194,7 @@
       <div class="jd-overlay-error">
         <p class="jd-overlay-error-message">Failed to load job description</p>
         {#if jdError}<p class="jd-overlay-error-detail">{jdError}</p>{/if}
-        <button type="button" class="jd-overlay-retry" onclick={retry}>Retry</button>
+        <button type="button" class="btn btn-ghost" onclick={retry}>Retry</button>
       </div>
     {:else}
       {#if hasMetadataStrip}
@@ -359,14 +359,6 @@
     color: var(--text-muted);
   }
 
-  .jd-overlay-retry {
-    margin-top: var(--space-2);
-    padding: var(--space-1) var(--space-3);
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-surface);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-  }
 
   .jd-overlay-metadata-strip {
     display: flex;

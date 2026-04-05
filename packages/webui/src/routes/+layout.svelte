@@ -5,6 +5,7 @@
   import { onMount } from 'svelte'
   import { page } from '$app/state'
   import { ToastContainer } from '$lib/components'
+  import { JDOverlayHost } from '$lib/components/overlays'
   import ProfileMenu from '$lib/components/ProfileMenu.svelte'
   import ChainViewModal from '$lib/components/ChainViewModal.svelte'
   import { chainViewState, closeChainView } from '$lib/stores/chain-view.svelte'
@@ -149,6 +150,10 @@
 />
 
 <ToastContainer />
+
+<!-- JD overlay: singleton mount. Host handles its own open/close state via
+     the jdOverlayState store. Any consumer opens it via openJDOverlay(id). -->
+<JDOverlayHost />
 
 <!-- Chain view modal: mounted outside .app so it renders on top of everything.
      Conditional mount means zero overhead (no Sigma/WebGL) when closed. -->

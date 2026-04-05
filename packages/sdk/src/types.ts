@@ -596,6 +596,22 @@ export interface Domain {
   created_at: string
 }
 
+/** An editable industry (e.g. fintech, healthcare, defense). */
+export interface Industry {
+  id: string
+  name: string
+  description: string | null
+  created_at: string
+}
+
+/** An editable role type (e.g. IC, lead, architect, manager). */
+export interface RoleType {
+  id: string
+  name: string
+  description: string | null
+  created_at: string
+}
+
 /** An editable resume archetype. */
 export interface Archetype {
   id: string

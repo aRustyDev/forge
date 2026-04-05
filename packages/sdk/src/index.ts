@@ -121,6 +121,8 @@ export type { BulletSource } from './types'
 // Domain/Archetype entity types
 export type {
   Domain,
+  Industry,
+  RoleType,
   Archetype,
   ArchetypeDomain,
 } from './types'
@@ -253,6 +255,8 @@ export { OrganizationsResource } from './resources/organizations'
 export { NotesResource } from './resources/notes'
 export { IntegrityResource } from './resources/integrity'
 export { DomainsResource } from './resources/domains'
+export { IndustriesResource, type CreateIndustry, type UpdateIndustry } from './resources/industries'
+export { RoleTypesResource, type CreateRoleType, type UpdateRoleType } from './resources/role-types'
 export { ArchetypesResource } from './resources/archetypes'
 export { SkillsResource } from './resources/skills'
 export { ProfileResource } from './resources/profile'

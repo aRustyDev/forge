@@ -24,6 +24,8 @@ import { TemplateService } from './template-service'
 import { ExportService } from './export-service'
 import { SummaryService } from './summary-service'
 import { ContactService } from './contact-service'
+import { IndustryService } from './industry-service'
+import { RoleTypeService } from './role-type-service'
 import { EmbeddingService } from './embedding-service'
 
 export interface Services {
@@ -45,6 +47,8 @@ export interface Services {
   export: ExportService
   summaries: SummaryService
   contacts: ContactService
+  industries: IndustryService
+  roleTypes: RoleTypeService
   embedding?: EmbeddingService  // Optional: async-initialized, injected post-createServices()
 }
 
@@ -74,6 +78,8 @@ export function createServices(db: Database, dbPath: string): Services {
     export: new ExportService(db, dbPath),
     summaries: new SummaryService(db),
     contacts: new ContactService(db),
+    industries: new IndustryService(db),
+    roleTypes: new RoleTypeService(db),
   }
 }
 
@@ -96,4 +102,6 @@ export { TemplateService } from './template-service'
 export { ExportService } from './export-service'
 export { SummaryService } from './summary-service'
 export { ContactService } from './contact-service'
+export { IndustryService } from './industry-service'
+export { RoleTypeService } from './role-type-service'
 export { EmbeddingService } from './embedding-service'

@@ -131,7 +131,7 @@ describe("runMigrations", () => {
     const rows = db
       .query("SELECT name FROM _migrations ORDER BY name")
       .all() as { name: string }[];
-    expect(rows).toHaveLength(35);
+    expect(rows).toHaveLength(36);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");
@@ -167,6 +167,7 @@ describe("runMigrations", () => {
     expect(rows[32].name).toBe("035_resume_tagline_engine");
     expect(rows[33].name).toBe("036_null_auto_content_on_direct_source_entries");
     expect(rows[34].name).toBe("037_qualifications");
+    expect(rows[35].name).toBe("038_resume_summary_override");
   });
 
   test("already up-to-date: running again is a no-op with no errors", () => {
@@ -178,7 +179,7 @@ describe("runMigrations", () => {
     const rows = db.query("SELECT name FROM _migrations ORDER BY name").all() as {
       name: string;
     }[];
-    expect(rows).toHaveLength(35);
+    expect(rows).toHaveLength(36);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");
@@ -204,6 +205,17 @@ describe("runMigrations", () => {
     expect(rows[22].name).toBe("024_unified_kanban_statuses");
     expect(rows[23].name).toBe("025_embeddings");
     expect(rows[24].name).toBe("026_job_description_resumes");
+    expect(rows[25].name).toBe("027_salary_structured_fields");
+    expect(rows[26].name).toBe("028_jd_pipeline_statuses");
+    expect(rows[27].name).toBe("029_prompt_logs_jd_entity_type");
+    expect(rows[28].name).toBe("031_skills_expansion");
+    expect(rows[29].name).toBe("032_industries_role_types");
+    expect(rows[30].name).toBe("033_summary_structured_fields");
+    expect(rows[31].name).toBe("034_resume_entry_source_id");
+    expect(rows[32].name).toBe("035_resume_tagline_engine");
+    expect(rows[33].name).toBe("036_null_auto_content_on_direct_source_entries");
+    expect(rows[34].name).toBe("037_qualifications");
+    expect(rows[35].name).toBe("038_resume_summary_override");
   });
 
   test("failed migration: broken 002 file rolls back; 001 is intact", () => {

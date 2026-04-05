@@ -27,6 +27,8 @@ import { ContactService } from './contact-service'
 import { IndustryService } from './industry-service'
 import { RoleTypeService } from './role-type-service'
 import { SkillService } from './skill-service'
+import { CredentialService } from './credential-service'
+import { CertificationService } from './certification-service'
 import { EmbeddingService } from './embedding-service'
 
 export interface Services {
@@ -51,6 +53,8 @@ export interface Services {
   industries: IndustryService
   roleTypes: RoleTypeService
   skills: SkillService
+  credentials: CredentialService
+  certifications: CertificationService
   embedding?: EmbeddingService  // Optional: async-initialized, injected post-createServices()
 }
 
@@ -83,6 +87,8 @@ export function createServices(db: Database, dbPath: string): Services {
     industries: new IndustryService(db),
     roleTypes: new RoleTypeService(db),
     skills: new SkillService(db),
+    credentials: new CredentialService(db),
+    certifications: new CertificationService(db),
   }
 }
 
@@ -108,4 +114,6 @@ export { ContactService } from './contact-service'
 export { IndustryService } from './industry-service'
 export { RoleTypeService } from './role-type-service'
 export { SkillService } from './skill-service'
+export { CredentialService } from './credential-service'
+export { CertificationService } from './certification-service'
 export { EmbeddingService } from './embedding-service'

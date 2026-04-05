@@ -128,6 +128,24 @@ export type {
   ArchetypeDomain,
 } from './types'
 
+// Qualifications — credentials + certifications (Phase 84-86)
+export type {
+  CredentialType,
+  CredentialStatus,
+  ClearanceDetails,
+  DriversLicenseDetails,
+  BarAdmissionDetails,
+  MedicalLicenseDetails,
+  CredentialDetails,
+  Credential,
+  CreateCredential,
+  UpdateCredential,
+  Certification,
+  CreateCertification,
+  UpdateCertification,
+  CertificationWithSkills,
+} from './types'
+
 // Domain/Archetype input + rich response types
 export type {
   CreateDomain,
@@ -269,6 +287,8 @@ export { IntegrityResource } from './resources/integrity'
 export { DomainsResource } from './resources/domains'
 export { IndustriesResource, type CreateIndustry, type UpdateIndustry } from './resources/industries'
 export { RoleTypesResource, type CreateRoleType, type UpdateRoleType } from './resources/role-types'
+export { CredentialsResource } from './resources/credentials'
+export { CertificationsResource } from './resources/certifications'
 export { ArchetypesResource } from './resources/archetypes'
 export { SkillsResource } from './resources/skills'
 export { ProfileResource } from './resources/profile'

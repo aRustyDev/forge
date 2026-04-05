@@ -20,6 +20,8 @@ import { SummariesResource } from './resources/summaries'
 import { ContactsResource } from './resources/contacts'
 import { IndustriesResource } from './resources/industries'
 import { RoleTypesResource } from './resources/role-types'
+import { CredentialsResource } from './resources/credentials'
+import { CertificationsResource } from './resources/certifications'
 import type { ForgeError, PaginatedResult, Result } from './types'
 
 // ---------------------------------------------------------------------------
@@ -81,6 +83,10 @@ export class ForgeClient {
   public industries: IndustriesResource
   /** Role type CRUD (lightweight entity). */
   public roleTypes: RoleTypesResource
+  /** Credential CRUD — clearances, licenses, admissions (Phase 84-86). */
+  public credentials: CredentialsResource
+  /** Certification CRUD + skill junction (Phase 84-86). */
+  public certifications: CertificationsResource
   /** Alignment scoring & requirement matching (Phase 70+). */
   public alignment?: AlignmentResource
 
@@ -118,6 +124,8 @@ export class ForgeClient {
     this.contacts = new ContactsResource(req, reqList)
     this.industries = new IndustriesResource(req, reqList)
     this.roleTypes = new RoleTypesResource(req, reqList)
+    this.credentials = new CredentialsResource(req)
+    this.certifications = new CertificationsResource(req)
     this.alignment = new AlignmentResource(req)
   }
 

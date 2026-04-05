@@ -133,18 +133,20 @@
         <span class="profile-name">{profileName}</span>
         <span class="profile-gear">&#9881;</span>
       </button>
-      <ProfileMenu
-        profile={profileData}
-        isOpen={menuOpen}
-        onclose={() => menuOpen = false}
-        buttonEl={profileButtonEl}
-      />
     </div>
   </nav>
   <main class="content">
     {@render children()}
   </main>
 </div>
+
+<!-- Profile menu: mounted outside .app so position:fixed escapes all stacking contexts -->
+<ProfileMenu
+  profile={profileData}
+  isOpen={menuOpen}
+  onclose={() => menuOpen = false}
+  buttonEl={profileButtonEl}
+/>
 
 <ToastContainer />
 

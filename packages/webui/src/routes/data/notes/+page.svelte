@@ -67,6 +67,13 @@
     formContent = ''
   }
 
+  function cancelCreate() {
+    editing = false
+    selectedId = null
+    formTitle = ''
+    formContent = ''
+  }
+
   function selectNote(id: string) {
     editing = false
     selectedId = id
@@ -282,6 +289,12 @@
         {/if}
 
         <div class="editor-actions">
+          {#if editing}
+            <button class="btn btn-ghost" onclick={cancelCreate}>
+              Cancel
+            </button>
+          {/if}
+
           <button class="btn btn-save" onclick={saveNote} disabled={saving}>
             {#if saving}
               <LoadingSpinner size="sm" />

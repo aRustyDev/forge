@@ -58,6 +58,12 @@
   let detailLoading = $state(false)
   let gapLoading = $state(false)
 
+  // Gap Analysis sidebar collapse state — persisted in localStorage
+  let gapSidebarCollapsed = $state(false)
+
+  // Derived gap count for notification badge when collapsed
+  let gapCount = $derived(gapAnalysis?.gaps?.length ?? 0)
+
   // View mode: list or board
   let viewMode = $state<'list' | 'board'>(getViewMode('resumes'))
 
@@ -187,6 +193,10 @@
 
   // ---- Load data ----
   onMount(async () => {
+    // Restore gap sidebar collapse state from localStorage
+    const savedCollapse = localStorage.getItem('forge-gap-sidebar-collapsed')
+    if (savedCollapse === 'true') gapSidebarCollapsed = true
+
     // Load resume list first
     await loadResumes()
 
@@ -256,6 +266,11 @@
     } finally {
       gapLoading = false
     }
+  }
+
+  function toggleGapSidebar() {
+    gapSidebarCollapsed = !gapSidebarCollapsed
+    localStorage.setItem('forge-gap-sidebar-collapsed', String(gapSidebarCollapsed))
   }
 
   async function loadIR(id: string) {
@@ -1069,57 +1084,90 @@
     {/if}
   </div>
 
-  <!-- Right Panel (Gap Analysis) -->
-  <div class="right-panel">
-    {#if !selectedResumeId}
-      <div class="gap-placeholder">
-        <p class="gap-placeholder-text">Select a resume to view gap analysis</p>
-      </div>
-    {:else if gapLoading}
-      <div class="loading-container">
-        <LoadingSpinner message="Analyzing gaps..." />
-      </div>
-    {:else if gapAnalysis}
-      <div class="gap-panel">
-        <h3 class="gap-title">Gap Analysis</h3>
-
-        {#if gapAnalysis.coverage_summary}
-          <div class="coverage-summary">
-            <div class="coverage-stat">
-              <span class="coverage-number">{gapAnalysis.coverage_summary.perspectives_included}</span>
-              <span class="coverage-label">Entries</span>
-            </div>
-            <div class="coverage-stat">
-              <span class="coverage-number">{gapAnalysis.coverage_summary.domains_represented.length}</span>
-              <span class="coverage-label">Domains</span>
-            </div>
-          </div>
+  <!-- Right Panel (Gap Analysis) — collapsible -->
+  <div class="right-panel" class:collapsed={gapSidebarCollapsed}>
+    {#if gapSidebarCollapsed}
+      <button class="gap-collapsed-toggle" onclick={toggleGapSidebar} title="Expand gap analysis">
+        <span class="gap-collapsed-label">Gaps</span>
+        {#if gapCount > 0}
+          <span class="gap-badge">{gapCount}</span>
         {/if}
-
-        {#if gapAnalysis.gaps.length === 0}
-          <div class="gap-all-good">
-            <p>No gaps identified. Coverage looks good.</p>
-          </div>
-        {:else}
-          <div class="gap-list">
-            {#each gapAnalysis.gaps as gap}
-              <div class="gap-item">
-                <div class="gap-item-header">
-                  <span class="gap-type-badge">{gap.type.replace(/_/g, ' ')}</span>
-                </div>
-                <p class="gap-description">{gap.description}</p>
-                {#if gap.recommendation}
-                  <p class="gap-recommendation">{gap.recommendation}</p>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </div>
+      </button>
     {:else}
-      <div class="gap-placeholder">
-        <p class="gap-placeholder-text">Gap analysis unavailable</p>
-      </div>
+      {#if !selectedResumeId}
+        <div class="gap-panel">
+          <div class="gap-header">
+            <h3 class="gap-title">Gap Analysis</h3>
+            <button class="gap-collapse-btn" onclick={toggleGapSidebar} title="Collapse sidebar">&#9666;</button>
+          </div>
+          <div class="gap-placeholder">
+            <p class="gap-placeholder-text">Select a resume to view gap analysis</p>
+          </div>
+        </div>
+      {:else if gapLoading}
+        <div class="gap-panel">
+          <div class="gap-header">
+            <h3 class="gap-title">Gap Analysis</h3>
+            <button class="gap-collapse-btn" onclick={toggleGapSidebar} title="Collapse sidebar">&#9666;</button>
+          </div>
+          <div class="loading-container">
+            <LoadingSpinner message="Analyzing gaps..." />
+          </div>
+        </div>
+      {:else if gapAnalysis}
+        <div class="gap-panel">
+          <div class="gap-header">
+            <h3 class="gap-title">Gap Analysis</h3>
+            {#if gapCount > 0}
+              <span class="gap-badge">{gapCount}</span>
+            {/if}
+            <button class="gap-collapse-btn" onclick={toggleGapSidebar} title="Collapse sidebar">&#9666;</button>
+          </div>
+
+          {#if gapAnalysis.coverage_summary}
+            <div class="coverage-summary">
+              <div class="coverage-stat">
+                <span class="coverage-number">{gapAnalysis.coverage_summary.perspectives_included}</span>
+                <span class="coverage-label">Entries</span>
+              </div>
+              <div class="coverage-stat">
+                <span class="coverage-number">{gapAnalysis.coverage_summary.domains_represented.length}</span>
+                <span class="coverage-label">Domains</span>
+              </div>
+            </div>
+          {/if}
+
+          {#if gapAnalysis.gaps.length === 0}
+            <div class="gap-all-good">
+              <p>No gaps identified. Coverage looks good.</p>
+            </div>
+          {:else}
+            <div class="gap-list">
+              {#each gapAnalysis.gaps as gap}
+                <div class="gap-item">
+                  <div class="gap-item-header">
+                    <span class="gap-type-badge">{gap.type.replace(/_/g, ' ')}</span>
+                  </div>
+                  <p class="gap-description">{gap.description}</p>
+                  {#if gap.recommendation}
+                    <p class="gap-recommendation">{gap.recommendation}</p>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {:else}
+        <div class="gap-panel">
+          <div class="gap-header">
+            <h3 class="gap-title">Gap Analysis</h3>
+            <button class="gap-collapse-btn" onclick={toggleGapSidebar} title="Collapse sidebar">&#9666;</button>
+          </div>
+          <div class="gap-placeholder">
+            <p class="gap-placeholder-text">Gap analysis unavailable</p>
+          </div>
+        </div>
+      {/if}
     {/if}
   </div>
 </div>
@@ -1312,6 +1360,13 @@
   .right-panel {
     flex: 2;
     min-width: 0;
+    transition: flex var(--transition-normal) ease;
+  }
+
+  .right-panel.collapsed {
+    flex: 0 0 40px;
+    min-width: 40px;
+    max-width: 40px;
   }
 
   /* ---- Loading ---- */
@@ -1600,7 +1655,7 @@
   }
 
   .gap-placeholder-text {
-    font-size: 0.9rem;
+    font-size: var(--text-base);
     color: var(--text-faint);
     font-style: italic;
   }
@@ -1608,19 +1663,92 @@
   .gap-panel {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
     padding: 1.25rem;
     position: sticky;
     top: 2rem;
   }
 
-  .gap-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 1rem;
-    padding-bottom: 0.75rem;
+  .gap-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-3);
     border-bottom: 1px solid var(--color-border);
+  }
+
+  .gap-title {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
+    flex: 1;
+  }
+
+  .gap-collapse-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-base);
+    transition: background var(--transition-fast), color var(--transition-fast);
+    flex-shrink: 0;
+  }
+
+  .gap-collapse-btn:hover {
+    background: var(--color-ghost);
+    color: var(--text-primary);
+  }
+
+  .gap-collapsed-toggle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-3) 0;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    position: sticky;
+    top: 2rem;
+    transition: background var(--transition-fast);
+  }
+
+  .gap-collapsed-toggle:hover {
+    background: var(--color-surface-raised);
+  }
+
+  .gap-collapsed-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .gap-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 var(--space-1);
+    border-radius: var(--radius-full);
+    background: var(--color-danger);
+    color: var(--text-inverse);
+    font-size: var(--text-xs);
+    font-weight: var(--font-bold);
+    line-height: 1;
   }
 
   .coverage-summary {

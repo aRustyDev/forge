@@ -6,10 +6,10 @@
    * Profile flyout menu component.
    *
    * Props:
-   * - profile: User profile data (name, email, phone, etc.) or null
+   * - profile: User profile data (UserProfile shape from API) or null
    * - isOpen: Whether the menu is currently visible
    * - onclose: Callback to close the menu
-   * - buttonEl: Reference to the profile button element (for click-outside exclusion)
+   * - buttonEl: Reference to the profile button element (for click-outside exclusion and positioning)
    */
   let {
     profile,
@@ -21,12 +21,10 @@
       name?: string
       email?: string
       phone?: string
-      city?: string
-      state?: string
-      github_url?: string
-      linkedin_url?: string
-      portfolio_url?: string
-      blog_url?: string
+      location?: string
+      github?: string
+      linkedin?: string
+      website?: string
     } | null
     isOpen: boolean
     onclose: () => void
@@ -34,6 +32,9 @@
   } = $props()
 
   let menuEl: HTMLDivElement
+
+  // Fixed position for the menu (computed from buttonEl bounding rect)
+  let menuStyle = $state('')
 
   // Theme state — uses localStorage key 'forge-theme'
   let currentTheme = $state<'light' | 'dark' | 'system'>('system')
@@ -45,6 +46,16 @@
       if (stored === 'light' || stored === 'dark' || stored === 'system') {
         currentTheme = stored
       }
+    }
+  })
+
+  // Compute fixed position when the menu opens, using the profile button's bounding rect
+  // so the menu escapes the sidebar's stacking context and renders above all content.
+  $effect(() => {
+    if (isOpen && buttonEl) {
+      const rect = buttonEl.getBoundingClientRect()
+      const menuWidth = 280
+      menuStyle = `left: ${rect.left}px; bottom: ${window.innerHeight - rect.top + 8}px; width: ${menuWidth}px;`
     }
   })
 
@@ -95,10 +106,7 @@
 
   // Derived display values
   let displayPhone = $derived(formatPhone(profile?.phone))
-  let displayLocation = $derived.by(() => {
-    const parts = [profile?.city, profile?.state].filter(Boolean)
-    return parts.join(', ')
-  })
+  let displayLocation = $derived(profile?.location ?? '')
   let initials = $derived.by(() => {
     if (!profile?.name) return '?'
     return profile.name
@@ -109,19 +117,18 @@
       .toUpperCase()
   })
 
-  // Social links
+  // Social links — match UserProfile field names from API
   let socialLinks = $derived.by(() => {
     const links: { label: string; url: string; icon: string }[] = []
-    if (profile?.github_url) links.push({ label: 'GitHub', url: profile.github_url, icon: 'GH' })
-    if (profile?.linkedin_url) links.push({ label: 'LinkedIn', url: profile.linkedin_url, icon: 'LI' })
-    if (profile?.portfolio_url) links.push({ label: 'Portfolio', url: profile.portfolio_url, icon: 'PF' })
-    if (profile?.blog_url) links.push({ label: 'Blog', url: profile.blog_url, icon: 'BG' })
+    if (profile?.github) links.push({ label: 'GitHub', url: profile.github, icon: 'GH' })
+    if (profile?.linkedin) links.push({ label: 'LinkedIn', url: profile.linkedin, icon: 'LI' })
+    if (profile?.website) links.push({ label: 'Website', url: profile.website, icon: 'WB' })
     return links
   })
 </script>
 
 {#if isOpen}
-  <div class="profile-menu" bind:this={menuEl}>
+  <div class="profile-menu" bind:this={menuEl} style={menuStyle}>
     <!-- Profile section -->
     <div class="menu-section profile-section">
       <div class="profile-header">
@@ -245,18 +252,14 @@
 
 <style>
   .profile-menu {
-    position: absolute;
-    bottom: 100%;
-    left: 0;
-    width: 280px;
+    position: fixed;
     max-height: calc(100vh - 80px);
     overflow-y: auto;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
-    z-index: 1000;
-    margin-bottom: var(--space-2);
+    z-index: var(--z-modal);
   }
 
   .menu-section {

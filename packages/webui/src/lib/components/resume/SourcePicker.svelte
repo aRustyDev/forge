@@ -40,14 +40,21 @@
   async function loadSources() {
     loading = true
     try {
-      const filter: { source_type: string; status: string; education_type?: string } = {
+      // Fetch sources regardless of status, then filter out only the
+      // terminal/explicitly-hidden statuses client-side. The picker needs
+      // to show draft/in_review/approved alike — users legitimately want
+      // to add sources to a resume while they're still being written
+      // (e.g. every project source on a fresh DB starts as status='draft').
+      // Only `rejected` and `archived` are excluded because those are
+      // deliberate hide-signals, not "not ready yet" signals.
+      const filter: { source_type: string; education_type?: string; limit: number } = {
         source_type: sourceType,
-        status: 'approved',
+        limit: 500,
       }
       if (educationType) filter.education_type = educationType
       const result = await forge.sources.list(filter)
       if (result.ok) {
-        sources = result.data
+        sources = result.data.filter(s => s.status !== 'rejected' && s.status !== 'archived')
       }
     } catch (e) {
       addToast({ message: 'Failed to load sources', type: 'error' })

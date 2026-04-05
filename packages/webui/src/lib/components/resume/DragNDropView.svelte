@@ -28,6 +28,7 @@
     onDeleteSection,
     onRenameSection,
     onMoveSection,
+    onRemoveEntry,
   }: {
     ir: ResumeDocument
     resumeId: string
@@ -37,6 +38,14 @@
     onDeleteSection?: (sectionId: string) => void
     onRenameSection?: (sectionId: string, newTitle: string) => void
     onMoveSection?: (sectionId: string, direction: 'up' | 'down') => void
+    /**
+     * Remove a single resume entry by id. Wired to per-entry delete
+     * buttons on education, certification, clearance, and project
+     * sections so users can remove one item without tearing down the
+     * whole section. The parent is expected to refresh the IR after
+     * a successful removal (via its own loadIR + onUpdate flow).
+     */
+    onRemoveEntry?: (entryId: string) => Promise<void>
   } = $props()
 
   // Inline editing
@@ -54,6 +63,25 @@
   // Provenance tooltip
   let tooltipEntry = $state<ExperienceBullet | null>(null)
   let tooltipPosition = $state({ x: 0, y: 0 })
+
+  // ── Education display helpers ──────────────────────────────────────
+  // Format degree_type (e.g. "BS") when present; otherwise fall back to a
+  // human-readable form of degree_level (e.g. "graduate_certificate" → "Graduate Cert").
+  // Returns `null` when no degree information is available, so the caller
+  // can skip the ", <type>" suffix entirely instead of rendering a stray comma.
+  function formatDegreeType(edu: EducationItem): string | null {
+    if (edu.degree_type) return edu.degree_type
+    const level = edu.degree_level
+    if (!level) return null
+    const levelLabels: Record<string, string> = {
+      bachelors: 'Bachelors',
+      masters: 'Masters',
+      doctoral: 'Doctoral',
+      associate: 'Associates',
+      graduate_certificate: 'Graduate Cert',
+    }
+    return levelLabels[level] ?? level.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  }
 
   function startEdit(bullet: ExperienceBullet) {
     editingEntryId = bullet.entry_id
@@ -324,12 +352,26 @@
         {#each section.items as item}
           {#if item.kind === 'education'}
             {@const edu = item as EducationItem}
+            {@const degreeType = formatDegreeType(edu)}
             <div class="education-item">
               <div class="edu-header">
                 <span class="edu-institution">{edu.institution}</span>
-                <span class="edu-date">{edu.date}</span>
+                <span class="edu-meta">
+                  <span class="edu-date">{edu.date}</span>
+                  {#if onRemoveEntry && edu.entry_id}
+                    <button
+                      type="button"
+                      class="btn btn-xs btn-ghost entry-remove-btn"
+                      onclick={() => onRemoveEntry?.(edu.entry_id!)}
+                      aria-label="Remove {edu.degree}"
+                      title="Remove this entry"
+                    >&times;</button>
+                  {/if}
+                </span>
               </div>
-              <span class="edu-degree">{edu.degree}</span>
+              <span class="edu-degree">
+                {edu.degree}{#if degreeType}, {degreeType}{/if}
+              </span>
             </div>
           {/if}
         {/each}
@@ -341,7 +383,19 @@
             {#each certGroup.categories as cat}
               <div class="cert-category">
                 <strong>{cat.label}:</strong>
-                {cat.certs.map(c => c.name).join(', ')}
+                <span class="cert-list">
+                  {#each cat.certs as cert, i}
+                    <span class="cert-item">
+                      {cert.name}{#if onRemoveEntry && cert.entry_id}<button
+                          type="button"
+                          class="btn btn-xs btn-ghost entry-remove-btn"
+                          onclick={() => onRemoveEntry?.(cert.entry_id!)}
+                          aria-label="Remove {cert.name}"
+                          title="Remove this entry"
+                        >&times;</button>{/if}{#if i < cat.certs.length - 1}, {/if}
+                    </span>
+                  {/each}
+                </span>
               </div>
             {/each}
           {/if}
@@ -354,7 +408,18 @@
             <div class="project-item">
               <div class="project-header">
                 <span class="project-name">{proj.name}</span>
-                {#if proj.date}<span class="project-date">{proj.date}</span>{/if}
+                <span class="project-meta">
+                  {#if proj.date}<span class="project-date">{proj.date}</span>{/if}
+                  {#if onRemoveEntry && proj.entry_id}
+                    <button
+                      type="button"
+                      class="btn btn-xs btn-ghost entry-remove-btn"
+                      onclick={() => onRemoveEntry?.(proj.entry_id!)}
+                      aria-label="Remove {proj.name}"
+                      title="Remove this project"
+                    >&times;</button>
+                  {/if}
+                </span>
               </div>
               {#each proj.bullets as bullet (bullet.entry_id)}
                 <div
@@ -383,7 +448,18 @@
         {#each section.items as item}
           <div class="generic-item">
             {#if 'content' in item}
-              <p>{(item as ClearanceItem).content}</p>
+              <div class="generic-item-row">
+                <p>{(item as ClearanceItem).content}</p>
+                {#if onRemoveEntry && (item as ClearanceItem).entry_id}
+                  <button
+                    type="button"
+                    class="btn btn-xs btn-ghost entry-remove-btn"
+                    onclick={() => onRemoveEntry?.((item as ClearanceItem).entry_id!)}
+                    aria-label="Remove entry"
+                    title="Remove this entry"
+                  >&times;</button>
+                {/if}
+              </div>
             {/if}
             {#if 'bullets' in item && Array.isArray((item as PresentationItem).bullets)}
               {#each (item as PresentationItem).bullets as bullet}
@@ -686,12 +762,19 @@
     display: flex;
     justify-content: space-between;
     align-items: baseline;
+    gap: 0.5rem;
   }
 
   .edu-institution {
     font-weight: 700;
     font-size: 0.875rem;
     color: var(--text-primary);
+  }
+
+  .edu-meta {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
   }
 
   .edu-date {
@@ -703,6 +786,47 @@
     font-size: 0.825rem;
     color: var(--text-secondary);
     font-style: italic;
+  }
+
+  /* Per-entry delete button used on education, certification, clearance,
+     and project sections. Visual: small ghost button that only becomes
+     prominent on hover, so it doesn't crowd the normal reading view. */
+  .entry-remove-btn {
+    min-width: 1.3rem;
+    padding: 0 0.35rem;
+    color: var(--text-faint);
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+
+  .entry-remove-btn:hover {
+    color: var(--color-danger);
+  }
+
+  .cert-list {
+    display: inline;
+  }
+
+  .cert-item {
+    display: inline;
+  }
+
+  .project-meta {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+  }
+
+  .generic-item-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .generic-item-row p {
+    margin: 0;
+    flex: 1;
   }
 
   .cert-category {

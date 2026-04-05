@@ -1074,6 +1074,10 @@
                   onDeleteSection={handleDeleteSection}
                   onRenameSection={handleRenameSection}
                   onMoveSection={handleMoveSection}
+                  onRemoveEntry={async (entryId) => {
+                    await removeEntry(entryId)
+                    if (selectedResumeId) await loadIR(selectedResumeId)
+                  }}
                 />
               {:else if activeViewTab === 'preview'}
                 <PdfView resumeId={selectedResumeId} {ir} />

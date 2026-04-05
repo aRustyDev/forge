@@ -417,7 +417,6 @@
 <style>
   .bullets-page {
     max-width: 1000px;
-    padding: 1.5rem;
   }
 
   .page-header-row {

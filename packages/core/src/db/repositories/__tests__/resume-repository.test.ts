@@ -161,6 +161,60 @@ describe('ResumeRepository', () => {
       expect(entry.content).toBe('Custom content for this resume')
     })
 
+    test('addEntry defaults position to next-available when omitted', () => {
+      // First entry in empty section → position 0
+      const first = ResumeRepository.addEntry(db, resumeId, {
+        perspective_id: perspId,
+        section_id: sectionId,
+      })
+      expect(first.position).toBe(0)
+
+      // Second entry without position → position 1
+      const second = ResumeRepository.addEntry(db, resumeId, {
+        perspective_id: perspId,
+        section_id: sectionId,
+      })
+      expect(second.position).toBe(1)
+
+      // Third entry with explicit position → respected
+      const explicit = ResumeRepository.addEntry(db, resumeId, {
+        perspective_id: perspId,
+        section_id: sectionId,
+        position: 10,
+      })
+      expect(explicit.position).toBe(10)
+
+      // Fourth entry without position → MAX+1 = 11
+      const fourth = ResumeRepository.addEntry(db, resumeId, {
+        perspective_id: perspId,
+        section_id: sectionId,
+      })
+      expect(fourth.position).toBe(11)
+    })
+
+    test('addEntry next-available position is scoped per section', () => {
+      const section2 = seedResumeSection(db, resumeId, 'Skills', 'skills', 1)
+
+      // Two entries in the Experience section
+      const a = ResumeRepository.addEntry(db, resumeId, {
+        perspective_id: perspId,
+        section_id: sectionId,
+      })
+      const b = ResumeRepository.addEntry(db, resumeId, {
+        perspective_id: perspId,
+        section_id: sectionId,
+      })
+      expect(a.position).toBe(0)
+      expect(b.position).toBe(1)
+
+      // First entry in the Skills section → starts at 0, not 2
+      const c = ResumeRepository.addEntry(db, resumeId, {
+        perspective_id: perspId,
+        section_id: section2,
+      })
+      expect(c.position).toBe(0)
+    })
+
     test('removeEntry removes an entry', () => {
       const entry = ResumeRepository.addEntry(db, resumeId, {
         perspective_id: perspId,

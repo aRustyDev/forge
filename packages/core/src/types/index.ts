@@ -840,7 +840,13 @@ export interface AddResumePerspective {
 export interface AddResumeEntry {
   section_id: string
   perspective_id?: string
-  position: number
+  /**
+   * Entry position within the section. Optional — when omitted the repository
+   * appends the entry at the next available position (MAX(position) + 1) for
+   * the given section, so callers that want "add to the end" don't need to
+   * pre-compute the index.
+   */
+  position?: number
   content?: string | null
   notes?: string | null
 }

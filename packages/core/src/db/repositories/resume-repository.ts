@@ -315,15 +315,29 @@ export const ResumeRepository = {
 
   /**
    * Add an entry to a resume, linking a perspective to a section.
-   * Generates a UUID for the entry. Returns the created entry.
+   *
+   * Generates a UUID for the entry. If `input.position` is omitted, the
+   * entry is appended at the next available position for the section
+   * (MAX(position) + 1, or 0 for the first entry). This lets callers that
+   * just want "add to the end" skip pre-computing the index — the source
+   * of truth for "what position is next" stays inside the repository so
+   * every caller gets consistent behavior.
+   *
+   * Returns the created entry.
    */
   addEntry(db: Database, resumeId: string, input: AddResumeEntry): ResumeEntry {
     const id = crypto.randomUUID()
+    const position = input.position ?? (
+      (db
+        .query('SELECT COALESCE(MAX(position), -1) + 1 AS next FROM resume_entries WHERE section_id = ?')
+        .get(input.section_id) as { next: number }
+      ).next
+    )
     db.run(
       `INSERT INTO resume_entries (id, resume_id, section_id, perspective_id, content, position, notes)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [id, resumeId, input.section_id, input.perspective_id ?? null, input.content ?? null,
-       input.position, input.notes ?? null],
+       position, input.notes ?? null],
     )
     return db.query('SELECT * FROM resume_entries WHERE id = ?').get(id) as ResumeEntry
   },

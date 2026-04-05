@@ -1166,7 +1166,12 @@ export interface UpdateResume {
 export interface AddResumeEntry {
   section_id: string
   perspective_id?: string
-  position: number
+  /**
+   * Entry position within the section. Optional — when omitted the server
+   * appends the entry at the next available position for the section. Most
+   * callers can skip this and get "add to the end" behavior.
+   */
+  position?: number
   content?: string | null
   notes?: string | null
 }

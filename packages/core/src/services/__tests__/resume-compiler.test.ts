@@ -41,7 +41,6 @@ describe('compileResumeIR', () => {
       name: 'Adam Smith',
       email: 'adam@example.com',
       location: 'Reston, VA',
-      clearance: 'TS/SCI',
     })
     const headerJson = JSON.stringify({
       tagline: 'Security Engineer',
@@ -53,7 +52,9 @@ describe('compileResumeIR', () => {
     expect(result.header.tagline).toBe('Security Engineer')  // from resume header JSON
     expect(result.header.location).toBe('Reston, VA')    // from profile
     expect(result.header.email).toBe('adam@example.com') // from profile
-    expect(result.header.clearance).toBe('TS/SCI')       // from profile
+    // clearance moved to credentials entity (migration 037); the header
+    // always returns null for clearance — the section renders from credentials.
+    expect(result.header.clearance).toBeNull()
   })
 
   test('freeform section renders entries', () => {
@@ -367,36 +368,44 @@ describe('compileResumeIR', () => {
     }
   })
 
-  test('clearance section renders direct-source entries (no perspective chain)', () => {
+  test('clearance section renders credentials (Phase 84)', () => {
+    // Migration 037 moved clearances out of sources and into the
+    // credentials entity. A clearance section now renders every
+    // credential with credential_type='clearance' — no resume_entries
+    // row required. The test seeds a credential directly.
     const resumeId = seedResume(db)
-    const sourceId = seedSource(db, {
-      title: 'TS/SCI Clearance',
-      sourceType: 'clearance',
-      description: 'Top Secret / Sensitive Compartmented Information',
-    })
+    const credId = crypto.randomUUID()
     db.run(
-      `INSERT INTO source_clearances (source_id, level, polygraph, status, type)
-       VALUES (?, ?, ?, ?, ?)`,
-      [sourceId, 'top_secret', 'ci', 'active', 'personnel']
+      `INSERT INTO credentials (id, credential_type, label, status, details)
+       VALUES (?, 'clearance', ?, 'active', ?)`,
+      [
+        credId,
+        'Top Secret / SCI',
+        JSON.stringify({
+          level: 'top_secret',
+          polygraph: 'ci',
+          clearance_type: 'personnel',
+          access_programs: ['sci'],
+        }),
+      ],
     )
 
-    const secId = seedResumeSection(db, resumeId, 'Security Clearance', 'clearance', 0)
-    seedResumeEntry(db, secId, {
-      sourceId,
-      content: 'Top Secret / Sensitive Compartmented Information',
-      position: 0,
-    })
+    // The section still needs to exist on the resume for the IR to
+    // include it. Entries are optional for clearance.
+    seedResumeSection(db, resumeId, 'Security Clearance', 'clearance', 0)
 
     const result = compileResumeIR(db, resumeId)!
     const clearanceSection = result.sections.find(s => s.type === 'clearance')
     expect(clearanceSection).toBeDefined()
-    expect(clearanceSection!.items).toHaveLength(1)
-    const item = clearanceSection!.items[0]
-    expect(item.kind).toBe('clearance')
-    if (item.kind === 'clearance') {
-      // Structured data takes precedence over raw content
-      expect(item.content).toBe('TS/SCI with CI Poly')
-      expect(item.source_id).toBe(sourceId)
+    expect(clearanceSection!.items.length).toBeGreaterThanOrEqual(1)
+    const item = clearanceSection!.items.find(i => i.kind === 'clearance' && (i as any).entry_id === credId)
+    expect(item).toBeDefined()
+    if (item && item.kind === 'clearance') {
+      // The credential has a user-authored label, so that wins over the
+      // synthesized formatter output.
+      expect(item.content).toBe('Top Secret / SCI')
+      // No source chain — credentials aren't sources.
+      expect(item.source_id).toBeNull()
     }
   })
 
@@ -460,26 +469,36 @@ describe('compileResumeIR', () => {
     expect(item.campus_state).toBeNull()
   })
 
-  test('clearance section builds from structured data', () => {
+  test('clearance section falls back to structured details when label is empty', () => {
+    // When a credential has no label, the compiler synthesizes one from
+    // the structured details JSON using the human-readable formatters
+    // (formatClearanceLevel, formatPolygraph). An inactive status gets
+    // an "(Inactive)" suffix so the exceptional case is visible.
     const resumeId = seedResume(db)
-    const sourceId = seedSource(db, { title: 'Clearance', sourceType: 'clearance' })
+    const credId = crypto.randomUUID()
     db.run(
-      `INSERT INTO source_clearances (source_id, level, polygraph, status, type, continuous_investigation)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [sourceId, 'top_secret', 'ci', 'active', 'personnel', 0]
+      `INSERT INTO credentials (id, credential_type, label, status, details)
+       VALUES (?, 'clearance', '', 'inactive', ?)`,
+      [
+        credId,
+        JSON.stringify({
+          level: 'top_secret',
+          polygraph: 'ci',
+          clearance_type: 'personnel',
+          access_programs: [],
+        }),
+      ],
     )
 
-    const bulletId = seedBullet(db, [{ id: sourceId, isPrimary: true }], { content: 'Has clearance' })
-    const perspId = seedPerspective(db, bulletId, { content: 'TS/SCI clearance holder' })
-    const secId = seedResumeSection(db, resumeId, 'Security Clearance', 'clearance', 0)
-    seedResumeEntry(db, secId, { perspectiveId: perspId, position: 0 })
+    seedResumeSection(db, resumeId, 'Security Clearance', 'clearance', 0)
 
     const result = compileResumeIR(db, resumeId)!
     const clrSection = result.sections.find(s => s.type === 'clearance')
     expect(clrSection).toBeDefined()
-    const item = clrSection!.items[0]
-    if (item.kind === 'clearance') {
-      expect(item.content).toBe('TS/SCI with CI Poly')
+    const item = clrSection!.items.find(i => i.kind === 'clearance' && (i as any).entry_id === credId)
+    expect(item).toBeDefined()
+    if (item && item.kind === 'clearance') {
+      expect(item.content).toBe('TS/SCI with CI Poly (Inactive)')
     }
   })
 

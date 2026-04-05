@@ -95,6 +95,7 @@ describe('ProfileService', () => {
     })
 
     it('updates multiple fields at once', () => {
+      // clearance moved to credentials entity in migration 037 (Phase 84)
       const result = service.updateProfile({
         name: 'Adam',
         email: 'adam@test.com',
@@ -103,13 +104,11 @@ describe('ProfileService', () => {
         linkedin: 'linkedin.com/in/adam',
         github: 'github.com/adam',
         website: 'adam.dev',
-        clearance: 'TS/SCI with CI Polygraph - Active',
       })
       expect(result.ok).toBe(true)
       if (result.ok) {
         expect(result.data.name).toBe('Adam')
         expect(result.data.email).toBe('adam@test.com')
-        expect(result.data.clearance).toBe('TS/SCI with CI Polygraph - Active')
       }
     })
   })

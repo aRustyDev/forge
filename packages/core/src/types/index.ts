@@ -62,7 +62,7 @@ export interface SkillExtractionResult {
 }
 
 /** Valid source type discriminator values. */
-export type SourceType = 'role' | 'project' | 'education' | 'clearance' | 'general'
+export type SourceType = 'role' | 'project' | 'education' | 'general'
 
 /** Valid entity types for embedding vectors. */
 export type EmbeddingEntityType = 'bullet' | 'perspective' | 'jd_requirement' | 'source'
@@ -369,24 +369,6 @@ export interface SourceEducation {
   certificate_subtype: CertificateSubtype | null
   credential_id: string | null
   expiration_date: string | null
-}
-
-/** Clearance-specific details for a source with source_type='clearance'. */
-export interface SourceClearance {
-  source_id: string
-  level: ClearanceLevel
-  polygraph: ClearancePolygraph | null
-  status: ClearanceStatus
-  type: ClearanceType
-  sponsor_organization_id: string | null
-  continuous_investigation: number
-  access_programs: ClearanceAccessProgram[]
-  investigation_date: string | null
-  adjudication_date: string | null
-  reinvestigation_date: string | null
-  read_on: string | null
-  /** @deprecated Use sponsor_organization_id. Kept for legacy reads during transition. */
-  sponsoring_agency?: string | null
 }
 
 /** A bullet point derived from a source. */
@@ -708,7 +690,13 @@ export interface UpdateSummary {
 
 // ── User Profile ──────────────────────────────────────────────────────
 
-/** Global user profile — single source of truth for contact information. */
+/**
+ * Global user profile — single source of truth for contact information.
+ *
+ * As of migration 037 (Phase 84, Qualifications track), the `clearance`
+ * column has moved to the new `credentials` entity. Clearance data is
+ * managed from the Qualifications sidebar group, not the profile page.
+ */
 export interface UserProfile {
   id: string
   name: string
@@ -718,7 +706,6 @@ export interface UserProfile {
   linkedin: string | null
   github: string | null
   website: string | null
-  clearance: string | null
   salary_minimum: number | null
   salary_target: number | null
   salary_stretch: number | null
@@ -762,16 +749,6 @@ export interface CreateSource {
   gpa?: string
   location?: string
   edu_description?: string
-  // Clearance extension fields
-  level?: ClearanceLevel
-  polygraph?: ClearancePolygraph
-  clearance_status?: ClearanceStatus
-  clearance_type?: ClearanceType
-  sponsor_organization_id?: string
-  continuous_investigation?: number
-  access_programs?: ClearanceAccessProgram[]
-  /** @deprecated Use sponsor_organization_id. */
-  sponsoring_agency?: string
 }
 
 /** Input for partially updating a Source. */
@@ -804,16 +781,6 @@ export interface UpdateSource {
   gpa?: string | null
   location?: string | null
   edu_description?: string | null
-  // Clearance extension fields
-  level?: ClearanceLevel
-  polygraph?: ClearancePolygraph | null
-  clearance_status?: ClearanceStatus
-  clearance_type?: ClearanceType
-  sponsor_organization_id?: string | null
-  continuous_investigation?: number
-  access_programs?: ClearanceAccessProgram[]
-  /** @deprecated Use sponsor_organization_id. */
-  sponsoring_agency?: string | null
 }
 
 /** Input for deriving a perspective from a bullet. */
@@ -1020,7 +987,7 @@ export interface CoverageSummary {
 
 /** A source with its polymorphic extension data. */
 export interface SourceWithExtension extends Source {
-  extension: SourceRole | SourceProject | SourceEducation | SourceClearance | null
+  extension: SourceRole | SourceProject | SourceEducation | null
 }
 
 /** A source with its associated bullets. */
@@ -1069,6 +1036,12 @@ export interface ResumeHeader {
   linkedin: string | null
   github: string | null
   website: string | null
+  /**
+   * @deprecated As of migration 037 (Phase 84), clearance is a credential,
+   * not a profile field. Kept as `null` on the IR header for backward
+   * compatibility; the clearance section IR items render from the
+   * credentials table via the resume compiler.
+   */
   clearance: string | null
 }
 

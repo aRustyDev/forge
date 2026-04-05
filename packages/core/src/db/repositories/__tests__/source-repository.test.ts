@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { Database } from 'bun:sqlite'
 import * as SourceRepo from '../source-repository'
 import { createTestDb, seedSource, seedOrganization } from '../../__tests__/helpers'
-import type { SourceRole, SourceProject, SourceEducation, SourceClearance } from '../../../types'
+import type { SourceRole, SourceProject, SourceEducation } from '../../../types'
 
 describe('SourceRepository', () => {
   let db: Database
@@ -86,76 +86,10 @@ describe('SourceRepository', () => {
       expect(ext.organization_id).toBe(orgId)
     })
 
-    test('creates a clearance source with extension', () => {
-      const source = SourceRepo.create(db, {
-        title: 'TS/SCI',
-        description: 'Top Secret clearance.',
-        source_type: 'clearance',
-        level: 'top_secret',
-        polygraph: 'ci',
-        clearance_status: 'active',
-        clearance_type: 'personnel',
-        access_programs: ['sci'],
-      })
-
-      expect(source.source_type).toBe('clearance')
-      expect(source.extension).not.toBeNull()
-      const ext = source.extension as SourceClearance
-      expect(ext.level).toBe('top_secret')
-      expect(ext.polygraph).toBe('ci')
-      expect(ext.status).toBe('active')
-      expect(ext.type).toBe('personnel')
-      expect(ext.access_programs).toEqual(['sci'])
-      expect(ext.continuous_investigation).toBe(0)
-      expect(ext.sponsor_organization_id).toBeNull()
-    })
-
-    test('creates a clearance source with defaults when fields omitted', () => {
-      const source = SourceRepo.create(db, {
-        title: 'Default Clearance',
-        description: 'Clearance with defaults.',
-        source_type: 'clearance',
-      })
-
-      const ext = source.extension as SourceClearance
-      expect(ext.level).toBe('secret')
-      expect(ext.status).toBe('active')
-      expect(ext.type).toBe('personnel')
-      expect(ext.continuous_investigation).toBe(0)
-      expect(ext.access_programs).toEqual([])
-      expect(ext.polygraph).toBeNull()
-      expect(ext.sponsor_organization_id).toBeNull()
-    })
-
-    test('creates a clearance source with sponsor organization', () => {
-      const orgId = seedOrganization(db, { name: 'DoD', orgType: 'government' })
-      const source = SourceRepo.create(db, {
-        title: 'DoD Clearance',
-        description: 'DoD sponsored clearance.',
-        source_type: 'clearance',
-        level: 'secret',
-        sponsor_organization_id: orgId,
-      })
-
-      const ext = source.extension as SourceClearance
-      expect(ext.sponsor_organization_id).toBe(orgId)
-    })
-
-    test('creates a clearance with multiple access programs', () => {
-      const source = SourceRepo.create(db, {
-        title: 'Full Access',
-        description: 'All access programs.',
-        source_type: 'clearance',
-        level: 'top_secret',
-        access_programs: ['sci', 'sap', 'nato'],
-      })
-
-      const ext = source.extension as SourceClearance
-      expect(ext.access_programs).toHaveLength(3)
-      expect(ext.access_programs).toContain('sci')
-      expect(ext.access_programs).toContain('sap')
-      expect(ext.access_programs).toContain('nato')
-    })
+    // clearance source tests removed: migration 037 (Phase 84, Qualifications
+    // track) moved clearances out of the sources entity entirely and into
+    // the new `credentials` table. Clearance CRUD is tested in
+    // credential-repository.test.ts (Phase 85).
 
     test('sets default source_type to general when not specified', () => {
       const source = SourceRepo.create(db, {
@@ -490,78 +424,9 @@ describe('SourceRepository', () => {
       expect(ext.edu_description).toBeNull()
     })
 
-    test('updates clearance level', () => {
-      const source = SourceRepo.create(db, {
-        title: 'Clearance',
-        description: 'Test clearance.',
-        source_type: 'clearance',
-        level: 'secret',
-      })
-
-      const updated = SourceRepo.update(db, source.id, { level: 'top_secret' })
-      const ext = updated!.extension as SourceClearance
-      expect(ext.level).toBe('top_secret')
-    })
-
-    test('updates clearance access programs (replace)', () => {
-      const source = SourceRepo.create(db, {
-        title: 'Clearance',
-        description: 'Test clearance.',
-        source_type: 'clearance',
-        level: 'top_secret',
-        access_programs: ['sci'],
-      })
-
-      const updated = SourceRepo.update(db, source.id, { access_programs: ['sci', 'sap'] })
-      const ext = updated!.extension as SourceClearance
-      expect(ext.access_programs).toHaveLength(2)
-      expect(ext.access_programs).toContain('sci')
-      expect(ext.access_programs).toContain('sap')
-    })
-
-    test('updates clearance access programs to empty', () => {
-      const source = SourceRepo.create(db, {
-        title: 'Clearance',
-        description: 'Test clearance.',
-        source_type: 'clearance',
-        level: 'top_secret',
-        access_programs: ['sci', 'sap'],
-      })
-
-      const updated = SourceRepo.update(db, source.id, { access_programs: [] })
-      const ext = updated!.extension as SourceClearance
-      expect(ext.access_programs).toEqual([])
-    })
-
-    test('updates clearance status and type', () => {
-      const source = SourceRepo.create(db, {
-        title: 'Clearance',
-        description: 'Test clearance.',
-        source_type: 'clearance',
-        level: 'secret',
-      })
-
-      const updated = SourceRepo.update(db, source.id, {
-        clearance_status: 'inactive',
-        clearance_type: 'facility',
-        continuous_investigation: 1,
-      })
-      const ext = updated!.extension as SourceClearance
-      expect(ext.status).toBe('inactive')
-      expect(ext.type).toBe('facility')
-      expect(ext.continuous_investigation).toBe(1)
-    })
-
-    test('CHECK constraint rejects invalid clearance level', () => {
-      expect(() => {
-        SourceRepo.create(db, {
-          title: 'Bad Clearance',
-          description: 'Invalid.',
-          source_type: 'clearance',
-          level: 'invalid' as any,
-        })
-      }).toThrow()
-    })
+    // clearance update tests removed: migration 037 (Phase 84) moved
+    // clearances to the credentials entity. See credential-repository.test.ts
+    // (Phase 85) for the equivalent tests.
 
     test('returns null for nonexistent ID', () => {
       const result = SourceRepo.update(db, crypto.randomUUID(), { title: 'nope' })

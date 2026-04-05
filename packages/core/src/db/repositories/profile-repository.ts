@@ -16,7 +16,7 @@ export function get(db: Database): UserProfile | null {
   return db.query('SELECT * FROM user_profile LIMIT 1').get() as UserProfile | null
 }
 
-const ALLOWED_FIELDS = ['name', 'email', 'phone', 'location', 'linkedin', 'github', 'website', 'clearance', 'salary_minimum', 'salary_target', 'salary_stretch']
+const ALLOWED_FIELDS = ['name', 'email', 'phone', 'location', 'linkedin', 'github', 'website', 'salary_minimum', 'salary_target', 'salary_stretch']
 
 /** Patch the profile. Only provided fields are updated. Returns updated profile or null if not found. */
 export function update(db: Database, patch: UpdateProfile): UserProfile | null {

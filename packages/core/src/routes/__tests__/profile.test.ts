@@ -27,13 +27,14 @@ describe('Profile routes', () => {
   })
 
   test('GET /profile returns seeded profile data', async () => {
-    seedProfile(ctx.db, { name: 'Adam', email: 'adam@test.com', clearance: 'TS/SCI' })
+    seedProfile(ctx.db, { name: 'Adam', email: 'adam@test.com' })
     const res = await apiRequest(ctx.app, 'GET', '/profile')
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.name).toBe('Adam')
     expect(body.data.email).toBe('adam@test.com')
-    expect(body.data.clearance).toBe('TS/SCI')
+    // clearance moved to credentials entity in migration 037 (Phase 84)
+    expect(body.data.clearance).toBeUndefined()
   })
 
   // -- PATCH /profile -------------------------------------------------------
@@ -74,6 +75,7 @@ describe('Profile routes', () => {
   })
 
   test('PATCH /profile updates all fields at once', async () => {
+    // clearance moved to credentials entity in migration 037 (Phase 84)
     const res = await apiRequest(ctx.app, 'PATCH', '/profile', {
       name: 'Adam',
       email: 'adam@example.com',
@@ -82,7 +84,6 @@ describe('Profile routes', () => {
       linkedin: 'linkedin.com/in/adam',
       github: 'github.com/adam',
       website: 'adam.dev',
-      clearance: 'TS/SCI with CI Polygraph - Active',
     })
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -93,7 +94,6 @@ describe('Profile routes', () => {
     expect(body.data.linkedin).toBe('linkedin.com/in/adam')
     expect(body.data.github).toBe('github.com/adam')
     expect(body.data.website).toBe('adam.dev')
-    expect(body.data.clearance).toBe('TS/SCI with CI Polygraph - Active')
   })
 
   test('PATCH /profile refreshes updated_at', async () => {

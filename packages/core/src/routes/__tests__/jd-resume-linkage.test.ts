@@ -599,4 +599,157 @@ describe('JD-Resume Linkage', () => {
       expect(body.data).toHaveLength(0)
     })
   })
+
+  // ────────────────────────────────────────────────────────────────
+  // Phase 92: tagline auto-regeneration on JD link/unlink
+  // ────────────────────────────────────────────────────────────────
+
+  describe('Phase 92: tagline regeneration', () => {
+    test('POST link triggers tagline regeneration and returns it in response', async () => {
+      const resumeId = seedResume(ctx.db, { targetRole: 'Cloud Engineer' })
+      const jdId = seedJobDescription(ctx.db, {
+        rawText: 'Kubernetes Terraform Python AWS Docker. Kubernetes experience mandatory.',
+      })
+
+      const res = await apiRequest(ctx.app, 'POST', `/job-descriptions/${jdId}/resumes`, {
+        resume_id: resumeId,
+      })
+      expect(res.status).toBe(201)
+      const body = await res.json()
+
+      expect(body.tagline).toBeDefined()
+      expect(body.tagline.generated_tagline).toBeTruthy()
+      expect(body.tagline.keywords).toBeArray()
+      expect(body.tagline.keywords.length).toBeGreaterThan(0)
+      expect(body.tagline.has_override).toBe(false)
+
+      // Verify the generated tagline is persisted on the resume
+      const row = ctx.db
+        .query('SELECT generated_tagline FROM resumes WHERE id = ?')
+        .get(resumeId) as { generated_tagline: string | null }
+      expect(row.generated_tagline).toBe(body.tagline.generated_tagline)
+    })
+
+    test('POST link uses resume.target_role as tagline prefix', async () => {
+      const resumeId = seedResume(ctx.db, { targetRole: 'Senior Platform Engineer' })
+      const jdId = seedJobDescription(ctx.db, {
+        rawText: 'Terraform Kubernetes Python Ansible',
+      })
+
+      const res = await apiRequest(ctx.app, 'POST', `/job-descriptions/${jdId}/resumes`, {
+        resume_id: resumeId,
+      })
+      const body = await res.json()
+      expect(body.tagline.generated_tagline.startsWith('Senior Platform Engineer -- ')).toBe(true)
+    })
+
+    test('POST link with existing override sets has_override=true', async () => {
+      const resumeId = seedResume(ctx.db)
+      ctx.db.run('UPDATE resumes SET tagline_override = ? WHERE id = ?', [
+        'Manually Set Tagline',
+        resumeId,
+      ])
+      const jdId = seedJobDescription(ctx.db, {
+        rawText: 'Kafka Kubernetes Python',
+      })
+
+      const res = await apiRequest(ctx.app, 'POST', `/job-descriptions/${jdId}/resumes`, {
+        resume_id: resumeId,
+      })
+      const body = await res.json()
+      expect(body.tagline.has_override).toBe(true)
+      // generated_tagline still updates even when override exists
+      expect(body.tagline.generated_tagline).toBeTruthy()
+
+      // Override was NOT overwritten
+      const row = ctx.db
+        .query('SELECT tagline_override, generated_tagline FROM resumes WHERE id = ?')
+        .get(resumeId) as { tagline_override: string; generated_tagline: string }
+      expect(row.tagline_override).toBe('Manually Set Tagline')
+      expect(row.generated_tagline).toBeTruthy()
+    })
+
+    test('POST link with no JD text leaves generated_tagline null', async () => {
+      const resumeId = seedResume(ctx.db)
+      const jdId = seedJobDescription(ctx.db, { rawText: '' })
+
+      const res = await apiRequest(ctx.app, 'POST', `/job-descriptions/${jdId}/resumes`, {
+        resume_id: resumeId,
+      })
+      const body = await res.json()
+      expect(body.tagline.generated_tagline).toBe('')
+
+      const row = ctx.db
+        .query('SELECT generated_tagline FROM resumes WHERE id = ?')
+        .get(resumeId) as { generated_tagline: string | null }
+      expect(row.generated_tagline).toBeNull()
+    })
+
+    test('DELETE unlink regenerates from remaining JDs', async () => {
+      const resumeId = seedResume(ctx.db)
+      const jd1 = seedJobDescription(ctx.db, { rawText: 'Kafka Kubernetes Terraform' })
+      const jd2 = seedJobDescription(ctx.db, { rawText: 'Python Django Postgres' })
+
+      // Link both JDs
+      await apiRequest(ctx.app, 'POST', `/job-descriptions/${jd1}/resumes`, { resume_id: resumeId })
+      await apiRequest(ctx.app, 'POST', `/job-descriptions/${jd2}/resumes`, { resume_id: resumeId })
+
+      const rowBefore = ctx.db
+        .query('SELECT generated_tagline FROM resumes WHERE id = ?')
+        .get(resumeId) as { generated_tagline: string | null }
+      const multiJdTagline = rowBefore.generated_tagline
+      expect(multiJdTagline).toBeTruthy()
+
+      // Unlink jd1 — tagline should regenerate from remaining jd2 only
+      const delRes = await apiRequest(
+        ctx.app,
+        'DELETE',
+        `/job-descriptions/${jd1}/resumes/${resumeId}`,
+      )
+      expect(delRes.status).toBe(204)
+
+      const rowAfter = ctx.db
+        .query('SELECT generated_tagline FROM resumes WHERE id = ?')
+        .get(resumeId) as { generated_tagline: string | null }
+      expect(rowAfter.generated_tagline).toBeTruthy()
+      expect(rowAfter.generated_tagline).not.toBe(multiJdTagline)
+    })
+
+    test('DELETE of last link clears generated_tagline to null', async () => {
+      const resumeId = seedResume(ctx.db)
+      const jdId = seedJobDescription(ctx.db, { rawText: 'Kafka Kubernetes Terraform' })
+
+      await apiRequest(ctx.app, 'POST', `/job-descriptions/${jdId}/resumes`, {
+        resume_id: resumeId,
+      })
+
+      const beforeRow = ctx.db
+        .query('SELECT generated_tagline FROM resumes WHERE id = ?')
+        .get(resumeId) as { generated_tagline: string | null }
+      expect(beforeRow.generated_tagline).toBeTruthy()
+
+      await apiRequest(ctx.app, 'DELETE', `/job-descriptions/${jdId}/resumes/${resumeId}`)
+
+      const afterRow = ctx.db
+        .query('SELECT generated_tagline FROM resumes WHERE id = ?')
+        .get(resumeId) as { generated_tagline: string | null }
+      expect(afterRow.generated_tagline).toBeNull()
+    })
+
+    test('POST link across multiple JDs aggregates keywords', async () => {
+      const resumeId = seedResume(ctx.db, { targetRole: 'SRE' })
+      const jd1 = seedJobDescription(ctx.db, { rawText: 'kubernetes terraform python' })
+      const jd2 = seedJobDescription(ctx.db, { rawText: 'kubernetes prometheus grafana' })
+
+      await apiRequest(ctx.app, 'POST', `/job-descriptions/${jd1}/resumes`, { resume_id: resumeId })
+      const res = await apiRequest(ctx.app, 'POST', `/job-descriptions/${jd2}/resumes`, {
+        resume_id: resumeId,
+      })
+      const body = await res.json()
+
+      // kubernetes appears in both JDs, should rank high in the aggregate
+      const terms = body.tagline.keywords.map((k: any) => k.term)
+      expect(terms).toContain('kubernetes')
+    })
+  })
 })

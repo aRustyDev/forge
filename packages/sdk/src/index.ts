@@ -194,6 +194,13 @@ export type {
 // Resume status type (used in ResumeLink)
 export type { ResumeStatus } from './types'
 
+// Phase 92: Resume tagline state + regeneration response
+export type {
+  ResumeTaglineState,
+  ResumeTaglineRegenerationResult,
+  RankedTaglineKeyword,
+} from './types'
+
 // Contact types
 export type {
   Contact,

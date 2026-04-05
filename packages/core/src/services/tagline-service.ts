@@ -34,6 +34,7 @@
  * call from both the API layer and ad-hoc scripts.
  */
 
+import type { Database } from 'bun:sqlite'
 import type { Skill } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -261,4 +262,86 @@ export function generateTagline(
   const tagline = options.prefix ? `${options.prefix} -- ${joined}` : joined
 
   return { tagline, keywords: ranked }
+}
+
+// ---------------------------------------------------------------------------
+// DB-backed regeneration (Phase 92 T92.3)
+// ---------------------------------------------------------------------------
+
+export interface RegenerateResult {
+  /** The regenerated tagline text (may be empty if no JDs are linked). */
+  generated_tagline: string
+  /** True if the resume has a tagline_override that is currently shadowing
+   *  the generated value. UI should prompt the user to review. */
+  has_override: boolean
+  /** Top-K ranked keywords used for the generated tagline. */
+  keywords: RankedKeyword[]
+}
+
+/**
+ * Regenerate `resume.generated_tagline` from all JDs currently linked to the
+ * resume, matching against all skills in the user's library. The stored
+ * value is updated in place. `tagline_override` is left untouched so the
+ * user's manual override survives regeneration.
+ *
+ * Returns the new generated tagline, a flag indicating whether an override
+ * is present (so the caller can prompt the user to review), and the ranked
+ * keywords for display.
+ *
+ * Returns null if the resume does not exist. Returns an empty tagline (not
+ * null) if the resume exists but has no JDs linked — in that case the
+ * `generated_tagline` column is set to NULL and the caller gets an empty
+ * string plus `has_override` reflecting the current override state.
+ */
+export function regenerateResumeTagline(
+  db: Database,
+  resumeId: string,
+  options: GenerateTaglineOptions = {},
+): RegenerateResult | null {
+  // Sanity check + existing override lookup
+  const resumeRow = db
+    .query(
+      'SELECT id, target_role, tagline_override FROM resumes WHERE id = ?',
+    )
+    .get(resumeId) as { id: string; target_role: string; tagline_override: string | null } | null
+
+  if (!resumeRow) return null
+
+  // Fetch raw_text for all linked JDs
+  const jdRows = db
+    .query(
+      `SELECT jd.raw_text
+       FROM job_description_resumes jdr
+       JOIN job_descriptions jd ON jd.id = jdr.job_description_id
+       WHERE jdr.resume_id = ?`,
+    )
+    .all(resumeId) as Array<{ raw_text: string | null }>
+
+  const jdTexts = jdRows.map((r) => r.raw_text ?? '').filter((t) => t.length > 0)
+
+  // Fetch all skills (used for the match boost)
+  const skillRows = db
+    .query('SELECT id, name, category, notes FROM skills')
+    .all() as Skill[]
+
+  // Use the resume's target_role as the default prefix if none provided
+  const prefix = options.prefix ?? resumeRow.target_role ?? undefined
+  const result = generateTagline(jdTexts, skillRows, { ...options, prefix })
+
+  // Persist. Empty taglines are stored as NULL so the compiler's fallback
+  // chain (tagline_override ?? generated_tagline ?? header ?? target_role)
+  // works correctly when no JDs are linked.
+  db.run(
+    `UPDATE resumes
+     SET generated_tagline = ?,
+         updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+     WHERE id = ?`,
+    [result.tagline || null, resumeId],
+  )
+
+  return {
+    generated_tagline: result.tagline,
+    has_override: !!(resumeRow.tagline_override && resumeRow.tagline_override.trim().length > 0),
+    keywords: result.keywords,
+  }
 }

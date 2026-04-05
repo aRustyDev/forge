@@ -257,12 +257,40 @@ export interface Resume {
   notes: string | null
   header: string | null
   summary_id: string | null
+  /** TF-IDF tagline generated from linked JDs (Phase 92). Read-only. */
+  generated_tagline: string | null
+  /** User-authored tagline override (Phase 92). Takes precedence over generated. */
+  tagline_override: string | null
   markdown_override: string | null
   markdown_override_updated_at: string | null
   latex_override: string | null
   latex_override_updated_at: string | null
   created_at: string
   updated_at: string
+}
+
+/** Resume tagline state as returned by GET /resumes/:id/tagline (Phase 92). */
+export interface ResumeTaglineState {
+  generated_tagline: string | null
+  tagline_override: string | null
+  /** Resolved value: override takes precedence over generated; empty string if both null. */
+  resolved: string
+  /** True when tagline_override is set and non-empty. */
+  has_override: boolean
+}
+
+/** A ranked keyword used to build a generated tagline (Phase 92). */
+export interface RankedTaglineKeyword {
+  term: string
+  score: number
+  matchedSkill: boolean
+}
+
+/** Response from POST /resumes/:id/tagline/regenerate (Phase 92). */
+export interface ResumeTaglineRegenerationResult {
+  generated_tagline: string
+  has_override: boolean
+  keywords: RankedTaglineKeyword[]
 }
 
 export type OrgTag = 'company' | 'vendor' | 'platform' | 'university' | 'school'

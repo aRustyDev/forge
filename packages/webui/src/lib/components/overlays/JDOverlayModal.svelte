@@ -59,7 +59,7 @@
   } = $props()
 
   // --- Fetch state ---
-  let state = $state<'idle' | 'fetching' | 'loaded' | 'error'>('idle')
+  let fetchState = $state<'idle' | 'fetching' | 'loaded' | 'error'>('idle')
   let canonical = $state<JobDescriptionWithOrg | null>(null)
   let skills = $state<Skill[] | null>(null)
   let skillsError = $state<string | null>(null)
@@ -73,7 +73,7 @@
       loadData(jdId)
     } else if (!open) {
       // Reset when closed so the next open starts fresh.
-      state = 'idle'
+      fetchState = 'idle'
       canonical = null
       skills = null
       skillsError = null
@@ -83,7 +83,7 @@
   })
 
   async function loadData(id: string) {
-    state = 'fetching'
+    fetchState = 'fetching'
     canonical = null
     skills = null
     skillsError = null
@@ -97,7 +97,7 @@
 
     if (!jdResult.ok) {
       jdError = friendlyError(jdResult.error)
-      state = 'error'
+      fetchState = 'error'
       return
     }
 
@@ -108,7 +108,7 @@
     } else {
       skills = skillsResult.data
     }
-    state = 'loaded'
+    fetchState = 'loaded'
   }
 
   function retry() {
@@ -188,9 +188,9 @@
   {/snippet}
 
   {#snippet body()}
-    {#if state === 'fetching' && !initialData}
+    {#if fetchState === 'fetching' && !initialData}
       <div class="jd-overlay-spinner" aria-busy="true">Loading…</div>
-    {:else if state === 'error'}
+    {:else if fetchState === 'error'}
       <div class="jd-overlay-error">
         <p class="jd-overlay-error-message">Failed to load job description</p>
         {#if jdError}<p class="jd-overlay-error-detail">{jdError}</p>{/if}
@@ -239,7 +239,7 @@
       <section class="jd-overlay-section">
         <h4 class="jd-overlay-section-title">Description</h4>
         <div class="jd-overlay-description">
-          {#if state === 'fetching' && initialData}
+          {#if fetchState === 'fetching' && initialData}
             <div class="jd-overlay-skeleton">Loading description…</div>
           {:else}
             {displayRawText}

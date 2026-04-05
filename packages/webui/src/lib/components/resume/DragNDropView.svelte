@@ -421,6 +421,9 @@
                   {/if}
                 </span>
               </div>
+              {#if proj.description}
+                <p class="project-description">{proj.description}</p>
+              {/if}
               {#each proj.bullets as bullet (bullet.entry_id)}
                 <div
                   class="bullet-item"
@@ -856,6 +859,14 @@
   .project-date {
     font-size: 0.8rem;
     color: var(--text-muted);
+  }
+
+  .project-description {
+    margin: 0.2rem 0 0.4rem 0;
+    font-size: 0.825rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    white-space: pre-wrap;
   }
 
   .summary-text {

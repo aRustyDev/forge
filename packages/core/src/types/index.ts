@@ -1173,6 +1173,13 @@ export interface EducationItem {
 export interface ProjectItem {
   kind: 'project'
   name: string
+  /**
+   * Free-form description sourced from `sources.description` for the
+   * linked project source. Useful for direct-source project entries
+   * where there are no derived bullets/perspectives — the description
+   * carries the context the bullets would otherwise provide.
+   */
+  description: string | null
   date: string | null
   entry_id: string | null
   source_id: string | null

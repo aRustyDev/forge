@@ -968,6 +968,12 @@ export interface EducationItem {
 export interface ProjectItem {
   kind: 'project'
   name: string
+  /**
+   * Free-form description from the linked project source. Carries
+   * context for direct-source project entries that have no derived
+   * bullets/perspectives yet.
+   */
+  description: string | null
   date: string | null
   entry_id: string | null
   source_id: string | null

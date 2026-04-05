@@ -484,6 +484,8 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
 
 function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
   // Dual-path source resolution: see buildEducationItems for rationale.
+  // source_description carries the project description for display when
+  // there are no derived bullets (direct-source project entries).
   const rows = db
     .query(
       `SELECT
@@ -495,6 +497,7 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
         b.content AS bullet_content,
         COALESCE(bs.source_id, re.source_id) AS source_id,
         s.title AS source_title,
+        s.description AS source_description,
         sp.start_date,
         sp.end_date
       FROM resume_entries re
@@ -515,6 +518,7 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
       bullet_content: string | null
       source_id: string | null
       source_title: string | null
+      source_description: string | null
       start_date: string | null
       end_date: string | null
     }>
@@ -532,6 +536,7 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
   return Array.from(projectMap.entries()).map(([name, entries]) => ({
     kind: 'project' as const,
     name: name.startsWith('untitled:') ? 'Untitled Project' : name,
+    description: entries[0].source_description,
     date: entries[0].end_date ? new Date(entries[0].end_date).getFullYear().toString() : null,
     entry_id: entries[0].entry_id,
     source_id: entries[0].source_id,
@@ -558,6 +563,41 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
       }
     }),
   }))
+}
+
+/**
+ * Format a raw source_clearances.level enum value for resume display.
+ *
+ * The schema stores normalized DB-friendly tokens ('top_secret', 'secret',
+ * etc.), but resumes use industry-standard abbreviations. `top_secret`
+ * renders as "TS/SCI" because in IC/DoD contexts Top Secret clearances
+ * carry SCI compartment access by default; users who hold TS *without* SCI
+ * can override via the clone-content path.
+ */
+export function formatClearanceLevel(level: string | null): string {
+  if (!level) return ''
+  const labels: Record<string, string> = {
+    public: 'Public Trust',
+    confidential: 'Confidential',
+    secret: 'Secret',
+    top_secret: 'TS/SCI',
+    q: 'DOE Q',
+    l: 'DOE L',
+  }
+  return labels[level] ?? level
+}
+
+/**
+ * Format a raw source_clearances.polygraph enum value for resume display.
+ * Returns null when the polygraph should be omitted entirely (none/null).
+ */
+export function formatPolygraph(polygraph: string | null): string | null {
+  if (!polygraph || polygraph === 'none') return null
+  const labels: Record<string, string> = {
+    ci: 'CI Poly',
+    full_scope: 'Full-Scope Poly',
+  }
+  return labels[polygraph] ?? polygraph
 }
 
 function buildClearanceItems(db: Database, sectionId: string): ClearanceItem[] {
@@ -597,11 +637,17 @@ function buildClearanceItems(db: Database, sectionId: string): ClearanceItem[] {
     // Build clearance string from structured data if available, else fall
     // back to entry content (clone-mode or direct-source), else perspective
     // content (reference-mode entries).
+    //
+    // Display conventions:
+    //   level: 'top_secret' → 'TS/SCI' (IC default), 'secret' → 'Secret', etc.
+    //   polygraph: 'ci' → 'CI Poly', 'full_scope' → 'Full-Scope Poly', 'none' → omitted
+    //   status: 'active' is the default so it's not displayed; 'inactive' gets an "(Inactive)" suffix.
     let content = row.entry_content ?? row.perspective_content ?? ''
     if (row.level) {
-      content = row.level
-      if (row.polygraph) content += ` with ${row.polygraph}`
-      if (row.clearance_status) content += ` - ${row.clearance_status}`
+      content = formatClearanceLevel(row.level)
+      const polyLabel = formatPolygraph(row.polygraph)
+      if (polyLabel) content += ` with ${polyLabel}`
+      if (row.clearance_status === 'inactive') content += ' (Inactive)'
     }
     return {
       kind: 'clearance' as const,

@@ -24,11 +24,12 @@ webui:
     @echo "Note: API server must be running on :3000 (run 'just api' in another tab)"
     bun run --filter '@forge/webui' dev
 
-# Run all unit tests (core + sdk + webui)
+# Run all unit tests (core + sdk + webui + mcp)
 test:
     bun run --filter '@forge/core' test
     bun run --filter '@forge/sdk' test
     bun test packages/webui/src/__tests__/
+    bun test packages/mcp/src/__tests__/
 
 # Run only core tests
 test-core:
@@ -38,7 +39,11 @@ test-core:
 test-webui:
     bun test packages/webui/src/__tests__/
 
-# Run Playwright E2E tests (requires dev server running)
+# Run only MCP unit tests
+test-mcp:
+    bun test packages/mcp/src/__tests__/
+
+# Run Playwright E2E tests (requires dev server running — includes webui + MCP)
 test-e2e:
     cd packages/webui && npx playwright test
 

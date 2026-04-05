@@ -76,12 +76,13 @@
 
     <div
       class="column-body"
+      role="list"
       use:dndzone={{ items: localItems, flipDurationMs, dropTargetStyle: { outline: `2px dashed ${column.accent}` } }}
       onconsider={handleConsider}
       onfinalize={handleFinalize}
     >
       {#each localItems as item (item.id)}
-        <div class="kanban-card-wrapper">
+        <div class="kanban-card-wrapper" role="listitem">
           {@render cardContent(item)}
         </div>
       {/each}

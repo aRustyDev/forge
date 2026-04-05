@@ -151,6 +151,7 @@ body {
 
   /* --- Z-index layers --- */
   --z-dropdown: 100;
+  --z-popover: 500;
   --z-sidebar: 500;
   --z-modal: 10000;
   --z-toast: 10100;

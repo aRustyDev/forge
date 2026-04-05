@@ -231,7 +231,7 @@ textarea.field-input {
   border-top: 1px solid var(--color-border);
 }
 
-/* ---- Modal ---- */
+/* ---- Modal (canonical — all modals should use these classes) ---- */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -240,6 +240,7 @@ textarea.field-input {
   display: flex;
   align-items: center;
   justify-content: center;
+  animation: modal-fade-in 0.15s ease-out;
 }
 
 .modal-dialog {
@@ -251,6 +252,7 @@ textarea.field-input {
   max-height: 80vh;
   display: flex;
   flex-direction: column;
+  animation: modal-slide-up 0.15s ease-out;
 }
 
 .modal-header {
@@ -287,6 +289,27 @@ textarea.field-input {
 .modal-dialog--confirm {
   max-width: 420px;
   padding: var(--space-6);
+}
+
+/* Modal size modifiers */
+.modal-dialog--sm  { max-width: 400px; }
+.modal-dialog--md  { max-width: 600px; }
+.modal-dialog--lg  { max-width: 800px; }
+.modal-dialog--xl  { max-width: 1000px; }
+.modal-dialog--full {
+  max-width: calc(100vw - var(--space-12));
+  max-height: calc(100vh - var(--space-12));
+}
+
+/* Modal animations */
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modal-slide-up {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* ---- Badge (status indicator) ---- */
@@ -443,4 +466,16 @@ textarea.field-input {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay,
+  .modal-dialog,
+  .drawer-panel,
+  .right-sidebar,
+  .column-collapsed {
+    animation: none !important;
+    transition: none !important;
+  }
 }

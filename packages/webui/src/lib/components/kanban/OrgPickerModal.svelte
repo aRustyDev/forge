@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { LoadingSpinner } from '$lib/components'
+  import { LoadingSpinner, ListSearchInput } from '$lib/components'
   import type { Organization, OrgTag } from '@forge/sdk'
 
   let { open, onclose, onadd }: {
@@ -121,12 +121,12 @@
       </div>
 
       <div class="modal-filters">
-        <input
-          type="text"
-          class="search-input"
-          placeholder="Search by name..."
-          bind:value={searchQuery}
-        />
+        <div class="search-wrap">
+          <ListSearchInput
+            bind:value={searchQuery}
+            placeholder="Search by name..."
+          />
+        </div>
         <select class="tag-select" bind:value={tagFilter}>
           <option value="">All tags</option>
           {#each TAG_OPTIONS as tag}
@@ -287,19 +287,8 @@
     border-bottom: 1px solid var(--color-border);
   }
 
-  .search-input {
+  .search-wrap {
     flex: 1;
-    padding: 0.4rem 0.6rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    background: var(--color-surface);
-  }
-
-  .search-input:focus {
-    outline: none;
-    border-color: var(--color-border-focus);
   }
 
   .tag-select {

@@ -14,7 +14,7 @@
   import { page } from '$app/state'
   import { onDestroy } from 'svelte'
   import { forge } from '$lib/sdk'
-  import { StatusBadge, LoadingSpinner, EmptyState } from '$lib/components'
+  import { StatusBadge, LoadingSpinner, EmptyState, ListSearchInput } from '$lib/components'
   import { NODE_COLORS, type ChainNode } from '$lib/graph/types'
   import { closeChainView } from '$lib/stores/chain-view.svelte'
   import type { Source, Bullet, Perspective } from '@forge/sdk'
@@ -541,12 +541,12 @@
 {#snippet chainContent()}
   <!-- Controls -->
   <div class="controls">
-    <input
-      type="text"
-      class="search-input"
-      placeholder="Search nodes by content..."
-      bind:value={searchQuery}
-    />
+    <div class="search-wrap">
+      <ListSearchInput
+        bind:value={searchQuery}
+        placeholder="Search nodes by content..."
+      />
+    </div>
 
     <select class="filter-select" bind:value={sourceTypeFilter}>
       <option value="all">All source types</option>
@@ -836,22 +836,9 @@
     flex-wrap: wrap;
   }
 
-  .search-input {
+  .search-wrap {
     flex: 1;
     min-width: 200px;
-    padding: 0.45rem 0.75rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-size: 0.85rem;
-    font-family: inherit;
-    color: var(--text-primary);
-    background: var(--color-surface);
-  }
-
-  .search-input:focus {
-    outline: none;
-    border-color: var(--color-border-focus);
-    box-shadow: 0 0 0 2px var(--color-primary-subtle);
   }
 
   .filter-select {

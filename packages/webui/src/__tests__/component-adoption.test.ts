@@ -37,14 +37,14 @@ const ANTI_PATTERNS: AntiPattern[] = [
     pattern: /\.list-panel\s*\{/,
     allowedIn: ['SplitPanel.svelte', 'base.css'],
     message: 'Use <SplitPanel> instead of inline .list-panel CSS',
-    expectedViolations: 3,
+    expectedViolations: 0,
   },
   {
     name: 'ListPanelHeader',
     pattern: /\.btn-new\s*\{/,
     allowedIn: ['ListPanelHeader.svelte'],
     message: 'Use <ListPanelHeader> instead of inline .btn-new CSS',
-    expectedViolations: 3,
+    expectedViolations: 0,
   },
   {
     name: 'GlobalButtonCSS',
@@ -72,14 +72,14 @@ const ANTI_PATTERNS: AntiPattern[] = [
     pattern: /\.editor-empty\s*\{|\.empty-editor\s*\{/,
     allowedIn: ['EmptyPanel.svelte'],
     message: 'Use <EmptyPanel> instead of page-scoped .editor-empty / .empty-editor styles',
-    expectedViolations: 3,
+    expectedViolations: 0,
   },
   {
     name: 'ListSearchInput',
     pattern: /\.search-input\s*\{/,
     allowedIn: ['ListSearchInput.svelte'],
     message: 'Use <ListSearchInput> instead of page-scoped .search-input styles',
-    expectedViolations: 6,
+    expectedViolations: 0,
   },
 ]
 

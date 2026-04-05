@@ -4,6 +4,7 @@
 -->
 <script lang="ts">
   import { forge } from '$lib/sdk'
+  import { ListSearchInput } from '$lib/components'
   import type { JobDescriptionWithOrg } from '@forge/sdk'
 
   let { excludeIds, onselect, onclose }: {
@@ -42,12 +43,12 @@
       <button class="close-btn" onclick={onclose} aria-label="Close">&times;</button>
     </div>
 
-    <input
-      type="text"
-      class="search-input"
-      placeholder="Search job descriptions..."
-      bind:value={search}
-    />
+    <div class="search-wrap">
+      <ListSearchInput
+        bind:value={search}
+        placeholder="Search job descriptions..."
+      />
+    </div>
 
     {#if loading}
       <p class="muted">Loading job descriptions...</p>
@@ -123,18 +124,8 @@
     color: var(--color-danger);
   }
 
-  .search-input {
+  .search-wrap {
     margin: 0.75rem 1rem 0.5rem;
-    padding: 0.45rem 0.6rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: 0.375rem;
-    font-size: 0.85rem;
-    outline: none;
-  }
-
-  .search-input:focus {
-    border-color: var(--color-info);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
   }
 
   .muted {

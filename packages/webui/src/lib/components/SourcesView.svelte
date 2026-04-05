@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog } from '$lib/components'
+  import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog, SplitPanel, ListPanelHeader, EmptyPanel } from '$lib/components'
   import OrgCombobox from '$lib/components/OrgCombobox.svelte'
   import type { Source, Organization, Skill, ClearanceLevel, ClearancePolygraph, ClearanceStatus, ClearanceType, ClearanceAccessProgram } from '@forge/sdk'
   import {
@@ -764,14 +764,11 @@
 {/snippet}
 
 <div class="sources-page">
-  <!-- Left panel: Source list -->
-  <div class="list-panel">
-    <div class="list-header">
-      <h2>Sources</h2>
-      <button class="btn-new" onclick={startNew}>+ New Source</button>
-    </div>
+  <SplitPanel listWidth={340}>
+    {#snippet list()}
+      <ListPanelHeader title="Sources" onNew={startNew} newLabel="+ New Source" />
 
-    {#if !sourceTypeFilter}
+      {#if !sourceTypeFilter}
     <div class="filter-tabs">
       {#each SOURCE_TABS as tab}
         <button
@@ -847,14 +844,11 @@
         {/each}
       </ul>
     {/if}
-  </div>
+    {/snippet}
 
-  <!-- Right panel: Editor -->
-  <div class="editor-panel">
+    {#snippet detail()}
     {#if !selectedSource && !editing}
-      <div class="editor-empty">
-        <p>Select a source or create a new one.</p>
-      </div>
+      <EmptyPanel message="Select a source or create a new one." />
     {:else}
       <div class="editor-content">
         <h3 class="editor-heading">{editing ? 'New Source' : 'Edit Source'}</h3>
@@ -1315,7 +1309,8 @@
         </div>
       </div>
     {/if}
-  </div>
+    {/snippet}
+  </SplitPanel>
 </div>
 
 <ConfirmDialog
@@ -1606,47 +1601,6 @@
   }
 
   /* ---- Left panel ---- */
-  .list-panel {
-    width: 340px;
-    flex-shrink: 0;
-    border-right: 1px solid var(--color-border);
-    background: var(--color-surface);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .list-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.25rem 1rem;
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .list-header h2 {
-    font-size: var(--text-xl);
-    font-weight: var(--font-semibold);
-    color: var(--text-primary);
-  }
-
-  .btn-new {
-    padding: 0.35rem 0.75rem;
-    background: var(--color-primary);
-    color: var(--text-inverse);
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    cursor: pointer;
-    transition: background 0.15s;
-    white-space: nowrap;
-  }
-
-  .btn-new:hover {
-    background: var(--color-primary-hover);
-  }
-
   .filter-tabs {
     display: flex;
     border-bottom: 1px solid var(--color-border);
@@ -1779,21 +1733,6 @@
   }
 
   /* ---- Right panel ---- */
-  .editor-panel {
-    flex: 1;
-    overflow-y: auto;
-    background: var(--color-surface);
-  }
-
-  .editor-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--text-faint);
-    font-size: 0.95rem;
-  }
-
   .editor-content {
     max-width: 640px;
     padding: 2rem;

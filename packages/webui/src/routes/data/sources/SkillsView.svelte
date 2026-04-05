@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { LoadingSpinner, EmptyState } from '$lib/components'
+  import { LoadingSpinner, EmptyState, ListSearchInput, SplitPanel, ListPanelHeader, EmptyPanel } from '$lib/components'
   import type { Skill } from '@forge/sdk'
 
   const CATEGORIES = [
@@ -174,154 +174,147 @@
 </script>
 
 <div class="skills-page">
-  <!-- Left panel -->
-  <div class="list-panel">
-    <div class="list-header">
-      <h2>Skills</h2>
-      <button class="btn-new" onclick={startNew}>+ New</button>
-    </div>
+  <SplitPanel listWidth={300}>
+    {#snippet list()}
+      <ListPanelHeader title="Skills" onNew={startNew} />
 
-    <div class="filter-bar">
-      <input
-        type="text"
-        class="search-input"
-        placeholder="Search skills..."
-        bind:value={searchQuery}
-      />
-      <select class="filter-select" bind:value={categoryFilter}>
-        <option value="all">All categories</option>
-        {#each CATEGORIES as cat}
-          <option value={cat}>{cat.replace(/_/g, ' ')}</option>
-        {/each}
-      </select>
-    </div>
-
-    <div class="group-bar">
-      <label for="skill-group-by">Group by:</label>
-      <select id="skill-group-by" bind:value={groupBy}>
-        <option value="flat">None</option>
-        <option value="by_category">Category</option>
-      </select>
-    </div>
-
-    {#if loading}
-      <div class="list-loading">
-        <LoadingSpinner size="md" message="Loading skills..." />
+      <div class="filter-bar">
+        <ListSearchInput
+          bind:value={searchQuery}
+          placeholder="Search skills..."
+        />
+        <select class="filter-select" bind:value={categoryFilter}>
+          <option value="all">All categories</option>
+          {#each CATEGORIES as cat}
+            <option value={cat}>{cat.replace(/_/g, ' ')}</option>
+          {/each}
+        </select>
       </div>
-    {:else if filteredSkills.length === 0}
-      <EmptyState
-        title="No skills found"
-        description={searchQuery ? 'Try adjusting your search.' : 'Create your first skill.'}
-      >
-        {#if !searchQuery}
-          <button class="btn btn-primary" onclick={startNew}>New Skill</button>
-        {/if}
-      </EmptyState>
-    {:else if groupBy === 'by_category' && groupedSkills}
-      {#each groupedSkills as [category, categorySkills]}
-        <div class="group-section">
-          <button class="group-header" onclick={() => toggleGroup(category)}>
-            <span class="group-chevron" class:collapsed={collapsedGroups[category]}>&#9656;</span>
-            <span class="group-label">{category.replace(/_/g, ' ')}</span>
-            <span class="group-count">{categorySkills.length}</span>
-          </button>
-          {#if !collapsedGroups[category]}
-            <ul class="skill-list">
-              {#each categorySkills as skill (skill.id)}
-                <li>
-                  <button
-                    class="skill-card"
-                    class:selected={selectedId === skill.id}
-                    onclick={() => selectSkill(skill.id)}
-                  >
-                    <span class="card-title">{skill.name}</span>
-                    {#if skill.category}
-                      <span class="category-badge">{skill.category.replace(/_/g, ' ')}</span>
-                    {/if}
-                  </button>
-                </li>
+
+      <div class="group-bar">
+        <label for="skill-group-by">Group by:</label>
+        <select id="skill-group-by" bind:value={groupBy}>
+          <option value="flat">None</option>
+          <option value="by_category">Category</option>
+        </select>
+      </div>
+
+      {#if loading}
+        <div class="list-loading">
+          <LoadingSpinner size="md" message="Loading skills..." />
+        </div>
+      {:else if filteredSkills.length === 0}
+        <EmptyState
+          title="No skills found"
+          description={searchQuery ? 'Try adjusting your search.' : 'Create your first skill.'}
+        >
+          {#if !searchQuery}
+            <button class="btn btn-primary" onclick={startNew}>New Skill</button>
+          {/if}
+        </EmptyState>
+      {:else if groupBy === 'by_category' && groupedSkills}
+        {#each groupedSkills as [category, categorySkills]}
+          <div class="group-section">
+            <button class="group-header" onclick={() => toggleGroup(category)}>
+              <span class="group-chevron" class:collapsed={collapsedGroups[category]}>&#9656;</span>
+              <span class="group-label">{category.replace(/_/g, ' ')}</span>
+              <span class="group-count">{categorySkills.length}</span>
+            </button>
+            {#if !collapsedGroups[category]}
+              <ul class="skill-list">
+                {#each categorySkills as skill (skill.id)}
+                  <li>
+                    <button
+                      class="skill-card"
+                      class:selected={selectedId === skill.id}
+                      onclick={() => selectSkill(skill.id)}
+                    >
+                      <span class="card-title">{skill.name}</span>
+                      {#if skill.category}
+                        <span class="category-badge">{skill.category.replace(/_/g, ' ')}</span>
+                      {/if}
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </div>
+        {/each}
+      {:else}
+        <ul class="skill-list">
+          {#each filteredSkills as skill (skill.id)}
+            <li>
+              <button
+                class="skill-card"
+                class:selected={selectedId === skill.id}
+                onclick={() => selectSkill(skill.id)}
+              >
+                <span class="card-title">{skill.name}</span>
+                {#if skill.category}
+                  <span class="category-badge">{skill.category.replace(/_/g, ' ')}</span>
+                {/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    {/snippet}
+
+    {#snippet detail()}
+      {#if !selectedSkill && !editing}
+        <EmptyPanel message="Select a skill or create a new one." />
+      {:else}
+        <div class="editor-content">
+          <div class="editor-header">
+            <h3 class="editor-heading">{editing && !selectedId ? 'New Skill' : editing ? 'Edit Skill' : 'Skill Details'}</h3>
+            {#if !editing && selectedSkill}
+              <button class="btn btn-edit" onclick={startEditing}>Edit</button>
+            {/if}
+          </div>
+
+          <div class="form-group">
+            <label for="skill-name">Name <span class="required">*</span></label>
+            <input id="skill-name" type="text" bind:value={formName} placeholder="e.g. Kubernetes" disabled={!editing} />
+          </div>
+
+          <div class="form-group">
+            <label for="skill-category">Category</label>
+            <select id="skill-category" bind:value={formCategory} disabled={!editing}>
+              {#each CATEGORIES as cat}
+                <option value={cat}>{cat.replace(/_/g, ' ')}</option>
               {/each}
-            </ul>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="skill-notes">Notes</label>
+            <textarea id="skill-notes" bind:value={formNotes} rows="3"
+                      placeholder="Proficiency level, years of experience, context..."
+                      disabled={!editing}></textarea>
+          </div>
+
+          {#if editing}
+            <div class="editor-actions">
+              <button class="btn btn-save" onclick={saveSkill} disabled={saving}>
+                {#if saving}
+                  <LoadingSpinner size="sm" />
+                {:else}
+                  {selectedId ? 'Save' : 'Create'}
+                {/if}
+              </button>
+              <button class="btn btn-cancel" onclick={() => { editing = false; if (!selectedId) selectedId = null }}>
+                Cancel
+              </button>
+            </div>
+          {:else if selectedId}
+            <div class="editor-actions">
+              <button class="btn btn-delete" onclick={deleteSkill}>Delete</button>
+            </div>
           {/if}
         </div>
-      {/each}
-    {:else}
-      <ul class="skill-list">
-        {#each filteredSkills as skill (skill.id)}
-          <li>
-            <button
-              class="skill-card"
-              class:selected={selectedId === skill.id}
-              onclick={() => selectSkill(skill.id)}
-            >
-              <span class="card-title">{skill.name}</span>
-              {#if skill.category}
-                <span class="category-badge">{skill.category.replace(/_/g, ' ')}</span>
-              {/if}
-            </button>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </div>
-
-  <!-- Right panel -->
-  <div class="editor-panel">
-    {#if !selectedSkill && !editing}
-      <div class="editor-empty">
-        <p>Select a skill or create a new one.</p>
-      </div>
-    {:else}
-      <div class="editor-content">
-        <div class="editor-header">
-          <h3 class="editor-heading">{editing && !selectedId ? 'New Skill' : editing ? 'Edit Skill' : 'Skill Details'}</h3>
-          {#if !editing && selectedSkill}
-            <button class="btn btn-edit" onclick={startEditing}>Edit</button>
-          {/if}
-        </div>
-
-        <div class="form-group">
-          <label for="skill-name">Name <span class="required">*</span></label>
-          <input id="skill-name" type="text" bind:value={formName} placeholder="e.g. Kubernetes" disabled={!editing} />
-        </div>
-
-        <div class="form-group">
-          <label for="skill-category">Category</label>
-          <select id="skill-category" bind:value={formCategory} disabled={!editing}>
-            {#each CATEGORIES as cat}
-              <option value={cat}>{cat.replace(/_/g, ' ')}</option>
-            {/each}
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="skill-notes">Notes</label>
-          <textarea id="skill-notes" bind:value={formNotes} rows="3"
-                    placeholder="Proficiency level, years of experience, context..."
-                    disabled={!editing}></textarea>
-        </div>
-
-        {#if editing}
-          <div class="editor-actions">
-            <button class="btn btn-save" onclick={saveSkill} disabled={saving}>
-              {#if saving}
-                <LoadingSpinner size="sm" />
-              {:else}
-                {selectedId ? 'Save' : 'Create'}
-              {/if}
-            </button>
-            <button class="btn btn-cancel" onclick={() => { editing = false; if (!selectedId) selectedId = null }}>
-              Cancel
-            </button>
-          </div>
-        {:else if selectedId}
-          <div class="editor-actions">
-            <button class="btn btn-delete" onclick={deleteSkill}>Delete</button>
-          </div>
-        {/if}
-      </div>
-    {/if}
-  </div>
+      {/if}
+    {/snippet}
+  </SplitPanel>
 </div>
 
 <style>
@@ -331,65 +324,12 @@
     height: 100%;
   }
 
-  .list-panel {
-    width: 300px;
-    flex-shrink: 0;
-    border-right: 1px solid var(--color-border);
-    background: var(--color-surface);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .list-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.25rem 1rem;
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .list-header h2 {
-    font-size: var(--text-xl);
-    font-weight: var(--font-semibold);
-    color: var(--text-primary);
-  }
-
-  .btn-new {
-    padding: 0.35rem 0.75rem;
-    background: var(--color-primary);
-    color: var(--text-inverse);
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    cursor: pointer;
-    transition: background 0.15s;
-    white-space: nowrap;
-  }
-
-  .btn-new:hover { background: var(--color-primary-hover); }
-
   .filter-bar {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--color-border);
-  }
-
-  .search-input {
-    padding: 0.4rem 0.65rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-  }
-
-  .search-input:focus {
-    outline: none;
-    border-color: var(--color-border-focus);
-    box-shadow: 0 0 0 2px var(--color-primary-subtle);
   }
 
   .filter-select {
@@ -472,21 +412,6 @@
   }
 
   /* Editor */
-  .editor-panel {
-    flex: 1;
-    overflow-y: auto;
-    background: var(--color-surface);
-  }
-
-  .editor-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: var(--text-faint);
-    font-size: var(--text-base);
-  }
-
   .editor-content {
     max-width: 480px;
     padding: 2rem;

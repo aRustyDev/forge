@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog } from '$lib/components'
+  import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog, SplitPanel, ListPanelHeader, EmptyPanel } from '$lib/components'
   import OrgCombobox from '$lib/components/OrgCombobox.svelte'
   import ViewToggle from '$lib/components/ViewToggle.svelte'
   import GenericKanban from '$lib/components/kanban/GenericKanban.svelte'
@@ -673,12 +673,9 @@
   </GenericKanban>
 {:else}
 <div class="sources-page">
-  <!-- Left panel: Source list -->
-  <div class="list-panel">
-    <div class="list-header">
-      <h2>Sources</h2>
-      <button class="btn-new" onclick={startNew}>+ New Source</button>
-    </div>
+  <SplitPanel listWidth={340}>
+    {#snippet list()}
+      <ListPanelHeader title="Sources" onNew={startNew} newLabel="+ New Source" />
 
     <div class="filter-tabs">
       {#each SOURCE_TABS as tab}
@@ -756,14 +753,11 @@
         {/each}
       </ul>
     {/if}
-  </div>
+    {/snippet}
 
-  <!-- Right panel: Editor -->
-  <div class="editor-panel">
+    {#snippet detail()}
     {#if !selectedSource && !editing}
-      <div class="editor-empty">
-        <p>Select a source or create a new one.</p>
-      </div>
+      <EmptyPanel message="Select a source or create a new one." />
     {:else}
       <div class="editor-content">
         <h3 class="editor-heading">{editing ? 'New Source' : 'Edit Source'}</h3>
@@ -1165,7 +1159,8 @@
         </div>
       </div>
     {/if}
-  </div>
+    {/snippet}
+  </SplitPanel>
 </div>
 {/if}
 
@@ -1410,47 +1405,6 @@
   }
 
   /* ---- Left panel ---- */
-  .list-panel {
-    width: 340px;
-    flex-shrink: 0;
-    border-right: 1px solid #e5e7eb;
-    background: #fff;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .list-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.25rem 1rem;
-    border-bottom: 1px solid #e5e7eb;
-  }
-
-  .list-header h2 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #1a1a1a;
-  }
-
-  .btn-new {
-    padding: 0.35rem 0.75rem;
-    background: #6c63ff;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s;
-    white-space: nowrap;
-  }
-
-  .btn-new:hover {
-    background: #5a52e0;
-  }
-
   .filter-tabs {
     display: flex;
     border-bottom: 1px solid #e5e7eb;
@@ -1583,21 +1537,6 @@
   }
 
   /* ---- Right panel ---- */
-  .editor-panel {
-    flex: 1;
-    overflow-y: auto;
-    background: #fff;
-  }
-
-  .editor-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: #9ca3af;
-    font-size: 0.95rem;
-  }
-
   .editor-content {
     max-width: 640px;
     padding: 2rem;

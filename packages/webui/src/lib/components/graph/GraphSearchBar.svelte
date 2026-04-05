@@ -93,7 +93,7 @@
     </svg>
     <input
       type="text"
-      class="search-input"
+      class="graph-search-input"
       {placeholder}
       value={query}
       oninput={handleInput}
@@ -151,7 +151,7 @@
     color: var(--text-muted, #9ca3af);
   }
 
-  .search-input {
+  .graph-search-input {
     flex: 1;
     border: none;
     outline: none;

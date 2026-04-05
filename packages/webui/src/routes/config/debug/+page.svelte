@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { PageHeader } from '$lib/components'
+
   const debugPages = [
     {
       href: '/config/debug/prompts',
@@ -24,8 +26,7 @@
 </script>
 
 <div class="debug-page">
-  <h1 class="page-title">Debug</h1>
-  <p class="subtitle">Logs, diagnostics, and audit trails</p>
+  <PageHeader title="Debug" subtitle="Logs, diagnostics, and audit trails" />
 
   <div class="debug-cards">
     {#each debugPages as page}
@@ -40,19 +41,6 @@
 <style>
   .debug-page {
     max-width: 800px;
-  }
-
-  .page-title {
-    font-size: var(--text-2xl);
-    font-weight: var(--font-bold);
-    color: var(--text-primary);
-    margin-bottom: var(--space-1);
-  }
-
-  .subtitle {
-    font-size: var(--text-sm);
-    color: var(--text-muted);
-    margin-bottom: var(--space-6);
   }
 
   .debug-cards {

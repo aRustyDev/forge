@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { StatusBadge, LoadingSpinner, EmptyState } from '$lib/components'
+  import { StatusBadge, LoadingSpinner, EmptyState, PageHeader } from '$lib/components'
   import BulletDetailModal from '$lib/components/BulletDetailModal.svelte'
   import ViewToggle from '$lib/components/ViewToggle.svelte'
   import GenericKanban from '$lib/components/kanban/GenericKanban.svelte'
@@ -221,13 +221,11 @@
 </script>
 
 <div class="bullets-page">
-  <div class="page-header-row">
-    <div>
-      <h1 class="page-title">Content Atoms</h1>
-      <p class="subtitle">Unified view of bullets and perspectives</p>
-    </div>
-    <ViewToggle mode={viewMode} onchange={handleViewChange} />
-  </div>
+  <PageHeader title="Content Atoms" subtitle="Unified view of bullets and perspectives">
+    {#snippet actions()}
+      <ViewToggle mode={viewMode} onchange={handleViewChange} />
+    {/snippet}
+  </PageHeader>
 
   <!-- Controls -->
   <div class="controls">
@@ -419,26 +417,6 @@
     max-width: 1000px;
   }
 
-  .page-header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1rem;
-  }
-
-  .page-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
-  }
-
-  .subtitle {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    margin-bottom: 1.5rem;
-  }
-
   .controls {
     display: flex;
     align-items: center;
@@ -617,30 +595,6 @@
     padding-top: 0.5rem;
     border-top: 1px solid var(--color-ghost);
   }
-
-  .btn {
-    padding: 0.35rem 0.75rem;
-    border: none;
-    border-radius: 5px;
-    font-size: 0.78rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s, opacity 0.15s;
-  }
-
-  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .btn-approve { background: var(--color-success-subtle); color: var(--color-success-text); }
-  .btn-approve:hover { background: var(--color-success-subtle); }
-  .btn-reject { background: var(--color-danger-subtle); color: var(--color-danger-text); }
-  .btn-reject:hover { background: var(--color-danger-subtle); }
-  .btn-reopen { background: var(--color-warning-bg); color: var(--color-warning-text); }
-  .btn-reopen:hover { background: var(--color-warning-border); }
-  .btn-primary { background: var(--color-primary); color: var(--text-inverse); }
-  .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
-  .btn-ghost { background: transparent; color: var(--text-muted); }
-  .btn-ghost:hover { color: var(--text-secondary); background: var(--color-ghost); }
-  .btn-danger { background: var(--color-danger); color: var(--text-inverse); }
-  .btn-danger:hover { background: var(--color-danger-hover); }
 
   /* Modal */
   .modal-overlay {

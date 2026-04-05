@@ -547,36 +547,4 @@
     border-top: 1px solid var(--color-border);
   }
 
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 1.1rem;
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    cursor: pointer;
-    transition: background 0.15s, opacity 0.15s;
-  }
-
-  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .btn-save { background: var(--color-primary); color: var(--color-surface); }
-  .btn-save:hover:not(:disabled) { background: var(--color-primary-hover); }
-  .btn-delete { background: var(--color-danger-subtle); color: var(--color-danger-text); margin-left: auto; }
-  .btn-delete:hover { background: var(--color-danger-subtle); }
-
-  .btn-sm {
-    padding: 0.3rem 0.6rem;
-    font-size: var(--text-sm);
-  }
-
-  .btn-primary { background: var(--color-primary); color: var(--color-surface); }
-  .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
-  .btn-ghost { background: transparent; color: var(--text-muted); }
-  .btn-ghost:hover { color: var(--text-secondary); background: var(--color-ghost); }
-  .btn-danger { background: var(--color-danger-subtle); color: var(--color-danger-text); }
-  .btn-danger:hover { background: var(--color-danger-subtle); }
-  .btn-add { background: var(--color-success-subtle); color: var(--color-success-strong); margin-top: 0.5rem; }
-  .btn-add:hover { background: var(--color-success-subtle); }
 </style>

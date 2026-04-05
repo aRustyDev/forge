@@ -1,6 +1,6 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
-  import { ConfirmDialog, LoadingSpinner, EmptyState } from '$lib/components'
+  import { ConfirmDialog, LoadingSpinner, EmptyState, PageHeader } from '$lib/components'
   import { addToast } from '$lib/stores/toast.svelte'
   import type { Domain, Archetype } from '@forge/sdk'
 
@@ -176,15 +176,13 @@
 </script>
 
 <div class="archetypes-page">
-  <div class="page-header">
-    <div>
-      <h1 class="page-title">Archetypes</h1>
-      <p class="subtitle">Resume targeting profiles and their domain mappings</p>
-    </div>
-    <button class="btn btn-primary" onclick={() => (showCreateForm = !showCreateForm)}>
-      {showCreateForm ? 'Cancel' : '+ Add Archetype'}
-    </button>
-  </div>
+  <PageHeader title="Archetypes" subtitle="Resume targeting profiles and their domain mappings">
+    {#snippet actions()}
+      <button class="btn btn-primary" onclick={() => (showCreateForm = !showCreateForm)}>
+        {showCreateForm ? 'Cancel' : '+ Add Archetype'}
+      </button>
+    {/snippet}
+  </PageHeader>
 
   {#if showCreateForm}
     <div class="create-form">
@@ -326,25 +324,6 @@
 <style>
   .archetypes-page {
     max-width: 1100px;
-  }
-
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1.5rem;
-  }
-
-  .page-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
-  }
-
-  .subtitle {
-    font-size: 0.85rem;
-    color: var(--text-muted);
   }
 
   .create-form {
@@ -512,53 +491,4 @@
     text-transform: capitalize;
   }
 
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-
-  .btn-sm {
-    padding: 0.3rem 0.6rem;
-    font-size: 0.75rem;
-  }
-
-  .btn-primary {
-    background: var(--color-primary);
-    color: var(--color-surface);
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    background: var(--color-primary-hover);
-  }
-
-  .btn-ghost {
-    background: transparent;
-    color: var(--text-muted);
-    border: 1px solid var(--color-border-strong);
-  }
-
-  .btn-ghost:hover {
-    background: var(--color-ghost);
-  }
-
-  .btn-danger {
-    background: var(--color-danger-subtle);
-    color: var(--color-danger-text);
-  }
-
-  .btn-danger:hover:not(:disabled) {
-    background: var(--color-danger-subtle);
-  }
-
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
 </style>

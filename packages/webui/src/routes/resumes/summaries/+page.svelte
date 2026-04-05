@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { LoadingSpinner, EmptyState, ConfirmDialog } from '$lib/components'
+  import { LoadingSpinner, EmptyState, ConfirmDialog, PageHeader } from '$lib/components'
   import type { Summary } from '@forge/sdk'
 
   let summaries = $state<Summary[]>([])
@@ -133,13 +133,11 @@
 </script>
 
 <div class="summaries-page">
-  <div class="page-header">
-    <div>
-      <h1 class="page-title">Summaries</h1>
-      <p class="subtitle">Reusable professional summaries and templates</p>
-    </div>
-    <button class="btn btn-primary" onclick={startCreate}>+ New Summary</button>
-  </div>
+  <PageHeader title="Summaries" subtitle="Reusable professional summaries and templates">
+    {#snippet actions()}
+      <button class="btn btn-primary" onclick={startCreate}>+ New Summary</button>
+    {/snippet}
+  </PageHeader>
 
   {#if createMode}
     <div class="summary-card" style="margin-bottom: 1rem;">
@@ -301,14 +299,6 @@
 
 <style>
   .summaries-page { max-width: 800px; }
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1.5rem;
-  }
-  .page-title { font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--text-primary); margin-bottom: var(--space-1); }
-  .subtitle { font-size: var(--text-sm); color: var(--text-muted); }
 
   .section { margin-bottom: 2rem; }
   .section-title {

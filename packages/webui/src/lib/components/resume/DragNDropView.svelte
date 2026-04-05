@@ -841,28 +841,6 @@
     gap: 0.5rem;
   }
 
-  /* Buttons */
-  .btn {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s, opacity 0.15s;
-    white-space: nowrap;
-    font-family: inherit;
-  }
-
-  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .btn-primary { background: #6c63ff; color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: #5a52e0; }
-  .btn-ghost { background: transparent; color: #6b7280; }
-  .btn-ghost:hover { color: #374151; background: #f3f4f6; }
-  .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.75rem; }
-  .btn-xs { padding: 0.2rem 0.4rem; font-size: 0.7rem; }
-  .btn-danger-solid { background: #ef4444; color: #fff; }
-  .btn-danger-solid:hover { background: #dc2626; }
   .btn-add-role {
     margin-top: 0.25rem;
     padding: 0.2rem 0.5rem;

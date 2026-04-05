@@ -130,6 +130,35 @@ Forge is an AI-backed resume builder with a strict derivation chain (Source → 
 | [70](phase/70-alignment-api.md) | Alignment & Health API | Phase 69 | Short-Medium | HTTP routes + SDK AlignmentResource; ∥ UI phases |
 | [71](phase/71-mcp-server-foundation.md) | MCP Server Foundation + Tier 0-1 | Phase 70, Phase 5+ (SDK) | Medium-Long | STDIO transport, 7 resources, 21 tools |
 | [72](phase/72-mcp-server-completion.md) | MCP Server Completion + Tier 2-3 | Phase 71; soft: 60, 62 | Medium | 36 tools, feature flags, e2e workflow test |
+| | **── Database Research ──** | | | |
+| [80](phase/80-db-research-requirements.md) | DB Research: Requirements & Evaluation Framework | — | Small | T80.1 ∥ T80.2 ∥ T80.3; T80.4 after T80.2 |
+| [81](phase/81-db-research-candidate-evaluation.md) | DB Research: Candidate Deep Dives | Phase 80 | Medium | T81.1 ∥ T81.2 ∥ T81.3; T81.4 ∥ T81.5 after T81.1-3; T81.6 after all |
+| [82](phase/82-db-research-deployment-architecture.md) | DB Research: Deployment & Architecture Validation | Phase 81 | Medium | T82.1 ∥ T82.2 after T81.6 top-2; T82.3 ∥ T82.4; T82.5 after all |
+| [83](phase/83-db-research-decision.md) | DB Research: Decision & Migration Plan | Phase 82 | Small | T83.1 first; T83.2 XOR T83.3; T83.4 last |
+| | **── Qualifications ──** | | | |
+| [84](phase/84-qualifications-schema-migration.md) | Qualifications: Schema & Data Migration | — | Short | Sequential (migration bottleneck) |
+| [85](phase/85-qualifications-core-layer.md) | Qualifications: Core Layer (Types, Repos, Services) | Phase 84 | Medium | T85.1 first; T85.2 ∥ T85.3; T85.4 ∥ T85.5; T85.6 ∥ T85.7 |
+| [86](phase/86-qualifications-api-sdk.md) | Qualifications: API Routes & SDK | Phase 85 | Short-Medium | T86.1 ∥ T86.2; T86.3 ∥ T86.4; T86.5 last |
+| [87](phase/87-qualifications-webui.md) | Qualifications: WebUI | Phase 86 | Medium | T87.1 first; T87.2 ∥ T87.3; T87.4 ∥ T87.5 |
+| [88](phase/88-qualifications-ir-mcp.md) | Qualifications: IR Compiler & MCP Tools | Phase 85-86 | Short-Medium | T88.1 ∥ T88.2; T88.3 after; T88.4 last; ∥ Phase 87 |
+| | **── Skills & Taxonomy ──** | | | |
+| [89](phase/89-skills-expansion.md) | Skills Expansion & Technology Absorption | — | Medium | Sequential (migration + cascading type changes) |
+| [90](phase/90-industries-role-types.md) | Industries & Role Types Entities | — | Short-Medium | ∥ Phase 89 |
+| | **── Summaries & Taglines ──** | | | |
+| [91](phase/91-summaries-rework.md) | Summaries Rework | Phase 89, 90 | Medium | T91.1 first; T91.4 ∥ T91.5; T91.6 last |
+| [92](phase/92-tagline-engine.md) | Tagline Engine (IDF/IVF Keyword Relevance) | Phase 89 | Medium | T92.1 first; T92.2-T92.4 after; ∥ Phase 91 |
+| | **── Profile & Resume ──** | | | |
+| [93](phase/93-profile-rework.md) | Profile Rework | — | Medium | ∥ most phases |
+| [94](phase/94-resume-source-rendering.md) | Resume Source Tab Rendering | — | Short | ∥ all phases |
+| [95](phase/95-resume-builder-polish.md) | Resume Builder Polish | Phase 92 (soft) | Medium | T95.1-T95.5 mostly parallel |
+| | **── Config & Info ──** | | | |
+| [96](phase/96-config-info-scaffold.md) | Config & Info Pages Scaffold | — | Short-Medium | ∥ all phases |
+| | **── Bug Fixes & Enhancements ──** | | | |
+| [97](phase/97-ui-bug-fixes.md) | UI Polish & Bug Fixes | — | Short | ∥ all phases |
+| [98](phase/98-gantt-chart-fix.md) | Gantt Chart Fix | — | Short-Medium | ∥ all phases |
+| [99](phase/99-choropleth-enhancement.md) | Choropleth Enhancement (City/Zip + Hex Binning) | — | Medium | ∥ all phases |
+| | **── External Integrations ──** | | | |
+| [100](phase/100-caldav-integration.md) | CalDAV Integration | — | Medium-Long | ∥ all phases |
 
 **Parallel execution warnings (Phases 17-19):**
 - Phases 17 and 18 both modify `packages/sdk/src/types.ts`. If running in parallel, coordinate merges.

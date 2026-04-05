@@ -552,22 +552,4 @@
     margin-top: 0.25rem;
   }
 
-  .btn {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s, opacity 0.15s;
-    white-space: nowrap;
-    font-family: inherit;
-  }
-
-  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .btn-primary { background: var(--color-primary); color: var(--text-inverse); }
-  .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
-  .btn-secondary { background: var(--color-border); color: var(--text-secondary); }
-  .btn-secondary:hover:not(:disabled) { background: var(--color-border-strong); }
-  .btn-sm { padding: 0.3rem 0.6rem; font-size: var(--text-xs); }
 </style>

@@ -356,24 +356,4 @@
     padding: var(--space-6) 0;
   }
 
-  .btn {
-    border: none;
-    border-radius: var(--radius-md);
-    font-weight: var(--font-medium);
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .btn-primary {
-    background: var(--color-primary);
-    color: var(--text-inverse);
-  }
-  .btn-primary:hover { background: var(--color-primary-hover); }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-ghost {
-    background: var(--color-ghost);
-    color: var(--color-ghost-text);
-  }
-  .btn-ghost:hover { background: var(--color-ghost-hover); }
-  .btn-sm { padding: 0.375rem 0.75rem; font-size: var(--text-sm); }
-  .btn-xs { padding: 0.25rem 0.5rem; font-size: var(--text-xs); }
 </style>

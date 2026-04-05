@@ -395,38 +395,4 @@
     border-top: 1px solid var(--color-border);
   }
 
-  .btn-primary {
-    padding: 0.5rem 1.25rem;
-    background: var(--color-info);
-    color: var(--color-surface);
-    border: none;
-    border-radius: 0.375rem;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 0.9rem;
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    background: var(--color-info-text);
-  }
-
-  .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .btn-danger {
-    padding: 0.5rem 1.25rem;
-    background: none;
-    color: var(--color-danger);
-    border: 1px solid var(--color-danger);
-    border-radius: 0.375rem;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 0.9rem;
-  }
-
-  .btn-danger:hover {
-    background: var(--color-danger-subtle);
-  }
 </style>

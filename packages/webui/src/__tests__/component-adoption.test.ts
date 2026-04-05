@@ -51,14 +51,14 @@ const ANTI_PATTERNS: AntiPattern[] = [
     pattern: /\.btn-primary\s*\{/,
     allowedIn: ['base.css'],
     message: 'Use global .btn-primary class from base.css instead of page-scoped button CSS',
-    expectedViolations: 17,
+    expectedViolations: 0,
   },
   {
     name: 'PageHeader',
     pattern: /\.page-title\s*\{/,
     allowedIn: ['PageHeader.svelte', 'base.css'],
     message: 'Use <PageHeader> instead of page-scoped .page-title styles',
-    expectedViolations: 9,
+    expectedViolations: 0,
   },
   {
     name: 'TabBar',

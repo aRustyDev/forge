@@ -1,0 +1,1 @@
+import{I as e,Q as t,X as n,Z as r}from"./Bs0T3UKK.js";var i=t(n([]));function a(t){let n=crypto.randomUUID();e(i).push({id:n,message:t.message,type:t.type??`info`}),setTimeout(()=>o(n),t.duration??4e3)}function o(t){r(i,e(i).filter(e=>e.id!==t),!0)}function s(){return e(i)}export{s as n,o as r,a as t};

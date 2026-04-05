@@ -1,6 +1,6 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
-  import { ConfirmDialog, LoadingSpinner, EmptyState } from '$lib/components'
+  import { ConfirmDialog, LoadingSpinner, EmptyState, PageHeader } from '$lib/components'
   import { addToast } from '$lib/stores/toast.svelte'
   import type { Domain } from '@forge/sdk'
 
@@ -118,15 +118,13 @@
 </script>
 
 <div class="domains-page">
-  <div class="page-header">
-    <div>
-      <h1 class="page-title">Domains</h1>
-      <p class="subtitle">Experience domains used by perspectives and archetypes</p>
-    </div>
-    <button class="btn btn-primary" onclick={() => (showCreateForm = !showCreateForm)}>
-      {showCreateForm ? 'Cancel' : '+ Add Domain'}
-    </button>
-  </div>
+  <PageHeader title="Domains" subtitle="Experience domains used by perspectives and archetypes">
+    {#snippet actions()}
+      <button class="btn btn-primary" onclick={() => (showCreateForm = !showCreateForm)}>
+        {showCreateForm ? 'Cancel' : '+ Add Domain'}
+      </button>
+    {/snippet}
+  </PageHeader>
 
   {#if showCreateForm}
     <div class="create-form">
@@ -234,25 +232,6 @@
 <style>
   .domains-page {
     max-width: 1000px;
-  }
-
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1.5rem;
-  }
-
-  .page-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
-  }
-
-  .subtitle {
-    font-size: 0.85rem;
-    color: var(--text-muted);
   }
 
   .create-form {

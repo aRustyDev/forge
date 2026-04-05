@@ -1,6 +1,6 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
-  import { LoadingSpinner, EmptyState } from '$lib/components'
+  import { LoadingSpinner, EmptyState, PageHeader } from '$lib/components'
   import { goto } from '$app/navigation'
   import SkillsSunburst from '$lib/components/charts/SkillsSunburst.svelte'
   import SkillsTreemap from '$lib/components/charts/SkillsTreemap.svelte'
@@ -90,7 +90,7 @@
 </script>
 
 <div class="dashboard">
-  <h1 class="page-title">Dashboard</h1>
+  <PageHeader title="Dashboard" />
 
   {#if loading}
     <div class="loading-container">
@@ -210,13 +210,6 @@
 <style>
   .dashboard {
     max-width: 900px;
-  }
-
-  .page-title {
-    font-size: var(--text-2xl);
-    font-weight: var(--font-bold);
-    color: var(--text-primary);
-    margin-bottom: 1.75rem;
   }
 
   .loading-container {

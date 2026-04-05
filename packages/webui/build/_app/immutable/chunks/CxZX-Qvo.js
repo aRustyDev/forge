@@ -1,0 +1,1 @@
+import{t as e}from"./Cq6YUewX.js";var t=e(((e,t)=>{t.exports=function(e){return typeof e==`object`&&!!e&&typeof e.addUndirectedEdgeWithKey==`function`&&typeof e.dropNode==`function`&&typeof e.multi==`boolean`}}));export{t};

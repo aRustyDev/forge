@@ -252,20 +252,4 @@
     border-top: 1px solid var(--color-border);
   }
 
-  .btn {
-    padding: 0.45rem 0.9rem;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    font-family: inherit;
-    transition: background 0.15s;
-  }
-
-  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .btn-primary { background: var(--color-primary); color: var(--text-inverse); }
-  .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
-  .btn-ghost { background: transparent; color: var(--text-muted); }
-  .btn-ghost:hover { color: var(--text-secondary); background: var(--color-ghost); }
 </style>

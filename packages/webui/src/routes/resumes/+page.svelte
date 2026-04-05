@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { forge, friendlyError } from '$lib/sdk'
-  import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog, PageWrapper } from '$lib/components'
+  import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog, PageWrapper, PageHeader } from '$lib/components'
   import { addToast } from '$lib/stores/toast.svelte'
   import type { Resume, ResumeWithEntries, ResumeEntry, Perspective, GapAnalysis, ResumeDocument, Archetype, ResumeTemplate } from '@forge/sdk'
   import { debugState } from '$lib/debug.svelte'
@@ -751,15 +751,14 @@
 
 {#if viewMode === 'board' && !selectedResumeId && !showCreateForm}
 <PageWrapper>
-  <div class="resumes-board-header">
-    <h1 class="page-title">Resumes</h1>
-    <div class="board-header-actions">
+  <PageHeader title="Resumes">
+    {#snippet actions()}
       <button class="btn btn-primary" onclick={() => { showCreateForm = true; viewMode = 'list'; loadTemplates() }}>
         + New Resume
       </button>
       <ViewToggle mode={viewMode} onchange={handleViewChange} />
-    </div>
-  </div>
+    {/snippet}
+  </PageHeader>
   <GenericKanban
     columns={RESUME_COLUMNS}
     items={boardFilteredResumes}
@@ -789,15 +788,14 @@
 
     {:else if !selectedResumeId && !showCreateForm}
       <!-- Resume List View -->
-      <div class="panel-header">
-        <h1 class="page-title">Resumes</h1>
-        <div class="board-header-actions">
+      <PageHeader title="Resumes">
+        {#snippet actions()}
           <button class="btn btn-primary" onclick={() => { showCreateForm = true; loadTemplates() }}>
             + New Resume
           </button>
           <ViewToggle mode={viewMode} onchange={handleViewChange} />
-        </div>
-      </div>
+        {/snippet}
+      </PageHeader>
 
       {#if resumes.length === 0}
         <EmptyState
@@ -846,12 +844,13 @@
 
     {:else if showCreateForm && !selectedResumeId}
       <!-- Create Resume Form -->
-      <div class="panel-header">
-        <h1 class="page-title">New Resume</h1>
-        <button class="btn btn-ghost" onclick={() => { showCreateForm = false; selectedTemplateId = null }}>
-          Cancel
-        </button>
-      </div>
+      <PageHeader title="New Resume">
+        {#snippet actions()}
+          <button class="btn btn-ghost" onclick={() => { showCreateForm = false; selectedTemplateId = null }}>
+            Cancel
+          </button>
+        {/snippet}
+      </PageHeader>
 
       <form class="form-card" onsubmit={(e) => { e.preventDefault(); handleCreate() }}>
         <div class="form-field">
@@ -1299,20 +1298,6 @@
 />
 
 <style>
-  .resumes-board-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .board-header-actions {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-  }
-
   /* ---- Layout ---- */
   .resumes-page {
     display: flex;
@@ -1335,52 +1320,6 @@
     justify-content: center;
     padding: 3rem 0;
   }
-
-  /* ---- Panel Header ---- */
-  .panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1.25rem;
-  }
-
-  .page-title {
-    font-size: var(--text-2xl);
-    font-weight: var(--font-bold);
-    color: var(--text-primary);
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  /* ---- Buttons ---- */
-  .btn {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: var(--text-base);
-    font-weight: var(--font-medium);
-    cursor: pointer;
-    transition: background 0.15s, opacity 0.15s;
-    white-space: nowrap;
-  }
-
-  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .btn-primary { background: var(--color-primary); color: var(--text-inverse); }
-  .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
-  .btn-secondary { background: var(--color-border); color: var(--text-secondary); }
-  .btn-secondary:hover:not(:disabled) { background: var(--color-border-strong); }
-  .btn-ghost { background: transparent; color: var(--text-muted); }
-  .btn-ghost:hover { color: var(--text-secondary); background: var(--color-ghost); }
-  .btn-danger { background: var(--color-danger-subtle); color: var(--color-danger); }
-  .btn-danger:hover:not(:disabled) { background: var(--color-danger-subtle); }
-  .btn-sm { padding: 0.3rem 0.6rem; font-size: var(--text-sm); }
-  .btn-xs { padding: 0.2rem 0.4rem; font-size: var(--text-xs); }
-  .btn-add { background: var(--color-success-subtle); color: var(--color-success-strong); margin-top: 0.5rem; }
-  .btn-add:hover { background: var(--color-success-subtle); }
-  .btn-back { font-size: var(--text-base); }
 
   /* ---- Resume List ---- */
   .resume-list {

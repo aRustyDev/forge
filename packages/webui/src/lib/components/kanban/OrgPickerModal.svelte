@@ -480,20 +480,4 @@
     gap: var(--space-2);
   }
 
-  .btn {
-    padding: var(--space-2) var(--space-4);
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    cursor: pointer;
-    font-family: inherit;
-  }
-
-  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .btn-sm { padding: 0.3rem 0.6rem; font-size: var(--text-xs); }
-  .btn-primary { background: var(--color-primary); color: var(--text-inverse); }
-  .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
-  .btn-ghost { background: transparent; color: var(--text-muted); }
-  .btn-ghost:hover { color: var(--text-secondary); background: var(--color-ghost); }
 </style>

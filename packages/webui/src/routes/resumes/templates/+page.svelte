@@ -3,7 +3,7 @@
   import type { ResumeTemplate, TemplateSectionDef } from '@forge/sdk'
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { LoadingSpinner, EmptyState, ConfirmDialog } from '$lib/components'
+  import { LoadingSpinner, EmptyState, ConfirmDialog, PageHeader } from '$lib/components'
 
   const VALID_ENTRY_TYPES = [
     'experience', 'skills', 'education', 'projects',
@@ -162,15 +162,13 @@
 </script>
 
 <div class="templates-page">
-  <div class="page-header">
-    <div>
-      <h1 class="page-title">Templates</h1>
-      <p class="subtitle">Reusable resume section layouts</p>
-    </div>
-    <button class="btn btn-primary" onclick={openCreateForm} disabled={showForm}>
-      + Create Template
-    </button>
-  </div>
+  <PageHeader title="Templates" subtitle="Reusable resume section layouts">
+    {#snippet actions()}
+      <button class="btn btn-primary" onclick={openCreateForm} disabled={showForm}>
+        + Create Template
+      </button>
+    {/snippet}
+  </PageHeader>
 
   {#if loading}
     <LoadingSpinner />
@@ -262,25 +260,9 @@
 
 <style>
   .templates-page { max-width: 900px; }
-  .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
-  .page-title { font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--text-primary); margin-bottom: var(--space-1); }
-  .subtitle { font-size: var(--text-sm); color: var(--text-muted); }
 
-  .btn { padding: 0.4rem 0.8rem; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface); cursor: pointer; font-size: var(--text-sm); }
-  .btn:hover { background: var(--color-surface-raised); }
-  .btn-primary { background: var(--color-info); color: var(--text-inverse); border-color: var(--color-info); }
-  .btn-primary:hover { background: var(--color-info-text); }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-outline { background: transparent; border: 1px dashed var(--text-faint); color: var(--text-muted); margin-top: 0.5rem; }
   .btn-outline:hover { border-color: var(--color-info); color: var(--color-info); }
-  .btn-sm { padding: 0.25rem 0.5rem; font-size: var(--text-sm); }
-  .btn-danger { color: var(--color-danger-hover); border-color: var(--color-danger); }
-  .btn-danger:hover { background: var(--color-danger-subtle); }
-  .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn-icon { background: none; border: none; cursor: pointer; padding: 0.2rem 0.4rem; font-size: var(--text-sm); color: var(--text-muted); }
-  .btn-icon:hover { color: var(--text-primary); }
-  .btn-icon:disabled { opacity: 0.3; cursor: not-allowed; }
-  .btn-icon.btn-danger { color: var(--color-danger-hover); }
 
   .form-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1.5rem; }
   .form-card h2 { font-size: var(--text-xl); font-weight: var(--font-semibold); margin-bottom: 1rem; }

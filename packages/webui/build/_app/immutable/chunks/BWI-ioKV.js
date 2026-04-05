@@ -1,0 +1,1 @@
+import{I as e,Q as t,Z as n}from"./Bs0T3UKK.js";var r=t(!1),i=t(null);function a(e){n(i,e??null,!0),n(r,!0)}function o(){n(r,!1),n(i,null)}var s={get isOpen(){return e(r)},get highlightNode(){return e(i)}};export{o as n,a as r,s as t};

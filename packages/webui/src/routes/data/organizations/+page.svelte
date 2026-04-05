@@ -939,11 +939,8 @@
   .tag-check input[type='checkbox'] { margin: 0; }
 
   .editor-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--color-border); }
-  .btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1.1rem; border: none; border-radius: var(--radius-md); font-size: var(--text-sm); font-weight: var(--font-medium); cursor: pointer; }
-  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .btn-save { background: var(--color-primary); color: var(--text-inverse); }
-  .btn-save:hover:not(:disabled) { background: var(--color-primary-hover); }
-  .btn-sm { padding: 0.35rem 0.8rem; font-size: var(--text-sm); }
+
+
 
   /* Campuses */
   .campuses-section { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--color-border); }

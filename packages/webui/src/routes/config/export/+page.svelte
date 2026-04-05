@@ -328,31 +328,6 @@
     margin-bottom: 1rem;
   }
 
-  .btn {
-    padding: 0.5rem 1rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    font-size: var(--text-base);
-    background: transparent;
-  }
-
-  .btn-primary {
-    background: var(--color-primary);
-    color: var(--text-inverse);
-    border-color: var(--color-primary);
-  }
-
-  .btn-primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .btn-sm {
-    padding: 0.25rem 0.5rem;
-    font-size: var(--text-sm);
-  }
-
   .error {
     color: var(--color-danger);
     font-size: var(--text-base);

@@ -570,25 +570,40 @@
     ))
   )
 
-  /** Filter orgs by relevant tags for the current education type + cert subtype. */
+  /**
+   * Filter orgs by relevant tags for the current education type + cert subtype.
+   *
+   * Graceful degradation: an org passes the filter when it has at least one
+   * matching tag OR it has no tags at all. Strict tag filtering hid
+   * legitimate educational institutions (e.g. SANS, GIAC) that simply
+   * haven't been tagged yet. Treating untagged orgs as "unknown, show
+   * anyway" makes the picker usable today while still preferring the
+   * properly-tagged ones as tag data fills in.
+   */
+  function matchesOrFallsBack(org: Organization, allowedTags: string[]): boolean {
+    const tags = org.tags ?? []
+    if (tags.length === 0) return true
+    return tags.some(t => allowedTags.includes(t))
+  }
+
   let eduFilteredOrgs = $derived.by(() => {
     if (formEducationType === 'degree') {
-      return organizations.filter(o => o.tags?.some(t => t === 'university' || t === 'school'))
+      return organizations.filter(o => matchesOrFallsBack(o, ['university', 'school']))
     }
     if (formEducationType === 'certificate') {
       if (formCertificateSubtype === 'vendor') {
-        return organizations.filter(o => o.tags?.some(t => t === 'vendor'))
+        return organizations.filter(o => matchesOrFallsBack(o, ['vendor']))
       }
       if (formCertificateSubtype === 'professional') {
-        return organizations.filter(o => o.tags?.some(t => t === 'nonprofit' || t === 'government' || t === 'company'))
+        return organizations.filter(o => matchesOrFallsBack(o, ['nonprofit', 'government', 'company']))
       }
       if (formCertificateSubtype === 'completion') {
-        return organizations.filter(o => o.tags?.some(t => t === 'platform' || t === 'company' || t === 'university'))
+        return organizations.filter(o => matchesOrFallsBack(o, ['platform', 'company', 'university']))
       }
       return organizations
     }
     if (formEducationType === 'course') {
-      return organizations.filter(o => o.tags?.some(t => t === 'university' || t === 'platform' || t === 'conference' || t === 'company'))
+      return organizations.filter(o => matchesOrFallsBack(o, ['university', 'platform', 'conference', 'company']))
     }
     // self_taught — show all
     return organizations

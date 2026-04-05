@@ -128,7 +128,7 @@ describe("runMigrations", () => {
     const rows = db
       .query("SELECT name FROM _migrations ORDER BY name")
       .all() as { name: string }[];
-    expect(rows).toHaveLength(32);
+    expect(rows).toHaveLength(33);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");
@@ -161,6 +161,11 @@ describe("runMigrations", () => {
     expect(rows[29].name).toBe("032_industries_role_types");
     expect(rows[30].name).toBe("033_summary_structured_fields");
     expect(rows[31].name).toBe("034_resume_entry_source_id");
+    // NOTE: 035 is intentionally reserved for Phase 92 (Tagline Engine)
+    // being developed in a parallel worktree. The migration runner
+    // handles number gaps by sorting filenames alphabetically, so 036
+    // running immediately after 034 is fine.
+    expect(rows[32].name).toBe("036_null_auto_content_on_direct_source_entries");
   });
 
   test("already up-to-date: running again is a no-op with no errors", () => {
@@ -172,7 +177,7 @@ describe("runMigrations", () => {
     const rows = db.query("SELECT name FROM _migrations ORDER BY name").all() as {
       name: string;
     }[];
-    expect(rows).toHaveLength(32);
+    expect(rows).toHaveLength(33);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");

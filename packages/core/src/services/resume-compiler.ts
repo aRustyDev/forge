@@ -384,12 +384,19 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
   // source id is present, preferring the perspective-chain source when both
   // are set. This lets education entries added from sources without
   // derived perspectives still render with structured data.
+  //
+  // The display text (`degree`) falls back in this order:
+  //   entry_content → perspective_content → source.title → ''
+  // We include source.title so direct-source entries (no perspective,
+  // no clone content) render the source's canonical title (e.g.
+  // "Cloud Security") instead of showing as empty.
   const rows = db
     .query(
       `SELECT
         re.id AS entry_id,
         re.content AS entry_content,
         p.content AS perspective_content,
+        s.title AS source_title,
         COALESCE(bs.source_id, re.source_id) AS source_id,
         se.education_type,
         o.name AS institution,
@@ -428,6 +435,7 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
       entry_id: string
       entry_content: string | null
       perspective_content: string | null
+      source_title: string | null
       source_id: string | null
       education_type: string | null
       institution: string | null
@@ -450,7 +458,7 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
   return rows.map(row => ({
     kind: 'education' as const,
     institution: row.institution ?? 'Unknown',
-    degree: row.entry_content ?? row.perspective_content ?? '',
+    degree: row.entry_content ?? row.perspective_content ?? row.source_title ?? '',
     date: row.end_date ? new Date(row.end_date).getFullYear().toString() : '',
     entry_id: row.entry_id,
     source_id: row.source_id,
@@ -719,13 +727,17 @@ function buildCertificationItems(db: Database, sectionId: string): Certification
 
   // Group by institution (issuing body). Fall back to source title when
   // the source isn't linked to an organization yet, then to "Other".
+  // Display name picks `source_title` as the canonical cert name before
+  // falling back to clone/perspective content — source.title is the
+  // authoritative identifier for a cert (e.g. "AWS Certified SA"),
+  // and entry_content is only set in explicit clone mode.
   const catMap = new Map<string, Array<{ name: string; entry_id: string; source_id: string | null }>>()
 
   for (const row of rows) {
     const label = row.institution ?? row.source_title ?? 'Other'
     if (!catMap.has(label)) catMap.set(label, [])
     catMap.get(label)!.push({
-      name: row.entry_content ?? row.perspective_content ?? row.source_title ?? '',
+      name: row.entry_content ?? row.source_title ?? row.perspective_content ?? '',
       entry_id: row.entry_id,
       source_id: row.source_id,
     })

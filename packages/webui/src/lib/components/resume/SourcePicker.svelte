@@ -94,15 +94,16 @@
           addToast({ message: friendlyError(result.error), type: 'error' })
         }
       } else {
-        // No perspectives -- add as a direct-source entry. We pass BOTH
-        // source_id (for provenance + structured data in the IR) AND
-        // content (as the visible text fallback). The compiler reaches
-        // the source's extension row via re.source_id and can format
-        // institution/credential/date/etc. from there.
+        // No perspectives -- add as a pure direct-source reference entry.
+        // We only pass source_id: the compiler reaches the source's
+        // title and extension row (source_education, source_clearances,
+        // etc.) via re.source_id and derives the display text from
+        // source.title, NOT from source.description. Passing content
+        // here would put us in clone/override mode and bury the source
+        // title under an auto-populated description string.
         const result = await forge.resumes.addEntry(resumeId, {
           section_id: sectionId,
           source_id: source.id,
-          content: source.description,
         })
         if (result.ok) {
           addToast({ message: `Added ${source.title}`, type: 'success' })

@@ -182,6 +182,68 @@ describe('compileResumeIR', () => {
     }
   })
 
+  test('education section falls back to source.title when content is null (direct-source reference)', () => {
+    // Post-T95.5 fix: SourcePicker adds direct-source entries with no
+    // content (pure reference mode). The compiler's degree fallback chain
+    // must include source.title so the entry renders with the canonical
+    // source name ("Cloud Security") instead of an empty string.
+    const resumeId = seedResume(db)
+    const sourceId = seedSource(db, {
+      title: 'Cloud Security',
+      sourceType: 'education',
+      description: 'GIAC certifications included', // must NOT be used
+    })
+    db.run(
+      `INSERT INTO source_education (source_id, education_type, end_date, degree_level)
+       VALUES (?, ?, ?, ?)`,
+      [sourceId, 'degree', '2025-10-01', 'graduate_certificate']
+    )
+
+    const secId = seedResumeSection(db, resumeId, 'Education', 'education', 0)
+    // No content, no perspective — pure direct-source reference
+    seedResumeEntry(db, secId, { sourceId, position: 0 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const eduSection = result.sections.find(s => s.type === 'education')
+    expect(eduSection).toBeDefined()
+    expect(eduSection!.items).toHaveLength(1)
+    const item = eduSection!.items[0] as EducationItem
+    expect(item.kind).toBe('education')
+    // Degree text must come from source.title, NOT source.description
+    expect(item.degree).toBe('Cloud Security')
+    expect(item.degree).not.toContain('GIAC certifications included')
+    expect(item.degree_level).toBe('graduate_certificate')
+    expect(item.date).toBe('2025')
+    expect(item.source_id).toBe(sourceId)
+  })
+
+  test('certification section falls back to source.title when content is null (direct-source reference)', () => {
+    const resumeId = seedResume(db)
+    const sourceId = seedSource(db, {
+      title: 'GPCS - Public Cloud Security',
+      sourceType: 'education',
+      description: 'certificate: GPCS - Public Cloud Security at GIAC', // must NOT be used
+    })
+    db.run(
+      `INSERT INTO source_education (source_id, education_type, end_date)
+       VALUES (?, ?, ?)`,
+      [sourceId, 'certificate', '2029-10-01']
+    )
+
+    const secId = seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+    seedResumeEntry(db, secId, { sourceId, position: 0 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const certSection = result.sections.find(s => s.type === 'certifications')
+    expect(certSection).toBeDefined()
+    const group = certSection!.items[0]
+    expect(group.kind).toBe('certification_group')
+    if (group.kind === 'certification_group') {
+      expect(group.categories[0].certs[0].name).toBe('GPCS - Public Cloud Security')
+      expect(group.categories[0].certs[0].name).not.toContain('certificate:')
+    }
+  })
+
   test('education section renders direct-source entries (no perspective chain)', () => {
     // Regression test for T95.5-class bug: education/certification/clearance
     // entries added via SourcePicker's content-only path have

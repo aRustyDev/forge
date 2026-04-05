@@ -17,8 +17,8 @@ describe('Server', () => {
     const res = await apiRequest(ctx.app, 'GET', '/health')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.server).toBe('ok')
-    expect(typeof body.version).toBe('string')
+    expect(body.data.server).toBe('ok')
+    expect(typeof body.data.version).toBe('string')
   })
 
   test('unknown route returns 404 with error envelope', async () => {

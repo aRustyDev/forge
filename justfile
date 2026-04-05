@@ -24,14 +24,23 @@ webui:
     @echo "Note: API server must be running on :3000 (run 'just api' in another tab)"
     bun run --filter '@forge/webui' dev
 
-# Run all tests
+# Run all unit tests (core + sdk + webui)
 test:
     bun run --filter '@forge/core' test
     bun run --filter '@forge/sdk' test
+    bun test packages/webui/src/__tests__/
 
 # Run only core tests
 test-core:
     bun run --filter '@forge/core' test
+
+# Run only webui unit tests (adoption, layout, navigation, content, interactive, visualization)
+test-webui:
+    bun test packages/webui/src/__tests__/
+
+# Run Playwright E2E tests (requires dev server running)
+test-e2e:
+    cd packages/webui && npx playwright test
 
 # Check Rust stubs compile
 check-rust:

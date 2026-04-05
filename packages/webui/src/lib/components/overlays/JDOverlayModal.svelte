@@ -274,7 +274,7 @@
           onclick={handleOpenFullPage}
           disabled={!jdId}
         >Open full page →</button>
-        <button type="button" class="btn" onclick={onClose}>Close</button>
+        <button type="button" class="btn btn-ghost" onclick={onClose}>Close</button>
       </div>
     </div>
   {/snippet}

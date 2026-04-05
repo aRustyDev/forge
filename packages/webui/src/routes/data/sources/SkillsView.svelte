@@ -2,24 +2,28 @@
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
   import { LoadingSpinner, EmptyState, ListSearchInput, SplitPanel, ListPanelHeader, EmptyPanel } from '$lib/components'
-  import type { Skill } from '@forge/sdk'
+  import type { Skill, SkillCategory, Domain } from '@forge/sdk'
 
-  const CATEGORIES = [
-    'ai_ml', 'cloud', 'database', 'devops', 'frameworks',
-    'general', 'language', 'languages', 'os', 'security', 'tools',
+  // Phase 89: SkillCategory enum — matches migration 031 CHECK constraint.
+  const CATEGORIES: SkillCategory[] = [
+    'language', 'framework', 'platform', 'tool', 'library',
+    'methodology', 'protocol', 'concept', 'soft_skill', 'other',
   ]
 
   let skills = $state<Skill[]>([])
+  let allDomains = $state<Domain[]>([])
+  let selectedDomains = $state<Domain[]>([])
   let selectedId = $state<string | null>(null)
-  let categoryFilter = $state('all')
+  let categoryFilter = $state<'all' | SkillCategory>('all')
   let searchQuery = $state('')
   let loading = $state(true)
   let editing = $state(false)
   let saving = $state(false)
 
   let formName = $state('')
-  let formCategory = $state('general')
+  let formCategory = $state<SkillCategory>('other')
   let formNotes = $state('')
+  let formDomainIds = $state<Set<string>>(new Set())
 
   // Grouping state — follows SourcesView education grouping pattern
   let groupBy = $state<'flat' | 'by_category'>('flat')
@@ -45,7 +49,7 @@
     if (groupBy !== 'by_category') return null
     const groups: Record<string, Skill[]> = {}
     for (const skill of filteredSkills) {
-      const cat = skill.category ?? 'general'
+      const cat = skill.category ?? 'other'
       if (!groups[cat]) groups[cat] = []
       groups[cat].push(skill)
     }
@@ -55,29 +59,45 @@
 
   let selectedSkill = $derived(skills.find(s => s.id === selectedId) ?? null)
 
-  $effect(() => { loadSkills() })
+  $effect(() => { loadInitial() })
 
   $effect(() => {
     if (selectedSkill && !editing) {
       formName = selectedSkill.name
-      formCategory = selectedSkill.category ?? 'general'
+      formCategory = (selectedSkill.category ?? 'other') as SkillCategory
       formNotes = selectedSkill.notes ?? ''
+      // Reload linked domains for the selected skill
+      loadSkillDomains(selectedSkill.id)
     }
   })
 
+  async function loadInitial() {
+    await Promise.all([loadSkills(), loadDomains()])
+  }
+
+  async function loadDomains() {
+    const res = await forge.domains.list({ limit: 200 })
+    if (res.ok) allDomains = res.data
+  }
+
+  async function loadSkillDomains(skillId: string) {
+    const res = await forge.skills.listDomains(skillId)
+    if (res.ok) {
+      selectedDomains = res.data
+      formDomainIds = new Set(res.data.map(d => d.id))
+    } else {
+      selectedDomains = []
+      formDomainIds = new Set()
+    }
+  }
+
   async function loadSkills() {
     loading = true
-    // Skills API returns { data: Skill[] } without pagination
-    try {
-      const response = await fetch('/api/skills')
-      if (response.ok) {
-        const json = await response.json()
-        skills = json.data ?? []
-      } else {
-        addToast({ message: 'Failed to load skills', type: 'error' })
-      }
-    } catch {
-      addToast({ message: 'Cannot connect to the Forge API server. Start it with: just api', type: 'error' })
+    const res = await forge.skills.list({ limit: 500 })
+    if (res.ok) {
+      skills = res.data
+    } else {
+      addToast({ message: friendlyError(res.error, 'Failed to load skills'), type: 'error' })
     }
     loading = false
   }
@@ -86,8 +106,10 @@
     selectedId = null
     editing = true
     formName = ''
-    formCategory = 'general'
+    formCategory = 'other'
     formNotes = ''
+    formDomainIds = new Set()
+    selectedDomains = []
   }
 
   function selectSkill(id: string) {
@@ -101,15 +123,52 @@
 
   async function deleteSkill() {
     if (!selectedId) return
-    const res = await fetch(`/api/skills/${selectedId}`, { method: 'DELETE' })
+    const res = await forge.skills.delete(selectedId)
     if (res.ok) {
       skills = skills.filter(s => s.id !== selectedId)
       selectedId = null
       editing = false
+      selectedDomains = []
+      formDomainIds = new Set()
       addToast({ message: 'Skill deleted.', type: 'success' })
     } else {
-      addToast({ message: 'Failed to delete skill.', type: 'error' })
+      addToast({ message: friendlyError(res.error, 'Failed to delete skill'), type: 'error' })
     }
+  }
+
+  function toggleDomain(domainId: string) {
+    const next = new Set(formDomainIds)
+    if (next.has(domainId)) next.delete(domainId)
+    else next.add(domainId)
+    formDomainIds = next
+  }
+
+  /**
+   * Sync the skill's domain links with formDomainIds by diffing against
+   * the currently-linked domains and applying the minimal set of add/remove
+   * calls. Runs after create or update.
+   */
+  async function syncDomains(skillId: string): Promise<boolean> {
+    const current = new Set(selectedDomains.map(d => d.id))
+    const target = formDomainIds
+    const toAdd = [...target].filter(id => !current.has(id))
+    const toRemove = [...current].filter(id => !target.has(id))
+
+    for (const domainId of toAdd) {
+      const res = await forge.skills.addDomain(skillId, domainId)
+      if (!res.ok) {
+        addToast({ message: friendlyError(res.error, 'Failed to link domain'), type: 'error' })
+        return false
+      }
+    }
+    for (const domainId of toRemove) {
+      const res = await forge.skills.removeDomain(skillId, domainId)
+      if (!res.ok) {
+        addToast({ message: friendlyError(res.error, 'Failed to unlink domain'), type: 'error' })
+        return false
+      }
+    }
+    return true
   }
 
   async function saveSkill() {
@@ -120,52 +179,40 @@
 
     saving = true
 
-    if (editing) {
-      // Create new skill via API
-      try {
-        const response = await fetch('/api/skills', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formName.trim(),
-            category: formCategory,
-          }),
-        })
-        if (response.ok) {
-          const json = await response.json()
-          skills = [...skills, json.data]
-          selectedId = json.data.id
-          editing = false
-          addToast({ message: 'Skill created.', type: 'success' })
-        } else {
-          const json = await response.json().catch(() => ({}))
-          addToast({ message: `Failed to create skill: ${json.error?.message ?? 'Unknown error'}`, type: 'error' })
-        }
-      } catch {
-        addToast({ message: 'Failed to create skill', type: 'error' })
+    if (editing && !selectedId) {
+      // Create new skill
+      const createRes = await forge.skills.create({
+        name: formName.trim(),
+        category: formCategory,
+        notes: formNotes.trim() || null,
+      })
+      if (createRes.ok) {
+        skills = [...skills, createRes.data]
+        selectedId = createRes.data.id
+        // Start from empty link set, then sync selected domains
+        selectedDomains = []
+        const ok = await syncDomains(createRes.data.id)
+        if (ok) await loadSkillDomains(createRes.data.id)
+        editing = false
+        addToast({ message: 'Skill created.', type: 'success' })
+      } else {
+        addToast({ message: friendlyError(createRes.error, 'Failed to create skill'), type: 'error' })
       }
     } else if (selectedId) {
       // Update existing skill
-      try {
-        const response = await fetch(`/api/skills/${selectedId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formName.trim(),
-            category: formCategory,
-          }),
-        })
-        if (response.ok) {
-          const json = await response.json()
-          skills = skills.map(s => s.id === selectedId ? json.data : s)
-          editing = false
-          addToast({ message: 'Skill updated.', type: 'success' })
-        } else {
-          const json = await response.json().catch(() => ({}))
-          addToast({ message: `Failed to update: ${json.error?.message ?? 'Unknown error'}`, type: 'error' })
-        }
-      } catch {
-        addToast({ message: 'Failed to update skill', type: 'error' })
+      const updateRes = await forge.skills.update(selectedId, {
+        name: formName.trim(),
+        category: formCategory,
+        notes: formNotes.trim() || null,
+      })
+      if (updateRes.ok) {
+        skills = skills.map(s => s.id === selectedId ? updateRes.data : s)
+        const ok = await syncDomains(selectedId)
+        if (ok) await loadSkillDomains(selectedId)
+        editing = false
+        addToast({ message: 'Skill updated.', type: 'success' })
+      } else {
+        addToast({ message: friendlyError(updateRes.error, 'Failed to update skill'), type: 'error' })
       }
     }
 
@@ -291,6 +338,35 @@
             <textarea id="skill-notes" bind:value={formNotes} rows="3"
                       placeholder="Proficiency level, years of experience, context..."
                       disabled={!editing}></textarea>
+          </div>
+
+          <div class="form-group">
+            <span class="form-group-title">Domains</span>
+            {#if editing}
+              <div class="domain-checkbox-list">
+                {#each allDomains as domain (domain.id)}
+                  <label class="domain-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={formDomainIds.has(domain.id)}
+                      onchange={() => toggleDomain(domain.id)}
+                    />
+                    <span>{domain.name}</span>
+                  </label>
+                {/each}
+                {#if allDomains.length === 0}
+                  <p class="empty-hint">No domains yet. Create domains first to link them.</p>
+                {/if}
+              </div>
+            {:else if selectedDomains.length > 0}
+              <div class="domain-tags">
+                {#each selectedDomains as domain (domain.id)}
+                  <span class="domain-tag">{domain.name}</span>
+                {/each}
+              </div>
+            {:else}
+              <p class="empty-hint">No domains linked.</p>
+            {/if}
           </div>
 
           {#if editing}
@@ -574,5 +650,63 @@
     font-size: var(--text-xs);
     color: var(--text-faint);
     font-weight: var(--font-normal);
+  }
+
+  /* Domain multi-select */
+  .form-group-title {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--text-secondary);
+    margin-bottom: 0.35rem;
+  }
+
+  .domain-checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  .domain-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+
+  .domain-checkbox input[type='checkbox'] {
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .domain-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+
+  .domain-tag {
+    display: inline-block;
+    padding: 0.15em 0.5em;
+    background: var(--color-info-subtle);
+    color: var(--color-info-text);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+  }
+
+  .empty-hint {
+    font-size: var(--text-sm);
+    color: var(--text-faint);
+    font-style: italic;
+    margin: 0;
   }
 </style>

@@ -27,7 +27,7 @@ export function registerGetTools(server: McpServer, sdk: ForgeClient): void {
   registerTool(
     server,
     'forge_get_bullet',
-    'Get a single bullet by ID with full relations (sources[], technologies[]).',
+    'Get a single bullet by ID with full relations (sources[], technologies[] — a read-only projection of linked skill names since Phase 89).',
     {
       bullet_id: z.string().uuid()
         .describe('Bullet UUID'),

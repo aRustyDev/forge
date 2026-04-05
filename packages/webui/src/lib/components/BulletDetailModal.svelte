@@ -28,15 +28,11 @@
   let editContent = $state('')
   let editNotes = $state('')
   let editDomain = $state<string | null>(null)
-  let editTechnologies = $state<string[]>([])
 
   // Skill picker
   let allSkills = $state<Skill[]>([])
   let skillSearch = $state('')
   let showSkillDropdown = $state(false)
-
-  // Technology input
-  let newTechInput = $state('')
 
   // Derivation dialog
   let showDeriveDialog = $state(false)
@@ -92,7 +88,6 @@
       editContent = bulletRes.data.content
       editNotes = (bulletRes.data as any).notes ?? ''
       editDomain = (bulletRes.data as any).domain
-      editTechnologies = [...((bulletRes.data as any).technologies ?? [])]
     } else {
       addToast({ message: friendlyError(bulletRes.error, 'Failed to load bullet'), type: 'error' })
       onclose()
@@ -118,7 +113,6 @@
       content: editContent,
       notes: editNotes || null,
       domain: editDomain,
-      technologies: editTechnologies,
     })
 
     if (res.ok) {
@@ -219,27 +213,6 @@
       bulletSkills = bulletSkills.filter(s => s.id !== skillId)
     } else {
       addToast({ message: friendlyError(res.error, 'Failed to remove skill'), type: 'error' })
-    }
-  }
-
-  // ── Technologies ──────────────────────────────────────────────────────
-
-  function addTechnology() {
-    const tech = newTechInput.toLowerCase().trim()
-    if (tech && !editTechnologies.includes(tech)) {
-      editTechnologies = [...editTechnologies, tech]
-    }
-    newTechInput = ''
-  }
-
-  function removeTechnology(tech: string) {
-    editTechnologies = editTechnologies.filter(t => t !== tech)
-  }
-
-  function handleTechKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      addTechnology()
     }
   }
 
@@ -404,26 +377,6 @@
               </div>
             {/if}
           </div>
-        </div>
-
-        <!-- Technologies -->
-        <div class="field-group">
-          <label class="field-label">Technologies</label>
-          <div class="tag-pills">
-            {#each editTechnologies as tech}
-              <span class="tag-pill tech-pill">
-                {tech}
-                <button class="pill-remove" onclick={() => removeTechnology(tech)}>&times;</button>
-              </span>
-            {/each}
-          </div>
-          <input
-            type="text"
-            class="tech-input"
-            placeholder="Type technology and press Enter..."
-            bind:value={newTechInput}
-            onkeydown={handleTechKeydown}
-          />
         </div>
 
         <!-- Sources (read-only) -->
@@ -710,11 +663,6 @@
     color: var(--color-info-text);
   }
 
-  .tech-pill {
-    background: #ede9fe;
-    color: #5b21b6;
-  }
-
   .pill-remove {
     background: none;
     border: none;
@@ -732,8 +680,7 @@
     position: relative;
   }
 
-  .skill-search,
-  .tech-input {
+  .skill-search {
     width: 100%;
     padding: 0.4rem 0.65rem;
     border: 1px solid var(--color-border-strong);
@@ -742,8 +689,7 @@
     color: var(--text-primary);
   }
 
-  .skill-search:focus,
-  .tech-input:focus {
+  .skill-search:focus {
     outline: none;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px var(--color-primary-subtle);

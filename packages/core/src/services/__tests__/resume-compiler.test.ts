@@ -244,6 +244,50 @@ describe('compileResumeIR', () => {
     }
   })
 
+  test('education section sorts entries by end_date descending (most recent first)', () => {
+    const resumeId = seedResume(db)
+    const oldSourceId = seedSource(db, {
+      title: 'Old Degree',
+      sourceType: 'education',
+    })
+    const midSourceId = seedSource(db, {
+      title: 'Mid Degree',
+      sourceType: 'education',
+    })
+    const newSourceId = seedSource(db, {
+      title: 'New Degree',
+      sourceType: 'education',
+    })
+    const inProgressSourceId = seedSource(db, {
+      title: 'In-Progress Degree',
+      sourceType: 'education',
+    })
+    db.run(
+      `INSERT INTO source_education (source_id, education_type, end_date)
+       VALUES (?, 'degree', '2018-06-01'),
+              (?, 'degree', '2022-06-01'),
+              (?, 'degree', '2025-06-01'),
+              (?, 'degree', NULL)`,
+      [oldSourceId, midSourceId, newSourceId, inProgressSourceId]
+    )
+
+    const secId = seedResumeSection(db, resumeId, 'Education', 'education', 0)
+    // Insert in a shuffled order by position to prove end_date sort wins
+    seedResumeEntry(db, secId, { sourceId: midSourceId, position: 0 })
+    seedResumeEntry(db, secId, { sourceId: newSourceId, position: 1 })
+    seedResumeEntry(db, secId, { sourceId: inProgressSourceId, position: 2 })
+    seedResumeEntry(db, secId, { sourceId: oldSourceId, position: 3 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const eduSection = result.sections.find(s => s.type === 'education')
+    expect(eduSection).toBeDefined()
+    expect(eduSection!.items).toHaveLength(4)
+
+    // Expected order: in-progress (null end_date) first, then 2025 → 2022 → 2018
+    const titles = eduSection!.items.map(i => (i as EducationItem).degree)
+    expect(titles).toEqual(['In-Progress Degree', 'New Degree', 'Mid Degree', 'Old Degree'])
+  })
+
   test('education section renders direct-source entries (no perspective chain)', () => {
     // Regression test for T95.5-class bug: education/certification/clearance
     // entries added via SourcePicker's content-only path have

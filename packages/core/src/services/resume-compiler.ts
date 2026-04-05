@@ -429,7 +429,11 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
       LEFT JOIN organizations o ON o.id = se.organization_id
       LEFT JOIN org_campuses oc ON oc.id = se.campus_id
       WHERE re.section_id = ?
-      ORDER BY re.position ASC`
+      -- Sort most recent first, then by user-defined position as a tiebreaker.
+      -- NULL end_date (in-progress degrees) sorts first since they're implicitly "current".
+      ORDER BY CASE WHEN se.end_date IS NULL THEN 1 ELSE 0 END DESC,
+               se.end_date DESC,
+               re.position ASC`
     )
     .all(sectionId) as Array<{
       entry_id: string

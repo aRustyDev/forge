@@ -7,6 +7,7 @@
   import { addToast } from '$lib/stores/toast.svelte'
   import type { JDLink } from '@forge/sdk'
   import JDPickerModal from './JDPickerModal.svelte'
+  import { openJDOverlay } from '$lib/components/overlays'
 
   let { resumeId }: {
     resumeId: string
@@ -64,7 +65,17 @@
       {#each linkedJDs as jd (jd.job_description_id)}
         <li class="linked-card">
           <div class="linked-card-info">
-            <span class="linked-card-name">{jd.title}</span>
+            <button
+              type="button"
+              class="linked-card-name-btn"
+              onclick={() => openJDOverlay(jd.job_description_id, {
+                title: jd.title,
+                status: jd.status,
+                organization_name: jd.organization_name,
+                location: jd.location,
+                salary_range: jd.salary_range,
+              })}
+            >{jd.title}</button>
             <span class="status-badge status-{jd.status}">{jd.status}</span>
             <span class="linked-card-details muted">
               {#if jd.organization_name}{jd.organization_name}{/if}
@@ -142,10 +153,27 @@
     min-width: 0;
   }
 
-  .linked-card-name {
+  .linked-card-name-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
     font-weight: 600;
     font-size: 0.85rem;
     color: var(--text-primary);
+  }
+
+  .linked-card-name-btn:hover {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
+
+  .linked-card-name-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
   }
 
   .linked-card-details {

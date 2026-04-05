@@ -42,7 +42,6 @@ export type {
   SourceRole,
   SourceProject,
   SourceEducation,
-  SourceClearance,
 } from './types'
 
 // Education sub-type unions

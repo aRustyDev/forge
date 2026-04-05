@@ -1,11 +1,15 @@
 /**
  * SourceRepository — pure data access for the `sources` table and
  * polymorphic extension tables (source_roles, source_projects,
- * source_education, source_clearances).
+ * source_education).
  *
  * All functions take a `db: Database` as the first parameter (dependency
  * injection). No business logic lives here; services handle status
  * transition validation, derivation eligibility, etc.
+ *
+ * As of migration 037 (Phase 84), clearance is no longer a source_type.
+ * Clearance data lives in the `credentials` entity, managed by
+ * CredentialRepository/Service.
  */
 
 import type { Database } from 'bun:sqlite'
@@ -18,9 +22,7 @@ import type {
   SourceRole,
   SourceProject,
   SourceEducation,
-  SourceClearance,
   SourceWithExtension,
-  ClearanceAccessProgram,
 } from '../../types'
 
 /** Filter options for listing sources. */
@@ -50,7 +52,7 @@ export function getExtension(
   db: Database,
   sourceId: string,
   sourceType: string,
-): SourceRole | SourceProject | SourceEducation | SourceClearance | null {
+): SourceRole | SourceProject | SourceEducation | null {
   switch (sourceType) {
     case 'role':
       return db.query('SELECT * FROM source_roles WHERE source_id = ?').get(sourceId) as SourceRole | null
@@ -58,16 +60,6 @@ export function getExtension(
       return db.query('SELECT * FROM source_projects WHERE source_id = ?').get(sourceId) as SourceProject | null
     case 'education':
       return db.query('SELECT * FROM source_education WHERE source_id = ?').get(sourceId) as SourceEducation | null
-    case 'clearance': {
-      const clearance = db.query('SELECT * FROM source_clearances WHERE source_id = ?')
-        .get(sourceId) as (Omit<SourceClearance, 'access_programs'> & { access_programs?: ClearanceAccessProgram[] }) | null
-      if (clearance) {
-        const programs = db.query('SELECT program FROM clearance_access_programs WHERE source_id = ?')
-          .all(sourceId) as Array<{ program: ClearanceAccessProgram }>
-        clearance.access_programs = programs.map(p => p.program)
-      }
-      return clearance as SourceClearance | null
-    }
     default:
       return null
   }
@@ -134,34 +126,6 @@ function updateExtension(
     if (sets.length > 0) {
       params.push(sourceId)
       db.run(`UPDATE source_education SET ${sets.join(', ')} WHERE source_id = ?`, params)
-    }
-  } else if (sourceType === 'clearance') {
-    const sets: string[] = []
-    const params: unknown[] = []
-
-    if ('level' in input) { sets.push('level = ?'); params.push(input.level) }
-    if ('polygraph' in input) { sets.push('polygraph = ?'); params.push(input.polygraph ?? null) }
-    if ('clearance_status' in input) { sets.push('status = ?'); params.push(input.clearance_status) }
-    if ('clearance_type' in input) { sets.push('type = ?'); params.push(input.clearance_type) }
-    if ('sponsor_organization_id' in input) { sets.push('sponsor_organization_id = ?'); params.push(input.sponsor_organization_id ?? null) }
-    if ('continuous_investigation' in input) { sets.push('continuous_investigation = ?'); params.push(input.continuous_investigation ?? 0) }
-
-    if (sets.length > 0) {
-      params.push(sourceId)
-      db.run(`UPDATE source_clearances SET ${sets.join(', ')} WHERE source_id = ?`, params)
-    }
-
-    // Replace access programs if provided
-    if ('access_programs' in input) {
-      db.run('DELETE FROM clearance_access_programs WHERE source_id = ?', [sourceId])
-      if (input.access_programs?.length) {
-        const insertProgram = db.prepare(
-          'INSERT INTO clearance_access_programs (source_id, program) VALUES (?, ?)',
-        )
-        for (const program of input.access_programs) {
-          insertProgram.run(sourceId, program)
-        }
-      }
     }
   }
 }
@@ -254,37 +218,6 @@ export function create(db: Database, input: CreateSource): SourceWithExtension {
           input.edu_description ?? null,
         ],
       )
-    } else if (sourceType === 'clearance') {
-      db.run(
-        `INSERT INTO source_clearances (
-          source_id, level, polygraph, status, type,
-          sponsor_organization_id, continuous_investigation,
-          investigation_date, adjudication_date, reinvestigation_date, read_on
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          input.level ?? 'secret',
-          input.polygraph ?? null,
-          input.clearance_status ?? 'active',
-          input.clearance_type ?? 'personnel',
-          input.sponsor_organization_id ?? null,
-          input.continuous_investigation ?? 0,
-          null, // investigation_date
-          null, // adjudication_date
-          null, // reinvestigation_date
-          null, // read_on
-        ],
-      )
-
-      // Insert access programs
-      if (input.access_programs?.length) {
-        const insertProgram = db.prepare(
-          'INSERT INTO clearance_access_programs (source_id, program) VALUES (?, ?)',
-        )
-        for (const program of input.access_programs) {
-          insertProgram.run(id, program)
-        }
-      }
     }
     // 'general' type has no extension table
   })

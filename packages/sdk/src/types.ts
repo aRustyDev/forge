@@ -39,7 +39,7 @@ export interface PaginationParams {
 // Source type discriminator
 // ---------------------------------------------------------------------------
 
-export type SourceType = 'role' | 'project' | 'education' | 'clearance' | 'general'
+export type SourceType = 'role' | 'project' | 'education' | 'general'
 
 // ── Clearance Unions ──────────────────────────────────────────────────
 
@@ -168,19 +168,11 @@ export interface SourceEducation {
   expiration_date: string | null
 }
 
-export interface SourceClearance {
-  level: ClearanceLevel
-  polygraph: ClearancePolygraph | null
-  status: ClearanceStatus
-  type: ClearanceType
-  sponsor_organization_id: string | null
-  continuous_investigation: number
-  access_programs: ClearanceAccessProgram[]
-  investigation_date: string | null
-  adjudication_date: string | null
-  reinvestigation_date: string | null
-  read_on: string | null
-}
+// SourceClearance was removed in migration 037 (Phase 84, Qualifications
+// track). Clearance is now a Credential, not a Source extension. The
+// ClearanceLevel / ClearancePolygraph / ClearanceStatus / ClearanceType /
+// ClearanceAccessProgram enums above remain exported — they're reused by
+// the `credentials` entity's type-specific details JSON in Phase 85.
 
 // ---------------------------------------------------------------------------
 // Status types
@@ -210,7 +202,6 @@ export interface Source {
   role?: SourceRole
   project?: SourceProject
   education?: SourceEducation
-  clearance?: SourceClearance
 }
 
 export interface Bullet {
@@ -804,7 +795,7 @@ export interface UserProfile {
   linkedin: string | null
   github: string | null
   website: string | null
-  clearance: string | null
+  // `clearance` moved to the credentials entity in migration 037 (Phase 84).
   salary_minimum: number | null
   salary_target: number | null
   salary_stretch: number | null
@@ -864,6 +855,11 @@ export interface ResumeHeader {
   linkedin: string | null
   github: string | null
   website: string | null
+  /**
+   * @deprecated Migration 037 (Phase 84) moved clearance to the credentials
+   * entity. This field is always null on the compiled IR header. Clearance
+   * resume sections render from the credentials table directly.
+   */
   clearance: string | null
 }
 
@@ -1143,7 +1139,6 @@ export interface CreateSource {
   role?: Partial<SourceRole>
   project?: Partial<SourceProject>
   education?: Partial<SourceEducation>
-  clearance?: Partial<SourceClearance>
 }
 
 export interface UpdateSource {
@@ -1155,7 +1150,6 @@ export interface UpdateSource {
   role?: Partial<SourceRole>
   project?: Partial<SourceProject>
   education?: Partial<SourceEducation>
-  clearance?: Partial<SourceClearance>
 }
 
 export interface UpdateBullet {

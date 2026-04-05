@@ -39,7 +39,7 @@ const EXPECTED_TABLES = [
   "source_roles",
   "source_projects",
   "source_education",
-  "source_clearances",
+  // source_clearances: dropped in migration 037 (replaced by credentials)
   "bullet_sources",
   "user_notes",
   "note_references",
@@ -54,7 +54,7 @@ const EXPECTED_TABLES = [
   "org_aliases",
   "source_skills",
   "job_description_skills",
-  "clearance_access_programs",
+  // clearance_access_programs: dropped in migration 037
   "contacts",
   "contact_organizations",
   "contact_job_descriptions",
@@ -62,6 +62,9 @@ const EXPECTED_TABLES = [
   "industries", // added in migration 032
   "role_types", // added in migration 032
   "summary_skills", // added in migration 033
+  "credentials", // added in migration 037
+  "certifications", // added in migration 037
+  "certification_skills", // added in migration 037
   "_migrations",
 ];
 
@@ -128,7 +131,7 @@ describe("runMigrations", () => {
     const rows = db
       .query("SELECT name FROM _migrations ORDER BY name")
       .all() as { name: string }[];
-    expect(rows).toHaveLength(34);
+    expect(rows).toHaveLength(35);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");
@@ -163,6 +166,7 @@ describe("runMigrations", () => {
     expect(rows[31].name).toBe("034_resume_entry_source_id");
     expect(rows[32].name).toBe("035_resume_tagline_engine");
     expect(rows[33].name).toBe("036_null_auto_content_on_direct_source_entries");
+    expect(rows[34].name).toBe("037_qualifications");
   });
 
   test("already up-to-date: running again is a no-op with no errors", () => {
@@ -174,7 +178,7 @@ describe("runMigrations", () => {
     const rows = db.query("SELECT name FROM _migrations ORDER BY name").all() as {
       name: string;
     }[];
-    expect(rows).toHaveLength(34);
+    expect(rows).toHaveLength(35);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");

@@ -182,7 +182,10 @@ function parseHeader(resume: ResumeRow, profile: UserProfile | null): ResumeHead
     console.warn('[resume-compiler] user_profile has no contact fields populated. Header will have no contact info.')
   }
 
-  // Contact fields from profile (single source of truth)
+  // Contact fields from profile (single source of truth).
+  // `clearance` on the IR header is always null since migration 037 moved
+  // clearance to the credentials entity. The clearance IR section is now
+  // populated from credentials via buildClearanceItems().
   return {
     name,
     tagline,
@@ -192,7 +195,7 @@ function parseHeader(resume: ResumeRow, profile: UserProfile | null): ResumeHead
     linkedin: profile?.linkedin ?? null,
     github: profile?.github ?? null,
     website: profile?.website ?? null,
-    clearance: profile?.clearance ?? null,
+    clearance: null,
   }
 }
 
@@ -566,13 +569,13 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
 }
 
 /**
- * Format a raw source_clearances.level enum value for resume display.
+ * Format a credential details `level` value for resume display.
  *
  * The schema stores normalized DB-friendly tokens ('top_secret', 'secret',
  * etc.), but resumes use industry-standard abbreviations. `top_secret`
  * renders as "TS/SCI" because in IC/DoD contexts Top Secret clearances
- * carry SCI compartment access by default; users who hold TS *without* SCI
- * can override via the clone-content path.
+ * carry SCI compartment access by default; users who want a different
+ * display can set a custom `label` on the credential row.
  */
 export function formatClearanceLevel(level: string | null): string {
   if (!level) return ''
@@ -588,7 +591,7 @@ export function formatClearanceLevel(level: string | null): string {
 }
 
 /**
- * Format a raw source_clearances.polygraph enum value for resume display.
+ * Format a credential details `polygraph` value for resume display.
  * Returns null when the polygraph should be omitted entirely (none/null).
  */
 export function formatPolygraph(polygraph: string | null): string | null {
@@ -600,60 +603,66 @@ export function formatPolygraph(polygraph: string | null): string | null {
   return labels[polygraph] ?? polygraph
 }
 
-function buildClearanceItems(db: Database, sectionId: string): ClearanceItem[] {
-  // Dual-path source resolution: see buildEducationItems for rationale.
-  // Clearances historically came from sources that weren't linked to the
-  // bullet/perspective derivation flow, so most clearance entries reach
-  // source_clearances via re.source_id directly.
+function buildClearanceItems(db: Database, _sectionId: string): ClearanceItem[] {
+  // As of migration 037 (Phase 84, Qualifications track), clearance is no
+  // longer a source_type. It lives in the `credentials` table with
+  // `credential_type = 'clearance'`. The clearance resume section now pulls
+  // from credentials directly — there's no resume_entries row tying a
+  // resume to a specific credential; every clearance credential renders
+  // automatically into any resume that contains a clearance section.
+  //
+  // Phase 88 will refine the UX around credential ↔ resume association
+  // (e.g., letting users hide specific clearances per-resume). For now,
+  // this reads ALL clearance credentials and renders them in
+  // status/label order.
+  type CredentialRow = {
+    id: string
+    label: string
+    status: string
+    details: string
+  }
+
   const rows = db
     .query(
-      `SELECT
-        re.id AS entry_id,
-        re.content AS entry_content,
-        p.content AS perspective_content,
-        COALESCE(bs.source_id, re.source_id) AS source_id,
-        sc.level,
-        sc.polygraph,
-        sc.status AS clearance_status
-      FROM resume_entries re
-      LEFT JOIN perspectives p ON p.id = re.perspective_id
-      LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
-      LEFT JOIN sources s ON s.id = COALESCE(bs.source_id, re.source_id)
-      LEFT JOIN source_clearances sc ON sc.source_id = s.id
-      WHERE re.section_id = ?
-      ORDER BY re.position ASC`
+      `SELECT id, label, status, details
+       FROM credentials
+       WHERE credential_type = 'clearance'
+       ORDER BY
+         CASE status WHEN 'active' THEN 0 WHEN 'inactive' THEN 1 ELSE 2 END,
+         label ASC`,
     )
-    .all(sectionId) as Array<{
-      entry_id: string
-      entry_content: string | null
-      perspective_content: string | null
-      source_id: string | null
-      level: string | null
-      polygraph: string | null
-      clearance_status: string | null
-    }>
+    .all() as CredentialRow[]
 
-  return rows.map(row => {
-    // Build clearance string from structured data if available, else fall
-    // back to entry content (clone-mode or direct-source), else perspective
-    // content (reference-mode entries).
+  return rows.map((row): ClearanceItem => {
+    let details: { level?: string; polygraph?: string | null; access_programs?: string[] } = {}
+    try {
+      details = JSON.parse(row.details)
+    } catch {
+      // Malformed details JSON — fall back to label only.
+    }
+
+    // Prefer the user-provided label (e.g. "Top Secret / SCI") if set;
+    // otherwise synthesize from the structured details fields using the
+    // same human-readable formatters as pre-037 resumes (TS/SCI, CI Poly,
+    // etc.).
     //
     // Display conventions:
     //   level: 'top_secret' → 'TS/SCI' (IC default), 'secret' → 'Secret', etc.
     //   polygraph: 'ci' → 'CI Poly', 'full_scope' → 'Full-Scope Poly', 'none' → omitted
     //   status: 'active' is the default so it's not displayed; 'inactive' gets an "(Inactive)" suffix.
-    let content = row.entry_content ?? row.perspective_content ?? ''
-    if (row.level) {
-      content = formatClearanceLevel(row.level)
-      const polyLabel = formatPolygraph(row.polygraph)
+    let content = row.label
+    if (!content && details.level) {
+      content = formatClearanceLevel(details.level)
+      const polyLabel = formatPolygraph(details.polygraph ?? null)
       if (polyLabel) content += ` with ${polyLabel}`
-      if (row.clearance_status === 'inactive') content += ' (Inactive)'
     }
+    if (row.status === 'inactive') content += ' (Inactive)'
+
     return {
       kind: 'clearance' as const,
       content,
-      entry_id: row.entry_id,
-      source_id: row.source_id,
+      entry_id: row.id, // credential id — lets the renderer trace back
+      source_id: null, // no source chain — credentials aren't sources
     }
   })
 }

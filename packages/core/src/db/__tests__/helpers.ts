@@ -341,14 +341,13 @@ export function seedProfile(db: Database, opts: {
   linkedin?: string | null
   github?: string | null
   website?: string | null
-  clearance?: string | null
 } = {}): string {
   const id = testUuid()
   // Delete any existing profile (single-row table)
   db.run('DELETE FROM user_profile')
   db.run(
-    `INSERT INTO user_profile (id, name, email, phone, location, linkedin, github, website, clearance)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO user_profile (id, name, email, phone, location, linkedin, github, website)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       opts.name ?? 'Test User',
@@ -358,7 +357,6 @@ export function seedProfile(db: Database, opts: {
       opts.linkedin ?? null,
       opts.github ?? null,
       opts.website ?? null,
-      opts.clearance ?? null,
     ]
   )
   return id

@@ -813,6 +813,81 @@ describe('compileResumeIR', () => {
     expect(ir!.header.tagline).toBe('Fallback Role')
   })
 
+  test('buildSummary returns null when resume has no summary_id and no override', () => {
+    const resumeId = seedResume(db)
+    const result = compileResumeIR(db, resumeId)!
+    expect(result.summary).toBeNull()
+  })
+
+  test('buildSummary returns template mode when only summary_id is set', () => {
+    const resumeId = seedResume(db)
+    const summaryId = crypto.randomUUID()
+    db.run(
+      `INSERT INTO summaries (id, title, description, is_template)
+       VALUES (?, ?, ?, ?)`,
+      [summaryId, 'Senior Engineer Template', 'Template description text.', 1]
+    )
+    db.run('UPDATE resumes SET summary_id = ? WHERE id = ?', [summaryId, resumeId])
+
+    const result = compileResumeIR(db, resumeId)!
+    expect(result.summary).not.toBeNull()
+    expect(result.summary!.summary_id).toBe(summaryId)
+    expect(result.summary!.title).toBe('Senior Engineer Template')
+    expect(result.summary!.content).toBe('Template description text.')
+    expect(result.summary!.is_override).toBe(false)
+  })
+
+  test('buildSummary returns override mode when both summary_id and summary_override are set', () => {
+    const resumeId = seedResume(db)
+    const summaryId = crypto.randomUUID()
+    db.run(
+      `INSERT INTO summaries (id, title, description, is_template)
+       VALUES (?, ?, ?, ?)`,
+      [summaryId, 'Template Title', 'Template text.', 1]
+    )
+    db.run(
+      'UPDATE resumes SET summary_id = ?, summary_override = ? WHERE id = ?',
+      [summaryId, 'Locally edited text.', resumeId]
+    )
+
+    const result = compileResumeIR(db, resumeId)!
+    expect(result.summary!.summary_id).toBe(summaryId)
+    expect(result.summary!.title).toBe('Template Title')
+    expect(result.summary!.content).toBe('Locally edited text.')
+    expect(result.summary!.is_override).toBe(true)
+  })
+
+  test('buildSummary returns freeform mode when only summary_override is set', () => {
+    const resumeId = seedResume(db)
+    db.run(
+      'UPDATE resumes SET summary_override = ? WHERE id = ?',
+      ['Freeform only text, no template.', resumeId]
+    )
+
+    const result = compileResumeIR(db, resumeId)!
+    expect(result.summary).not.toBeNull()
+    expect(result.summary!.summary_id).toBeNull()
+    expect(result.summary!.title).toBeNull()
+    expect(result.summary!.content).toBe('Freeform only text, no template.')
+    expect(result.summary!.is_override).toBe(true)
+  })
+
+  test('buildSummary returns null when summary_id points at a deleted summary', () => {
+    const resumeId = seedResume(db)
+    const summaryId = crypto.randomUUID()
+    db.run(
+      `INSERT INTO summaries (id, title, description, is_template)
+       VALUES (?, ?, ?, ?)`,
+      [summaryId, 'Will Be Deleted', 'Some text.', 1]
+    )
+    db.run('UPDATE resumes SET summary_id = ? WHERE id = ?', [summaryId, resumeId])
+    // ON DELETE SET NULL fires: summary_id becomes NULL on the resume row
+    db.run('DELETE FROM summaries WHERE id = ?', [summaryId])
+
+    const result = compileResumeIR(db, resumeId)!
+    expect(result.summary).toBeNull()
+  })
+
   test('compileResumeIR handles deleted summary gracefully', () => {
     const resumeId = seedResume(db)
     const summaryId = seedSummary(db)

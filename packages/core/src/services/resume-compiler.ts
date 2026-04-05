@@ -10,6 +10,7 @@ import type { Database } from 'bun:sqlite'
 import type {
   ResumeDocument,
   ResumeHeader,
+  ResumeSummary,
   IRSection,
   IRSectionType,
   IRSectionItem,
@@ -43,6 +44,7 @@ interface ResumeRow {
   summary_id: string | null
   generated_tagline: string | null
   tagline_override: string | null
+  summary_override: string | null  // ← ADD THIS
 }
 
 interface ResumeSectionRow {
@@ -94,7 +96,8 @@ export function compileResumeIR(db: Database, resumeId: string): ResumeDocument 
   const resume = db
     .query(
       `SELECT id, name, target_role, header, summary_id,
-              generated_tagline, tagline_override
+              generated_tagline, tagline_override,
+              summary_override
        FROM resumes WHERE id = ?`,
     )
     .get(resumeId) as ResumeRow | null
@@ -110,6 +113,7 @@ export function compileResumeIR(db: Database, resumeId: string): ResumeDocument 
   // `tagline_override ?? generated_tagline` (Phase 92). Summary is no longer
   // consulted for tagline.
   const header = parseHeader(resume, profile)
+  const summary = buildSummary(db, resume)
 
   // 4. Fetch sections from resume_sections table
   const sectionRows = db
@@ -128,7 +132,42 @@ export function compileResumeIR(db: Database, resumeId: string): ResumeDocument 
     }
   })
 
-  return { resume_id: resumeId, header, sections }
+  return { resume_id: resumeId, header, summary, sections }
+}
+
+/**
+ * Build the ResumeSummary IR entry from resume.summary_id and
+ * resume.summary_override. Resolution order:
+ *   1. summary_override (local edit, highest priority)
+ *   2. summaries.description via summary_id (template reference)
+ *   3. null (empty state — card shows "Select summary" button)
+ */
+function buildSummary(db: Database, resume: ResumeRow): ResumeSummary | null {
+  const summaryId = resume.summary_id
+  const override = resume.summary_override
+  if (!summaryId && !override) return null
+
+  let title: string | null = null
+  let templateDescription: string | null = null
+  if (summaryId) {
+    const row = db
+      .query('SELECT id, title, description FROM summaries WHERE id = ?')
+      .get(summaryId) as { id: string; title: string; description: string | null } | null
+    if (row) {
+      title = row.title
+      templateDescription = row.description
+    }
+  }
+
+  const content = override ?? templateDescription ?? ''
+  if (!content) return null
+
+  return {
+    summary_id: summaryId,
+    title,
+    content,
+    is_override: override !== null,
+  }
 }
 
 /**

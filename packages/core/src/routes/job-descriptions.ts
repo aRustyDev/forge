@@ -13,6 +13,7 @@ import {
   validateSkillExtraction,
 } from '../ai'
 import * as PromptLogRepo from '../db/repositories/prompt-log-repository'
+import { regenerateResumeTagline } from '../services/tagline-service'
 
 export function jobDescriptionRoutes(services: Services, db: Database) {
   const app = new Hono()
@@ -186,6 +187,11 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
       [jdId, resumeId],
     )
 
+    // Phase 92: regenerate the resume's tagline from all linked JDs. We do
+    // this for both new links and re-links (200 path) so the caller can
+    // see the current tagline in the response.
+    const tagline = regenerateResumeTagline(db, resumeId)
+
     // Fetch the link data (whether just created or already existed)
     const link = db
       .query(`
@@ -201,7 +207,7 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
     // Determine status code: 201 if new, 200 if already existed
     const status = result.changes > 0 ? 201 : 200
 
-    return c.json({ data: link }, status as any)
+    return c.json({ data: link, tagline }, status as any)
   })
 
   app.delete('/job-descriptions/:jdId/resumes/:resumeId', (c) => {
@@ -211,6 +217,12 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
       `DELETE FROM job_description_resumes WHERE job_description_id = ? AND resume_id = ?`,
       [jdId, resumeId],
     )
+
+    // Phase 92: regenerate tagline from remaining linked JDs (if any).
+    // If none remain, the tagline is cleared to null.
+    // The DELETE contract remains 204 — clients refetch the resume to see
+    // the updated generated_tagline.
+    regenerateResumeTagline(db, resumeId)
 
     return c.body(null, 204)
   })

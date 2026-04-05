@@ -714,38 +714,40 @@ describe('compileResumeIR', () => {
     expect(after!.header.email).toBe('new@test.com')
   })
 
-  // ── Summary integration ───────────────────────────────────────────
+  // ── Phase 92: resume-level tagline (tagline_override + generated_tagline) ─
 
-  test('compileResumeIR uses summary.tagline when summary is linked', () => {
-    const resumeId = seedResume(db, { name: 'Test', targetRole: 'Fallback Role' })
-    const summaryId = seedSummary(db, { tagline: 'Summary Tagline' })
-
-    // Link summary to resume
-    db.run('UPDATE resumes SET summary_id = ? WHERE id = ?', [summaryId, resumeId])
+  test('compileResumeIR uses tagline_override when set', () => {
+    const resumeId = seedResume(db, { targetRole: 'Fallback Role' })
+    db.run('UPDATE resumes SET tagline_override = ? WHERE id = ?', ['Override Tagline', resumeId])
 
     const ir = compileResumeIR(db, resumeId)
-    expect(ir).not.toBeNull()
-    expect(ir!.header.tagline).toBe('Summary Tagline')
+    expect(ir!.header.tagline).toBe('Override Tagline')
   })
 
-  test('compileResumeIR falls back to target_role when no summary linked', () => {
+  test('compileResumeIR uses generated_tagline when no override set', () => {
+    const resumeId = seedResume(db, { targetRole: 'Fallback Role' })
+    db.run('UPDATE resumes SET generated_tagline = ? WHERE id = ?', ['Generated Tagline', resumeId])
+
+    const ir = compileResumeIR(db, resumeId)
+    expect(ir!.header.tagline).toBe('Generated Tagline')
+  })
+
+  test('compileResumeIR prefers tagline_override over generated_tagline', () => {
+    const resumeId = seedResume(db)
+    db.run(
+      'UPDATE resumes SET tagline_override = ?, generated_tagline = ? WHERE id = ?',
+      ['Override Wins', 'Generated', resumeId],
+    )
+
+    const ir = compileResumeIR(db, resumeId)
+    expect(ir!.header.tagline).toBe('Override Wins')
+  })
+
+  test('compileResumeIR falls back to target_role when no tagline set', () => {
     const resumeId = seedResume(db, { targetRole: 'Fallback Role' })
 
     const ir = compileResumeIR(db, resumeId)
-    expect(ir).not.toBeNull()
     expect(ir!.header.tagline).toBe('Fallback Role')
-  })
-
-  test('compileResumeIR falls back to header JSON when summary has no tagline', () => {
-    const resumeId = seedResume(db)
-    const summaryId = seedSummary(db, { tagline: null })
-
-    db.run('UPDATE resumes SET summary_id = ? WHERE id = ?', [summaryId, resumeId])
-
-    const ir = compileResumeIR(db, resumeId)
-    expect(ir).not.toBeNull()
-    // Should fall back to header JSON tagline or target_role
-    expect(ir!.header.tagline).toBeTruthy()
   })
 
   test('compileResumeIR handles deleted summary gracefully', () => {

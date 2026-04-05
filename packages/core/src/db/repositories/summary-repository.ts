@@ -4,11 +4,13 @@
  * All functions take a `Database` instance as the first parameter,
  * keeping the repository stateless and testable.
  *
- * As of migration 033 (Phase 91), summaries have:
+ * As of migration 034 (Phase 92), tagline is no longer on summaries — it
+ * has moved to resume-level `generated_tagline` / `tagline_override`
+ * with automatic regeneration from linked JDs via TaglineService.
+ *
+ * Migration 033 (Phase 91) added:
  * - industry_id / role_type_id FKs (nullable)
  * - summary_skills junction for keyword tagging
- * The tagline column is preserved for now and will move to resume-level
- * in Phase 92 (Tagline Engine).
  */
 
 import type { Database } from 'bun:sqlite'
@@ -28,7 +30,6 @@ import type {
 export interface CreateSummaryInput {
   title: string
   role?: string
-  tagline?: string  // @deprecated (Phase 92 moves to resume)
   description?: string
   is_template?: number
   industry_id?: string | null
@@ -39,7 +40,6 @@ export interface CreateSummaryInput {
 export interface UpdateSummaryInput {
   title?: string
   role?: string | null
-  tagline?: string | null  // @deprecated
   description?: string | null
   is_template?: number
   industry_id?: string | null
@@ -75,15 +75,14 @@ export function create(db: Database, input: CreateSummaryInput): Summary {
   const id = crypto.randomUUID()
   db
     .query(
-      `INSERT INTO summaries (id, title, role, tagline, description, is_template,
+      `INSERT INTO summaries (id, title, role, description, is_template,
                               industry_id, role_type_id, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
       input.title,
       input.role ?? null,
-      input.tagline ?? null,
       input.description ?? null,
       input.is_template ?? 0,
       input.industry_id ?? null,
@@ -216,7 +215,6 @@ export function update(
 
   if (input.title !== undefined) { sets.push('title = ?'); params.push(input.title) }
   if (input.role !== undefined) { sets.push('role = ?'); params.push(input.role) }
-  if (input.tagline !== undefined) { sets.push('tagline = ?'); params.push(input.tagline) }
   if (input.description !== undefined) { sets.push('description = ?'); params.push(input.description) }
   if (input.is_template !== undefined) { sets.push('is_template = ?'); params.push(input.is_template) }
   if (input.industry_id !== undefined) { sets.push('industry_id = ?'); params.push(input.industry_id) }
@@ -299,15 +297,14 @@ export function clone(db: Database, id: string): Summary | null {
   const newId = crypto.randomUUID()
   db
     .query(
-      `INSERT INTO summaries (id, title, role, tagline, description, is_template,
+      `INSERT INTO summaries (id, title, role, description, is_template,
                               industry_id, role_type_id, notes)
-       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
     )
     .run(
       newId,
       `Copy of ${source.title}`,
       source.role,
-      source.tagline,
       source.description,
       source.industry_id,
       source.role_type_id,

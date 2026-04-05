@@ -190,6 +190,101 @@ export function resumeRoutes(services: Services, db: Database) {
     return c.json({ data: result.data })
   })
 
+  // ── Tagline endpoints (Phase 92) ──────────────────────────────────
+
+  /**
+   * Return the resume's current tagline state: the generated tagline
+   * (from linked JDs), the user's override (if any), the resolved value
+   * (override takes precedence), and a flag indicating whether an override
+   * is present.
+   */
+  app.get('/resumes/:id/tagline', (c) => {
+    const row = db
+      .query(
+        'SELECT generated_tagline, tagline_override FROM resumes WHERE id = ?',
+      )
+      .get(c.req.param('id')) as {
+        generated_tagline: string | null
+        tagline_override: string | null
+      } | null
+
+    if (!row) {
+      return c.json(
+        { error: { code: 'NOT_FOUND', message: 'Resume not found' } },
+        404,
+      )
+    }
+
+    const has_override = !!(row.tagline_override && row.tagline_override.trim().length > 0)
+    const resolved = row.tagline_override ?? row.generated_tagline ?? ''
+
+    return c.json({
+      data: {
+        generated_tagline: row.generated_tagline,
+        tagline_override: row.tagline_override,
+        resolved,
+        has_override,
+      },
+    })
+  })
+
+  /** Force a tagline regeneration from currently linked JDs. */
+  app.post('/resumes/:id/tagline/regenerate', async (c) => {
+    const { regenerateResumeTagline } = await import('../services/tagline-service')
+    const result = regenerateResumeTagline(db, c.req.param('id'))
+    if (!result) {
+      return c.json(
+        { error: { code: 'NOT_FOUND', message: 'Resume not found' } },
+        404,
+      )
+    }
+    return c.json({ data: result })
+  })
+
+  /**
+   * Set or clear the tagline override. Pass `{ content: string }` to set,
+   * `{ content: null }` to clear the override (falls back to generated).
+   */
+  app.patch('/resumes/:id/tagline-override', async (c) => {
+    const body = await c.req.json<{ content: string | null }>()
+    const resumeId = c.req.param('id')
+
+    const exists = db
+      .query('SELECT id FROM resumes WHERE id = ?')
+      .get(resumeId) as { id: string } | null
+    if (!exists) {
+      return c.json(
+        { error: { code: 'NOT_FOUND', message: 'Resume not found' } },
+        404,
+      )
+    }
+
+    const normalized = body.content && body.content.trim().length > 0 ? body.content : null
+    db.run(
+      `UPDATE resumes
+       SET tagline_override = ?,
+           updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+       WHERE id = ?`,
+      [normalized, resumeId],
+    )
+
+    const row = db
+      .query('SELECT generated_tagline, tagline_override FROM resumes WHERE id = ?')
+      .get(resumeId) as { generated_tagline: string | null; tagline_override: string | null }
+
+    const has_override = !!(row.tagline_override && row.tagline_override.trim().length > 0)
+    const resolved = row.tagline_override ?? row.generated_tagline ?? ''
+
+    return c.json({
+      data: {
+        generated_tagline: row.generated_tagline,
+        tagline_override: row.tagline_override,
+        resolved,
+        has_override,
+      },
+    })
+  })
+
   // ── PDF endpoint ──────────────────────────────────────────────────
 
   app.post('/resumes/:id/pdf', async (c) => {

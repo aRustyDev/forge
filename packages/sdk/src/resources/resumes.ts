@@ -12,6 +12,8 @@ import type {
   ResumeEntry,
   ResumeSectionEntity,
   ResumeSkill,
+  ResumeTaglineRegenerationResult,
+  ResumeTaglineState,
   ResumeTemplate,
   ResumeWithEntries,
   Result,
@@ -209,6 +211,37 @@ export class ResumesResource {
 
   updateLatexOverride(id: string, content: string | null): Promise<Result<Resume>> {
     return this.request<Resume>('PATCH', `/api/resumes/${id}/latex-override`, { content })
+  }
+
+  // -- Tagline (Phase 92) --
+
+  /**
+   * Get the resume's current tagline state: generated (from linked JDs),
+   * override (user-authored), resolved (override takes precedence), and
+   * has_override flag for UI prompts.
+   */
+  getTagline(id: string): Promise<Result<ResumeTaglineState>> {
+    return this.request<ResumeTaglineState>('GET', `/api/resumes/${id}/tagline`)
+  }
+
+  /** Force a tagline regeneration from currently linked JDs. */
+  regenerateTagline(id: string): Promise<Result<ResumeTaglineRegenerationResult>> {
+    return this.request<ResumeTaglineRegenerationResult>(
+      'POST',
+      `/api/resumes/${id}/tagline/regenerate`,
+    )
+  }
+
+  /**
+   * Set or clear the tagline override. Pass a non-empty string to set,
+   * null (or empty) to clear and fall back to the generated tagline.
+   */
+  updateTaglineOverride(id: string, content: string | null): Promise<Result<ResumeTaglineState>> {
+    return this.request<ResumeTaglineState>(
+      'PATCH',
+      `/api/resumes/${id}/tagline-override`,
+      { content },
+    )
   }
 
   async pdf(id: string, latex?: string): Promise<Result<Blob>> {

@@ -32,6 +32,8 @@ interface ResumeRow {
   notes: string | null
   header: string | null
   summary_id: string | null
+  summary_override: string | null
+  summary_override_updated_at: string | null
   markdown_override: string | null
   markdown_override_updated_at: string | null
   latex_override: string | null
@@ -73,6 +75,8 @@ function rowToResume(row: ResumeRow): Resume {
     notes: row.notes ?? null,
     header: row.header ?? null,
     summary_id: row.summary_id ?? null,
+    summary_override: row.summary_override ?? null,
+    summary_override_updated_at: row.summary_override_updated_at ?? null,
     markdown_override: row.markdown_override ?? null,
     markdown_override_updated_at: row.markdown_override_updated_at ?? null,
     latex_override: row.latex_override ?? null,
@@ -276,6 +280,12 @@ export const ResumeRepository = {
     if (input.summary_id !== undefined) {
       sets.push('summary_id = ?')
       params.push(input.summary_id)
+    }
+    if ('summary_override' in input) {
+      sets.push('summary_override = ?')
+      params.push(input.summary_override ?? null)
+      sets.push('summary_override_updated_at = ?')
+      params.push(new Date().toISOString())
     }
     if (input.markdown_override !== undefined) {
       sets.push('markdown_override = ?')

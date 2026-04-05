@@ -96,6 +96,71 @@ describe('ResumeRepository', () => {
       const result = ResumeRepository.delete(db, crypto.randomUUID())
       expect(result).toBe(false)
     })
+
+    test('update persists summary_id when provided', () => {
+      const resumeId = seedResume(db)
+      const summaryId = crypto.randomUUID()
+      db.run(
+        `INSERT INTO summaries (id, title, description, is_template)
+         VALUES (?, ?, ?, ?)`,
+        [summaryId, 'Test Summary', 'Test description.', 0]
+      )
+
+      const updated = ResumeRepository.update(db, resumeId, {
+        summary_id: summaryId,
+      })
+      expect(updated).not.toBeNull()
+      expect(updated!.summary_id).toBe(summaryId)
+    })
+
+    test('update sets summary_override and bumps summary_override_updated_at', () => {
+      const resumeId = seedResume(db)
+      const before = new Date().toISOString()
+
+      const updated = ResumeRepository.update(db, resumeId, {
+        summary_override: 'Locally edited summary text',
+      })
+      expect(updated).not.toBeNull()
+      expect(updated!.summary_override).toBe('Locally edited summary text')
+      expect(updated!.summary_override_updated_at).not.toBeNull()
+      expect(updated!.summary_override_updated_at! >= before).toBe(true)
+    })
+
+    test('update with summary_override: null clears the override', () => {
+      const resumeId = seedResume(db)
+      ResumeRepository.update(db, resumeId, { summary_override: 'text' })
+      const cleared = ResumeRepository.update(db, resumeId, {
+        summary_override: null,
+      })
+      expect(cleared!.summary_override).toBeNull()
+    })
+
+    test('update with summary_override: undefined leaves the field alone', () => {
+      const resumeId = seedResume(db)
+      ResumeRepository.update(db, resumeId, { summary_override: 'preserved' })
+      const unchanged = ResumeRepository.update(db, resumeId, { name: 'Updated Name' })
+      expect(unchanged!.summary_override).toBe('preserved')
+    })
+
+    test('update can clear both summary_id and summary_override in one call (Unlink)', () => {
+      const resumeId = seedResume(db)
+      const summaryId = crypto.randomUUID()
+      db.run(
+        `INSERT INTO summaries (id, title, description, is_template)
+         VALUES (?, ?, ?, ?)`,
+        [summaryId, 'Test', 'Desc', 0]
+      )
+      ResumeRepository.update(db, resumeId, {
+        summary_id: summaryId,
+        summary_override: 'override text',
+      })
+      const unlinked = ResumeRepository.update(db, resumeId, {
+        summary_id: null,
+        summary_override: null,
+      })
+      expect(unlinked!.summary_id).toBeNull()
+      expect(unlinked!.summary_override).toBeNull()
+    })
   })
 
   // ── list ────────────────────────────────────────────────────────────

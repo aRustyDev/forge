@@ -637,9 +637,19 @@ export interface Summary {
   id: string
   title: string
   role: string | null
+  /**
+   * @deprecated Tagline lives on summaries for now. Phase 92 (Tagline Engine)
+   * moves tagline to resume-level `generated_tagline` / `tagline_override`
+   * fields with automatic regeneration from linked JDs. Do not add new
+   * tagline-related features on summaries.
+   */
   tagline: string | null
   description: string | null
   is_template: number  // 0 or 1 (SQLite integer)
+  /** Industry FK — added in migration 033 (Phase 91). Nullable. */
+  industry_id: string | null
+  /** Role type FK — added in migration 033 (Phase 91). Nullable. */
+  role_type_id: string | null
   /** Computed via subquery — number of resumes with summary_id = this.id. */
   linked_resume_count: number
   notes: string | null
@@ -647,13 +657,23 @@ export interface Summary {
   updated_at: string
 }
 
+/** A Summary plus its linked industry, role_type, and keyword skills. */
+export interface SummaryWithRelations extends Summary {
+  industry: Industry | null
+  role_type: RoleType | null
+  skills: Skill[]
+}
+
 /** Input for creating a new Summary. */
 export interface CreateSummary {
   title: string
   role?: string
+  /** @deprecated see Summary.tagline */
   tagline?: string
   description?: string
   is_template?: number
+  industry_id?: string | null
+  role_type_id?: string | null
   notes?: string
 }
 
@@ -661,9 +681,12 @@ export interface CreateSummary {
 export interface UpdateSummary {
   title?: string
   role?: string | null
+  /** @deprecated see Summary.tagline */
   tagline?: string | null
   description?: string | null
   is_template?: number
+  industry_id?: string | null
+  role_type_id?: string | null
   notes?: string | null
 }
 

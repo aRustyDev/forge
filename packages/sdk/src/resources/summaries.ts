@@ -6,17 +6,21 @@ import type {
   RequestListFn,
   Result,
   Resume,
+  Skill,
   Summary,
   SummaryFilter,
+  SummarySort,
+  SummaryWithRelations,
   UpdateSummary,
 } from '../types'
 
 /**
- * Convert filter + pagination into query string params.
+ * Convert filter + sort + pagination into query string params.
  * Boolean `is_template` is converted to "1"/"0" for SQLite INTEGER columns.
  */
 function toParams(
   filter?: object,
+  sort?: SummarySort,
   pagination?: PaginationParams,
 ): Record<string, string> | undefined {
   const out: Record<string, string> = {}
@@ -24,7 +28,6 @@ function toParams(
   if (filter) {
     for (const [k, v] of Object.entries(filter)) {
       if (v === undefined || v === null) continue
-      // Boolean->"1"/"0" conversion for is_template (SQLite INTEGER column)
       if (k === 'is_template' && typeof v === 'boolean') {
         out[k] = v ? '1' : '0'
       } else {
@@ -32,6 +35,9 @@ function toParams(
       }
     }
   }
+
+  if (sort?.sort_by) out.sort_by = sort.sort_by
+  if (sort?.direction) out.direction = sort.direction
 
   if (pagination?.offset !== undefined) out.offset = String(pagination.offset)
   if (pagination?.limit !== undefined) out.limit = String(pagination.limit)
@@ -50,18 +56,26 @@ export class SummariesResource {
   }
 
   list(
-    filter?: SummaryFilter & PaginationParams,
+    filter?: SummaryFilter & PaginationParams & SummarySort,
   ): Promise<PaginatedResult<Summary>> {
-    const { offset, limit, ...rest } = filter ?? {}
+    const { offset, limit, sort_by, direction, ...rest } = filter ?? {}
     return this.requestList<Summary>(
       'GET',
       '/api/summaries',
-      toParams(rest, { offset, limit }),
+      toParams(rest, { sort_by, direction }, { offset, limit }),
     )
   }
 
   get(id: string): Promise<Result<Summary>> {
     return this.request<Summary>('GET', `/api/summaries/${id}`)
+  }
+
+  /** Get a summary with industry, role_type, and skill keywords populated. */
+  getWithRelations(id: string): Promise<Result<SummaryWithRelations>> {
+    return this.request<SummaryWithRelations>(
+      'GET',
+      `/api/summaries/${id}?include=relations`,
+    )
   }
 
   update(id: string, input: UpdateSummary): Promise<Result<Summary>> {
@@ -89,7 +103,26 @@ export class SummariesResource {
     return this.requestList<Resume>(
       'GET',
       `/api/summaries/${id}/linked-resumes`,
-      toParams(undefined, params),
+      toParams(undefined, undefined, params),
     )
+  }
+
+  // ── Skill keyword junction (Phase 91) ───────────────────────────────
+
+  /** List skill keywords linked to a summary. */
+  listSkills(id: string): Promise<Result<Skill[]>> {
+    return this.request<Skill[]>('GET', `/api/summaries/${id}/skills`)
+  }
+
+  /** Link a skill as a keyword on the summary (idempotent). */
+  addSkill(id: string, skillId: string): Promise<Result<void>> {
+    return this.request<void>('POST', `/api/summaries/${id}/skills`, {
+      skill_id: skillId,
+    })
+  }
+
+  /** Unlink a skill keyword from the summary. */
+  removeSkill(id: string, skillId: string): Promise<Result<void>> {
+    return this.request<void>('DELETE', `/api/summaries/${id}/skills/${skillId}`)
   }
 }

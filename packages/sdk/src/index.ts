@@ -225,6 +225,10 @@ export type {
   CreateSummary,
   UpdateSummary,
   SummaryFilter,
+  SummarySort,
+  SummarySortBy,
+  SummarySortDirection,
+  SummaryWithRelations,
 } from './types'
 
 // Export types

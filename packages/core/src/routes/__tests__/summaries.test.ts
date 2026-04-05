@@ -329,4 +329,192 @@ describe('Summaries API', () => {
     const body = await detachRes.json()
     expect(body.data.summary_id).toBeNull()
   })
+
+  // ────────────────────────────────────────────────────────────────
+  // Phase 91 — structured filters, sort, ?include=relations, skills
+  // ────────────────────────────────────────────────────────────────
+
+  describe('structured fields + skill keywords (Phase 91)', () => {
+    async function createIndustry(name: string): Promise<string> {
+      const res = await apiRequest(ctx.app, 'POST', '/industries', { name })
+      return (await res.json()).data.id
+    }
+    async function createRoleType(name: string): Promise<string> {
+      const res = await apiRequest(ctx.app, 'POST', '/role-types', { name })
+      return (await res.json()).data.id
+    }
+    async function createSkill(name: string): Promise<string> {
+      const res = await apiRequest(ctx.app, 'POST', '/skills', { name, category: 'other' })
+      return (await res.json()).data.id
+    }
+
+    test('POST /summaries accepts industry_id and role_type_id', async () => {
+      const industryId = await createIndustry('FinTech')
+      const roleTypeId = await createRoleType('IC')
+
+      const res = await apiRequest(ctx.app, 'POST', '/summaries', {
+        title: 'Structured',
+        industry_id: industryId,
+        role_type_id: roleTypeId,
+      })
+      expect(res.status).toBe(201)
+      const body = await res.json()
+      expect(body.data.industry_id).toBe(industryId)
+      expect(body.data.role_type_id).toBe(roleTypeId)
+    })
+
+    test('GET /summaries?industry_id filters by industry', async () => {
+      const finId = await createIndustry('Finance')
+      const healthId = await createIndustry('Health')
+
+      await apiRequest(ctx.app, 'POST', '/summaries', { title: 'FinA', industry_id: finId })
+      await apiRequest(ctx.app, 'POST', '/summaries', { title: 'FinB', industry_id: finId })
+      await apiRequest(ctx.app, 'POST', '/summaries', { title: 'HealthOne', industry_id: healthId })
+
+      const res = await apiRequest(ctx.app, 'GET', `/summaries?industry_id=${finId}`)
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.data).toHaveLength(2)
+      expect(body.data.every((s: any) => s.industry_id === finId)).toBe(true)
+    })
+
+    test('GET /summaries?role_type_id filters by role type', async () => {
+      const iC = await createRoleType('IC-filter')
+      const mgr = await createRoleType('Manager-filter')
+
+      await apiRequest(ctx.app, 'POST', '/summaries', { title: 'A', role_type_id: iC })
+      await apiRequest(ctx.app, 'POST', '/summaries', { title: 'B', role_type_id: mgr })
+
+      const res = await apiRequest(ctx.app, 'GET', `/summaries?role_type_id=${iC}`)
+      const body = await res.json()
+      expect(body.data).toHaveLength(1)
+      expect(body.data[0].title).toBe('A')
+    })
+
+    test('GET /summaries?sort_by=title&direction=asc sorts ascending', async () => {
+      // Seed out of order
+      seedSummary(ctx.db, { title: 'Zeta' })
+      seedSummary(ctx.db, { title: 'Alpha' })
+      seedSummary(ctx.db, { title: 'Mu' })
+
+      const res = await apiRequest(ctx.app, 'GET', '/summaries?sort_by=title&direction=asc')
+      const body = await res.json()
+      expect(body.data.map((s: any) => s.title)).toEqual(['Alpha', 'Mu', 'Zeta'])
+    })
+
+    test('GET /summaries?sort_by=title&direction=desc sorts descending', async () => {
+      seedSummary(ctx.db, { title: 'Zeta' })
+      seedSummary(ctx.db, { title: 'Alpha' })
+      seedSummary(ctx.db, { title: 'Mu' })
+
+      const res = await apiRequest(ctx.app, 'GET', '/summaries?sort_by=title&direction=desc')
+      const body = await res.json()
+      expect(body.data.map((s: any) => s.title)).toEqual(['Zeta', 'Mu', 'Alpha'])
+    })
+
+    test('GET /summaries?sort_by=invalid returns 400', async () => {
+      const res = await apiRequest(ctx.app, 'GET', '/summaries?sort_by=bogus')
+      expect(res.status).toBe(400)
+      const body = await res.json()
+      expect(body.error.code).toBe('VALIDATION_ERROR')
+    })
+
+    test('GET /summaries/:id?include=relations hydrates industry, role_type, skills', async () => {
+      const industryId = await createIndustry('Aero')
+      const roleTypeId = await createRoleType('Tech Lead-hydrate')
+      const skillId = await createSkill('RustLang')
+
+      const createRes = await apiRequest(ctx.app, 'POST', '/summaries', {
+        title: 'Hydrated',
+        industry_id: industryId,
+        role_type_id: roleTypeId,
+      })
+      const summaryId = (await createRes.json()).data.id
+
+      // Link a skill keyword
+      const linkRes = await apiRequest(ctx.app, 'POST', `/summaries/${summaryId}/skills`, { skill_id: skillId })
+      expect(linkRes.status).toBe(204)
+
+      const res = await apiRequest(ctx.app, 'GET', `/summaries/${summaryId}?include=relations`)
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.data.industry?.name).toBe('Aero')
+      expect(body.data.role_type?.name).toBe('Tech Lead-hydrate')
+      expect(body.data.skills).toHaveLength(1)
+      expect(body.data.skills[0].name).toBe('RustLang')
+    })
+
+    test('GET /summaries/:id without include does NOT hydrate relations', async () => {
+      const id = seedSummary(ctx.db, { title: 'Plain' })
+      const res = await apiRequest(ctx.app, 'GET', `/summaries/${id}`)
+      const body = await res.json()
+      expect(body.data.industry).toBeUndefined()
+      expect(body.data.role_type).toBeUndefined()
+      expect(body.data.skills).toBeUndefined()
+    })
+
+    test('POST /summaries/:id/skills links a skill keyword', async () => {
+      const summaryId = seedSummary(ctx.db)
+      const skillId = await createSkill('Python')
+
+      const res = await apiRequest(ctx.app, 'POST', `/summaries/${summaryId}/skills`, { skill_id: skillId })
+      expect(res.status).toBe(204)
+
+      const listRes = await apiRequest(ctx.app, 'GET', `/summaries/${summaryId}/skills`)
+      expect(listRes.status).toBe(200)
+      const body = await listRes.json()
+      expect(body.data).toHaveLength(1)
+      expect(body.data[0].id).toBe(skillId)
+    })
+
+    test('POST /summaries/:id/skills without skill_id returns 400', async () => {
+      const summaryId = seedSummary(ctx.db)
+      const res = await apiRequest(ctx.app, 'POST', `/summaries/${summaryId}/skills`, {})
+      expect(res.status).toBe(400)
+      const body = await res.json()
+      expect(body.error.code).toBe('VALIDATION_ERROR')
+    })
+
+    test('POST /summaries/:id/skills on missing summary returns 404', async () => {
+      const skillId = await createSkill('Missing')
+      const res = await apiRequest(
+        ctx.app,
+        'POST',
+        '/summaries/00000000-0000-0000-0000-000000000000/skills',
+        { skill_id: skillId },
+      )
+      expect(res.status).toBe(404)
+    })
+
+    test('DELETE /summaries/:id/skills/:skillId unlinks', async () => {
+      const summaryId = seedSummary(ctx.db)
+      const skillId = await createSkill('Temporary')
+
+      await apiRequest(ctx.app, 'POST', `/summaries/${summaryId}/skills`, { skill_id: skillId })
+      const del = await apiRequest(ctx.app, 'DELETE', `/summaries/${summaryId}/skills/${skillId}`)
+      expect(del.status).toBe(204)
+
+      const listRes = await apiRequest(ctx.app, 'GET', `/summaries/${summaryId}/skills`)
+      const body = await listRes.json()
+      expect(body.data).toHaveLength(0)
+    })
+
+    test('GET /summaries?skill_id filters through summary_skills', async () => {
+      const k8sId = await createSkill('K8s-filter')
+      const pgId = await createSkill('PG-filter')
+
+      const aRes = await apiRequest(ctx.app, 'POST', '/summaries', { title: 'Infra' })
+      const bRes = await apiRequest(ctx.app, 'POST', '/summaries', { title: 'DB' })
+      const aId = (await aRes.json()).data.id
+      const bId = (await bRes.json()).data.id
+
+      await apiRequest(ctx.app, 'POST', `/summaries/${aId}/skills`, { skill_id: k8sId })
+      await apiRequest(ctx.app, 'POST', `/summaries/${bId}/skills`, { skill_id: pgId })
+
+      const filterRes = await apiRequest(ctx.app, 'GET', `/summaries?skill_id=${k8sId}`)
+      const body = await filterRes.json()
+      expect(body.data).toHaveLength(1)
+      expect(body.data[0].title).toBe('Infra')
+    })
+  })
 })

@@ -683,11 +683,20 @@ export interface Summary {
   id: string
   title: string
   role: string | null
+  /**
+   * @deprecated Phase 92 (Tagline Engine) moves tagline to resume-level
+   * `generated_tagline` / `tagline_override`. Do not add new tagline features
+   * on summaries.
+   */
   tagline: string | null
   description: string | null
   /** SQLite stores as 0|1 integer. JavaScript treats 0 as falsy and 1 as truthy,
    *  so `if (summary.is_template)` works. Strict `=== true` will fail. */
   is_template: boolean
+  /** Industry FK (Phase 91). Nullable. */
+  industry_id: string | null
+  /** Role type FK (Phase 91). Nullable. */
+  role_type_id: string | null
   /** Computed via subquery -- number of resumes with summary_id = this.id. */
   linked_resume_count: number
   notes: string | null
@@ -695,13 +704,23 @@ export interface Summary {
   updated_at: string
 }
 
+/** A Summary plus its linked industry, role_type, and keyword skills. */
+export interface SummaryWithRelations extends Summary {
+  industry: Industry | null
+  role_type: RoleType | null
+  skills: Skill[]
+}
+
 /** Input for creating a new Summary. */
 export interface CreateSummary {
   title: string
   role?: string
+  /** @deprecated see Summary.tagline */
   tagline?: string
   description?: string
   is_template?: boolean
+  industry_id?: string | null
+  role_type_id?: string | null
   notes?: string
 }
 
@@ -709,15 +728,30 @@ export interface CreateSummary {
 export interface UpdateSummary {
   title?: string
   role?: string | null
+  /** @deprecated see Summary.tagline */
   tagline?: string | null
   description?: string | null
   is_template?: boolean
+  industry_id?: string | null
+  role_type_id?: string | null
   notes?: string | null
 }
 
 /** Filter for listing summaries. */
 export interface SummaryFilter {
   is_template?: boolean
+  industry_id?: string
+  role_type_id?: string
+  skill_id?: string
+}
+
+/** Sort options for listing summaries. */
+export type SummarySortBy = 'title' | 'created_at' | 'updated_at'
+export type SummarySortDirection = 'asc' | 'desc'
+
+export interface SummarySort {
+  sort_by?: SummarySortBy
+  direction?: SummarySortDirection
 }
 
 // ---------------------------------------------------------------------------

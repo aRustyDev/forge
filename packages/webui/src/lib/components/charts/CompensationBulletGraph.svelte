@@ -99,7 +99,7 @@
   .comp-empty {
     padding: 1rem;
     text-align: center;
-    font-size: var(--font-size-sm, 0.875rem);
+    font-size: var(--text-sm, 0.875rem);
     color: var(--text-muted);
     border: 1px dashed var(--color-border);
     border-radius: 0.5rem;
@@ -111,7 +111,7 @@
   }
 
   .comp-hint {
-    font-size: var(--font-size-xs, 0.75rem);
+    font-size: var(--text-xs, 0.75rem);
     color: var(--text-muted);
     text-align: center;
     margin-top: 0.5rem;

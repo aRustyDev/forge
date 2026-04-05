@@ -110,7 +110,7 @@
   .radar-empty {
     padding: 1.5rem;
     text-align: center;
-    font-size: var(--font-size-sm, 0.875rem);
+    font-size: var(--text-sm, 0.875rem);
     color: var(--text-muted);
     border: 1px dashed var(--color-border);
     border-radius: 0.5rem;
@@ -134,14 +134,14 @@
   }
 
   .radar-header h3 {
-    font-size: var(--font-size-base, 1rem);
+    font-size: var(--text-base, 1rem);
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
   }
 
   .radar-summary {
-    font-size: var(--font-size-sm, 0.875rem);
+    font-size: var(--text-sm, 0.875rem);
     color: var(--text-secondary);
   }
 
@@ -154,7 +154,7 @@
   }
 
   .gap-list h4 {
-    font-size: var(--font-size-sm, 0.875rem);
+    font-size: var(--text-sm, 0.875rem);
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 0.5rem 0;
@@ -172,7 +172,7 @@
   }
 
   .gap-category-name {
-    font-size: var(--font-size-xs, 0.75rem);
+    font-size: var(--text-xs, 0.75rem);
     font-weight: 600;
     color: var(--text-secondary);
     min-width: 100px;
@@ -188,7 +188,7 @@
   .gap-pill {
     display: inline-block;
     padding: 0.15rem 0.5rem;
-    font-size: var(--font-size-xs, 0.75rem);
+    font-size: var(--text-xs, 0.75rem);
     background: var(--color-danger-subtle, rgba(239, 68, 68, 0.1));
     color: var(--color-danger);
     border-radius: 1rem;

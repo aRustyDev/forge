@@ -62,7 +62,7 @@ export function buildEChartsTheme(): object {
     // ── Tooltip ──────────────────────────────────────────────────
     tooltip: {
       backgroundColor: token('--color-surface', '#ffffff'),
-      borderColor: token('--border-primary', '#e5e7eb'),
+      borderColor: token('--color-border', '#e5e7eb'),
       textStyle: {
         color: token('--text-primary', '#1a1a2e'),
         fontFamily: token('--font-sans', 'Inter, system-ui, sans-serif'),
@@ -71,16 +71,16 @@ export function buildEChartsTheme(): object {
 
     // ── Category Axis ────────────────────────────────────────────
     categoryAxis: {
-      axisLine: { lineStyle: { color: token('--border-primary', '#e5e7eb') } },
+      axisLine: { lineStyle: { color: token('--color-border', '#e5e7eb') } },
       axisLabel: { color: token('--text-secondary', '#6b7280') },
-      splitLine: { lineStyle: { color: token('--border-subtle', '#f3f4f6') } },
+      splitLine: { lineStyle: { color: token('--color-surface-sunken', '#f3f4f6') } },
     },
 
     // ── Value Axis ───────────────────────────────────────────────
     valueAxis: {
-      axisLine: { lineStyle: { color: token('--border-primary', '#e5e7eb') } },
+      axisLine: { lineStyle: { color: token('--color-border', '#e5e7eb') } },
       axisLabel: { color: token('--text-secondary', '#6b7280') },
-      splitLine: { lineStyle: { color: token('--border-subtle', '#f3f4f6') } },
+      splitLine: { lineStyle: { color: token('--color-surface-sunken', '#f3f4f6') } },
     },
   }
 }

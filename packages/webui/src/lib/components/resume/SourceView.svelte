@@ -6,8 +6,10 @@
   import { StreamLanguage } from '@codemirror/language'
   import { stex } from '@codemirror/legacy-modes/mode/stex'
   import { markdown } from '@codemirror/lang-markdown'
+  import { marked } from 'marked'
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
+  import { LoadingSpinner } from '$lib/components'
   import OverrideBanner from './OverrideBanner.svelte'
   import type { ResumeDocument } from '@forge/sdk'
 
@@ -64,6 +66,79 @@
   )
 
   let isEditable = $derived(sourceMode === 'edit')
+  let showRenderedView = $derived(sourceMode === 'view')
+
+  // --- Markdown rendering ---
+  let markdownHtml = $derived(
+    sourceFormat === 'markdown' && showRenderedView
+      ? (marked.parse(displayContent, { async: false }) as string)
+      : ''
+  )
+
+  // --- LaTeX PDF rendering (reuses server-side tectonic) ---
+  let pdfDataUrl = $state<string | null>(null)
+  let pdfLoading = $state(false)
+  let pdfError = $state<{ code: string; message: string; details?: string } | null>(null)
+  let pdfCachedForContent = $state<string | null>(null)
+
+  async function compileLatexPreview() {
+    if (pdfLoading) return
+    // Cache hit: if the current content was already compiled, skip
+    if (pdfCachedForContent === displayContent && pdfDataUrl) return
+
+    pdfLoading = true
+    pdfError = null
+    if (pdfDataUrl) {
+      URL.revokeObjectURL(pdfDataUrl)
+      pdfDataUrl = null
+    }
+
+    try {
+      const result = await forge.resumes.pdf(resumeId)
+      if (result.ok) {
+        const blob = result.data as Blob
+        pdfDataUrl = URL.createObjectURL(blob)
+        pdfCachedForContent = displayContent
+      } else {
+        const err = result.error
+        if (err.code === 'LATEX_COMPILE_ERROR') {
+          pdfError = {
+            code: err.code,
+            message: 'LaTeX compilation failed',
+            details:
+              typeof err.details === 'object' && err.details !== null
+                ? (err.details as Record<string, string>).tectonic_stderr ?? err.message
+                : err.message,
+          }
+        } else if (err.code === 'TECTONIC_NOT_AVAILABLE') {
+          pdfError = {
+            code: err.code,
+            message: 'Tectonic is not installed',
+            details: 'Install tectonic for PDF generation: cargo install tectonic',
+          }
+        } else if (err.code === 'TECTONIC_TIMEOUT') {
+          pdfError = {
+            code: err.code,
+            message: 'PDF generation timed out',
+            details: 'The LaTeX compilation took too long (>60s). Simplify the document and try again.',
+          }
+        } else {
+          pdfError = { code: 'UNKNOWN', message: friendlyError(err) }
+        }
+      }
+    } catch {
+      pdfError = { code: 'NETWORK', message: 'Failed to compile LaTeX preview' }
+    } finally {
+      pdfLoading = false
+    }
+  }
+
+  // Trigger LaTeX preview compilation when entering view mode on LaTeX format
+  $effect(() => {
+    if (sourceFormat === 'latex' && showRenderedView) {
+      compileLatexPreview()
+    }
+  })
 
   function getLanguageExtension(format: SourceFormat) {
     return format === 'latex'
@@ -138,6 +213,7 @@
 
   onDestroy(() => {
     destroyEditor()
+    if (pdfDataUrl) URL.revokeObjectURL(pdfDataUrl)
   })
 
   // ---- Actions ----
@@ -417,8 +493,46 @@
     {/if}
   </div>
 
-  <!-- CodeMirror editor -->
-  <div class="editor-wrapper" bind:this={editorContainer}></div>
+  <!-- Content area: rendered preview in view mode, CodeMirror in edit mode -->
+  {#if sourceMode === 'view' && sourceFormat === 'markdown'}
+    <div class="markdown-preview">
+      {@html markdownHtml}
+    </div>
+  {:else if sourceMode === 'view' && sourceFormat === 'latex'}
+    <div class="latex-preview-wrapper">
+      {#if pdfLoading}
+        <div class="preview-status">
+          <LoadingSpinner size="lg" message="Compiling LaTeX..." />
+          <p class="preview-status-sub">Rendering the current LaTeX source via tectonic.</p>
+        </div>
+      {:else if pdfError}
+        <div class="preview-error">
+          <div class="preview-error-header">
+            <span class="preview-error-code">{pdfError.code}</span>
+            <span class="preview-error-message">{pdfError.message}</span>
+          </div>
+          {#if pdfError.details}
+            <pre class="preview-error-details">{pdfError.details}</pre>
+          {/if}
+          <button class="action-btn" onclick={compileLatexPreview}>Retry</button>
+        </div>
+      {:else if pdfDataUrl}
+        <iframe class="latex-preview" src={pdfDataUrl} title="LaTeX preview"></iframe>
+      {:else}
+        <div class="preview-status">
+          <p>No preview yet.</p>
+          <button class="action-btn" onclick={compileLatexPreview}>Compile Preview</button>
+        </div>
+      {/if}
+    </div>
+  {/if}
+
+  <!-- CodeMirror editor (always mounted; hidden in view mode to preserve state) -->
+  <div
+    class="editor-wrapper"
+    class:editor-hidden={sourceMode === 'view'}
+    bind:this={editorContainer}
+  ></div>
 </div>
 
 <style>
@@ -526,7 +640,199 @@
     overflow: auto;
   }
 
+  .editor-wrapper.editor-hidden {
+    display: none;
+  }
+
   .editor-wrapper :global(.cm-editor) {
     height: 100%;
+  }
+
+  /* --- Markdown preview (view mode) --- */
+  .markdown-preview {
+    flex: 1;
+    overflow: auto;
+    padding: var(--space-5) var(--space-6);
+    background: var(--color-surface);
+    color: var(--text-primary);
+    font-size: var(--text-base);
+    line-height: 1.65;
+    max-width: 100%;
+  }
+
+  .markdown-preview :global(h1) {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    margin: 0 0 var(--space-3) 0;
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--text-primary);
+  }
+
+  .markdown-preview :global(h2) {
+    font-size: var(--text-xl);
+    font-weight: var(--font-semibold);
+    margin: var(--space-5) 0 var(--space-2) 0;
+    padding-bottom: var(--space-1);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--text-primary);
+  }
+
+  .markdown-preview :global(h3) {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    margin: var(--space-4) 0 var(--space-2) 0;
+    color: var(--text-primary);
+  }
+
+  .markdown-preview :global(p) {
+    margin: 0 0 var(--space-3) 0;
+    color: var(--text-primary);
+  }
+
+  .markdown-preview :global(ul),
+  .markdown-preview :global(ol) {
+    margin: 0 0 var(--space-3) var(--space-5);
+    padding: 0;
+  }
+
+  .markdown-preview :global(li) {
+    margin-bottom: var(--space-1);
+    color: var(--text-primary);
+  }
+
+  .markdown-preview :global(a) {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
+
+  .markdown-preview :global(a:hover) {
+    text-decoration: none;
+  }
+
+  .markdown-preview :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    padding: 0.1em 0.3em;
+    background: var(--color-surface-raised);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+  }
+
+  .markdown-preview :global(pre) {
+    padding: var(--space-3);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    margin: 0 0 var(--space-3) 0;
+  }
+
+  .markdown-preview :global(pre code) {
+    padding: 0;
+    background: transparent;
+  }
+
+  .markdown-preview :global(blockquote) {
+    margin: 0 0 var(--space-3) 0;
+    padding-left: var(--space-3);
+    border-left: 3px solid var(--color-border);
+    color: var(--text-secondary);
+  }
+
+  .markdown-preview :global(hr) {
+    border: none;
+    border-top: 1px solid var(--color-border);
+    margin: var(--space-4) 0;
+  }
+
+  .markdown-preview :global(strong) {
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+  }
+
+  .markdown-preview :global(em) {
+    font-style: italic;
+  }
+
+  /* --- LaTeX preview (view mode) --- */
+  .latex-preview-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-surface-sunken);
+    overflow: hidden;
+  }
+
+  .latex-preview {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: var(--color-surface);
+  }
+
+  .preview-status {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    text-align: center;
+    color: var(--text-secondary);
+    gap: var(--space-3);
+  }
+
+  .preview-status-sub {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  .preview-error {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--space-5);
+    gap: var(--space-3);
+    background: var(--color-surface);
+    overflow: auto;
+  }
+
+  .preview-error-header {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+
+  .preview-error-code {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    padding: 0.15rem 0.4rem;
+    background: var(--color-danger-subtle);
+    color: var(--color-danger-text);
+    border-radius: var(--radius-sm);
+  }
+
+  .preview-error-message {
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+  }
+
+  .preview-error-details {
+    width: 100%;
+    max-height: 400px;
+    overflow: auto;
+    padding: var(--space-3);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    margin: 0;
   }
 </style>

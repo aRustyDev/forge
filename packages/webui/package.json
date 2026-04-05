@@ -20,11 +20,12 @@
     "@codemirror/view": "^6.40.0",
     "@forge/sdk": "workspace:*",
     "codemirror": "^6.0.2",
+    "echarts": "^5.5.0",
     "graphology": "^0.26.0",
     "graphology-layout-forceatlas2": "^0.10.1",
     "graphology-types": "^0.24.8",
+    "marked": "^17.0.6",
     "sigma": "^3.0.2",
-    "echarts": "^5.5.0",
     "svelte-dnd-action": "^0.9.69"
   },
   "devDependencies": {

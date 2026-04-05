@@ -66,69 +66,69 @@ Every component in the Forge design system, organized by layer. The **Spec Doc**
 
 ### 2.1 Containers
 
-| Component | Spec Doc | Description |
-|-----------|----------|-------------|
-| **Viewport** | Doc 2 | Root `<div class="app">` shell; flex row splitting sidebar from content |
-| **LeftSidebar** | Doc 2 | Fixed-width nav rail with logo, accordion nav groups, and profile button |
-| **RightSidebar** | Doc 2 | Optional collapsible panel for contextual info (graph filters, metadata) |
-| **ContentArea** | Doc 2 | Flex-grow main region; receives page content via `{@render children()}` |
-| **PageWrapper** | Doc 2 | Height-constraining wrapper for AppPage layouts; controls overflow mode |
+| Component | Spec Doc | Status | Description |
+|-----------|----------|--------|-------------|
+| **Viewport** | Doc 2 | Exists | Root `<div class="app">` shell; flex row splitting sidebar from content |
+| **LeftSidebar** | Doc 2 | Exists | Fixed-width nav rail with logo, accordion nav groups, and profile button |
+| **RightSidebar** | Doc 2 | Planned | Optional collapsible panel for contextual info (graph filters, metadata) |
+| **ContentArea** | Doc 2 | Exists | Flex-grow main region; receives page content via `{@render children()}` |
+| **PageWrapper** | Doc 2 | Exists | Height-constraining wrapper for AppPage layouts; controls overflow mode |
 
 ### 2.2 Views
 
-| Component | Spec Doc | Description |
-|-----------|----------|-------------|
-| **KanbanBoard** | Doc 3 | Horizontal column layout with drag-and-drop card reordering |
-| **SplitPanel** | Doc 3 | Master/detail two-pane layout with configurable list width |
-| **ListView / TableView** | Doc 3 | Vertical scrolling list or tabular view of items |
-| **EdgeNodeGraph** | Doc 3 | Sigma.js WebGL graph renderer for relationship visualization |
+| Component | Spec Doc | Status | Description |
+|-----------|----------|--------|-------------|
+| **KanbanBoard** | Doc 5 | Exists | Horizontal column layout with drag-and-drop card reordering |
+| **SplitPanel** | Doc 2 | Exists | Master/detail two-pane layout with configurable list width |
+| **ListView / TableView** | Doc 5 | Planned | Vertical scrolling list or tabular view of items |
+| **EdgeNodeGraph** | Doc 6 | Exists | Sigma.js WebGL graph renderer for relationship visualization |
 
 ### 2.3 Components
 
-| Component | Spec Doc | Description |
-|-----------|----------|-------------|
-| **Header** | Doc 4 | Composite page header area containing title, subtitle, and action buttons |
-| **PageHeader** | Doc 4 | Title + subtitle + actions slot for page-level headings |
-| **ListPanelHeader** | Doc 4 | Title + "New" button for split-panel list headers |
-| **HeaderTitle** | Doc 4 | `<h1>` or `<h2>` with token-based typography |
-| **HeaderSubTitle** | Doc 4 | Muted subheading text below a title |
-| **HeaderButton** | Doc 4 | Action button placed in a header's action area |
-| **HeaderToggleButton** | Doc 4 | Toggle button in header for mode switching (e.g., edit/preview) |
-| **TabbedHeader** | Doc 4 | Header variant with integrated TabBar for sub-navigation |
-| **TabBar** | Doc 4 | Horizontal tab strip with keyboard navigation and ARIA roles |
-| **ViewToggle** | Doc 4 | Segmented toggle for switching between view modes (list/board) |
-| **Entry** | Doc 5 | Base list entry row (clickable, selected state, no padding opinion) |
-| **PaddedEntry** | Doc 5 | Entry variant with standard internal padding and border-bottom |
-| **SectionedList** | Doc 5 | List with grouped sections, each with a section title |
-| **KanbanColumn** | Doc 5 | Single column in a KanbanBoard with header, count badge, and card list |
-| **KanbanCard** | Doc 5 | Card rendered inside a KanbanColumn; domain-specific variants exist |
-| **Modal** | Doc 5 | Overlay dialog with header, scrollable body, and footer actions |
-| **ConfirmDialog** | Doc 5 | Narrow modal variant for destructive confirmation prompts |
-| **EmptyState** | Doc 5 | Centered message with optional CTA for empty data scenarios |
-| **EmptyPanel** | Doc 5 | Empty state specific to split-panel detail pane |
-| **MetricContainer** | Doc 6 | Dashboard card wrapper for a single metric or chart |
-| **MetricCalloutContainer** | Doc 6 | Highlighted metric card with accent border for key stats |
+| Component | Spec Doc | Status | Description |
+|-----------|----------|--------|-------------|
+| **Header** | Doc 3 | Exists | Composite page header area containing title, subtitle, and action buttons |
+| **PageHeader** | Doc 3 | Exists | Title + subtitle + actions slot for page-level headings |
+| **ListPanelHeader** | Doc 3 | Exists | Title + "New" button for split-panel list headers |
+| **HeaderTitle** | Doc 3 | Exists | `<h1>` or `<h2>` with token-based typography |
+| **HeaderSubTitle** | Doc 3 | Exists | Muted subheading text below a title |
+| **HeaderButton** | Doc 3 | Exists | Action button placed in a header's action area |
+| **HeaderToggleButton** | Doc 3 | Exists | Toggle button in header for mode switching (e.g., edit/preview) |
+| **TabbedHeader** | Doc 3 | Exists | Header variant with integrated TabBar for sub-navigation |
+| **TabBar** | Doc 3 | Exists | Horizontal tab strip with keyboard navigation and ARIA roles |
+| **ViewToggle** | Doc 3 | Exists | Segmented toggle for switching between view modes (list/board) |
+| **Entry** | Doc 4 | Exists | Base list entry row (clickable, selected state, no padding opinion) |
+| **PaddedEntry** | Doc 4 | Exists | Entry variant with standard internal padding and border-bottom |
+| **SectionedList** | Doc 4 | Exists | List with grouped sections, each with a section title |
+| **KanbanColumn** | Doc 5 | Exists | Single column in a KanbanBoard with header, count badge, and card list |
+| **KanbanCard** | Doc 5 | Exists | Card rendered inside a KanbanColumn; domain-specific variants exist |
+| **Modal** | Doc 5 | Exists | Overlay dialog with header, scrollable body, and footer actions |
+| **ConfirmDialog** | Doc 5 | Exists | Narrow modal variant for destructive confirmation prompts |
+| **EmptyState** | Doc 4 | Exists | Centered message with optional CTA for empty data scenarios |
+| **EmptyPanel** | Doc 4 | Exists | Empty state specific to split-panel detail pane |
+| **MetricContainer** | Doc 6 | Exists | Dashboard card wrapper for a single metric or chart |
+| **MetricCalloutContainer** | Doc 6 | Exists | Highlighted metric card with accent border for key stats |
 
 ### 2.4 Atoms
 
-| Component | Spec Doc | Description |
-|-----------|----------|-------------|
-| **DataInput** | Doc 4 | Text input field with token-based styling (`.field-input` CSS class) |
-| **TitledDataInput** | Doc 4 | Label + DataInput composed as a `.form-field` |
-| **SearchBar** | Doc 4 | Text input with search icon and debounced value emission |
-| **ListSearchInput** | Doc 4 | Compact search input for list panel filter areas |
-| **DropDownSelect** | Doc 4 | Native `<select>` with token styling (`.field-select` CSS class) |
-| **TagsList** | Doc 4 | Horizontal wrap of `.pill` elements with optional remove action |
-| **LinkButton** | Doc 4 | Text-styled button that navigates or triggers an action |
-| **ToggleButton** | Doc 4 | Two-state button (on/off) with visual active indicator |
-| **StatusBadge** | Doc 4 | Color-coded status indicator using the `.badge` CSS class |
-| **LoadingSpinner** | Doc 4 | Animated spinner for loading states |
-| **Toast / ToastContainer** | Doc 4 | Transient notification system with auto-dismiss |
-| **ConfidenceBar** | Doc 4 | Horizontal bar fill showing a 0-100 confidence value |
-| **DriftBanner** | Doc 4 | Warning banner for data staleness alerts |
-| **RenderViewport** | Doc 6 | Container for rendered resume preview (PDF/LaTeX/Markdown) |
-| **GraphViewport** | Doc 6 | Container for Sigma.js canvas with toolbar and filter panel |
-| **EdgeNodeGraphViewport** | Doc 6 | Full graph viewport with search, filters, and toolbar composed |
+| Component | Spec Doc | Status | Description |
+|-----------|----------|--------|-------------|
+| **DataInput** | Doc 4 | Exists | Text input field with token-based styling (`.field-input` CSS class) |
+| **TitledDataInput** | Doc 4 | Exists | Label + DataInput composed as a `.form-field` |
+| **SearchBar** | Doc 3 | Exists | Text input with search icon and debounced value emission |
+| **ListSearchInput** | Doc 3 | Exists | Compact search input for list panel filter areas |
+| **DropDownSelect** | Doc 3 | Exists | Native `<select>` with token styling (`.field-select` CSS class) |
+| **TagsList** | Doc 4 | Exists | Horizontal wrap of `.pill` elements with optional remove action |
+| **LinkButton** | Doc 4 | Exists | Text-styled button that navigates or triggers an action |
+| **ToggleButton** | Doc 4 | Exists | Two-state button (on/off) with visual active indicator |
+| **StatusBadge** | Doc 4 | Exists | Color-coded status indicator using the `.badge` CSS class |
+| **LoadingSpinner** | Doc 4 | Exists | Animated spinner for loading states |
+| **Toast / ToastContainer** | Doc 4 | Exists | Transient notification system with auto-dismiss |
+| **ConfidenceBar** | Doc 4 | Exists | Horizontal bar fill showing a 0-100 confidence value |
+| **DriftBanner** | Doc 4 | Exists | Warning banner for data staleness alerts |
+| **RenderViewport** | Doc 6 | Planned | Container for rendered resume preview (PDF/LaTeX/Markdown) |
+| **GraphViewport** | Doc 6 | Exists | Container for Sigma.js canvas with toolbar and filter panel |
+| **EdgeNodeGraphViewport** | Doc 6 | Exists | Full graph viewport with search, filters, and toolbar composed |
 
 ---
 
@@ -162,7 +162,7 @@ All tokens are defined in `packages/webui/src/lib/styles/tokens.css` on `:root`,
 --color-sidebar-border
 --color-sidebar-hover-bg
 --color-sidebar-active-bg
---color-sidebar-accent    Active link accent (left border)
+--color-sidebar-accent    Active link accent (left border) -- NOTE: missing from dark mode media query, needs override
 ```
 
 **Text** (5 tokens)
@@ -220,17 +220,17 @@ All tokens are defined in `packages/webui/src/lib/styles/tokens.css` on `:root`,
 --color-chart-1 through --color-chart-8     Data visualization colors
 ```
 
-**Typography** (10 tokens)
+**Typography** (14 tokens)
 ```
---font-sans / --font-mono                   Font families
+--font-sans / --font-mono                   Font families (2)
 --text-xs through --text-2xl                Font size scale (6 steps)
---font-normal / --font-medium / --font-semibold / --font-bold  Weights
---leading-tight / --leading-normal          Line heights
+--font-normal / --font-medium / --font-semibold / --font-bold  Weights (4)
+--leading-tight / --leading-normal          Line heights (2)
 ```
 
-**Spacing** (10 tokens)
+**Spacing** (9 tokens)
 ```
---space-1 through --space-12                4px to 48px scale
+--space-1 through --space-12                4px to 48px scale (9 tokens: 1,2,3,4,5,6,8,10,12 -- no --space-7 or --space-9)
 ```
 
 **Radii** (4 tokens)
@@ -286,6 +286,8 @@ Fallback values in `var()` are acceptable during migration but should be removed
 /* Target state -- no fallback */
 .toggle-btn { color: var(--text-muted); }
 ```
+
+**Known violation:** `ViewToggle` currently uses hardcoded fallback values in several `var()` calls (e.g., `var(--color-border-strong, #d1d5db)`). These should be removed once tokens are confirmed stable.
 
 ### 3.4 Token Naming Convention
 
@@ -508,7 +510,9 @@ interface Props {
 }
 ```
 
-**Convention:** Lowercase `on` + lowercase event name for DOM-like events (`onclick`, `onchange`, `onkeydown`). Lowercase `on` + PascalCase for domain events (`onNew`, `onClose`, `onDelete`).
+**Convention:** Use **camelCase** for custom (non-DOM) callbacks: `onClose`, `onUpdate`, `onNew`, `onDelete`. This is consistent with Svelte convention for non-DOM event handlers. DOM events stay lowercase to match native HTML: `onclick`, `onchange`, `onkeydown`, `oninput`.
+
+**Rule of thumb:** If the browser fires it (click, change, keydown, input, submit), use lowercase. If the component defines it (Close, New, Update, Delete, Drop), use camelCase.
 
 ### 5.5 Snippet Props (Slots)
 
@@ -615,6 +619,8 @@ import TabBar, { type TabItem } from '$lib/components/TabBar.svelte'
 - No type checking on variant/size combinations (a component could enforce valid combos via union props).
 - No centralized rendering logic (each usage is raw HTML).
 - These trade-offs are acceptable given the simplicity of button styling.
+
+**Known exception:** `ListPanelHeader` uses a scoped `.list-panel-header__new-btn` class instead of `.btn .btn-primary .btn-sm`. This is a debt item -- the component should be migrated to use global button classes.
 
 **Status:** Accepted.
 
@@ -724,11 +730,11 @@ docs/
   src/
     design-system/
       index.md                  # This foundation doc (Doc 1)
-      containers.md             # Doc 2: Container components
-      views.md                  # Doc 3: View components
-      components.md             # Doc 4: Component and atom catalog
-      patterns.md               # Doc 5: Composition patterns and recipes
-      data-viz.md               # Doc 6: Charts, graphs, and data visualization
+      layout-containers.md      # Doc 2: Layout & Containers
+      navigation-headers.md     # Doc 3: Navigation & Headers
+      content-patterns.md       # Doc 4: Content Patterns
+      interactive-systems.md    # Doc 5: Interactive Systems
+      data-viz.md               # Doc 6: Data Visualization
       adrs/
         001-component-layers.md
         002-design-tokens.md
@@ -932,11 +938,11 @@ This document is referenced by all other docs in the series:
 
 | Doc | Title | Focus |
 |-----|-------|-------|
-| **Doc 1** | Design System Foundation (this document) | Vocabulary, tokens, architecture, ADRs |
-| **Doc 2** | Container Components | Viewport, sidebars, content area, PageWrapper |
-| **Doc 3** | View Components | KanbanBoard, SplitPanel, ListView, EdgeNodeGraph |
-| **Doc 4** | Component and Atom Catalog | Headers, entries, cards, inputs, badges, modals |
-| **Doc 5** | Composition Patterns | Page recipes, data flow, layout combos |
+| **Doc 1** | Foundation (this document) | Vocabulary, tokens, architecture, ADRs |
+| **Doc 2** | Layout & Containers | Viewport, sidebars, content area, PageWrapper, SplitPanel |
+| **Doc 3** | Navigation & Headers | PageHeader, ListPanelHeader, TabBar, ViewToggle, filter bars |
+| **Doc 4** | Content Patterns | Entry, PaddedEntry, SectionedList, forms, detail panels, EmptyState |
+| **Doc 5** | Interactive Systems | KanbanBoard, modals, drawers, drag-and-drop, dual-context rendering |
 | **Doc 6** | Data Visualization | Charts (ECharts), graphs (Sigma.js), render viewports |
 
 ---
@@ -985,9 +991,9 @@ var(--color-ghost)            var(--color-overlay)
 var(--text-primary)           var(--text-secondary)        var(--text-muted)
 var(--text-faint)             var(--text-inverse)
 
-/* Status */
+/* Status (4 base + variants) */
 var(--color-success)          var(--color-danger)          var(--color-warning)
-var(--color-info)
+var(--color-info)             /* NOTE: --color-info is defined but absent from Appendix quick ref until now */
 
 /* Typography */
 var(--text-xs)   var(--text-sm)   var(--text-base)   var(--text-lg)
@@ -1010,3 +1016,18 @@ var(--shadow-sm)  var(--shadow-md)  var(--shadow-lg)
 /* Z-index */
 var(--z-dropdown)  var(--z-modal)  var(--z-toast)
 ```
+
+---
+
+## Acceptance Criteria
+
+1. All components listed in the taxonomy table (Section 2) use Svelte 5 runes (`$props`, `$state`, `$derived`, `$effect`). No `export let` or `<slot>` in any shared component.
+2. No hardcoded hex/rgb color values appear in `$lib/components/**/*.svelte` `<style>` blocks (enforcement grep passes).
+3. No `!important` declarations appear in component-scoped styles.
+4. No `:global()` selectors appear in component-scoped styles (exceptions must be documented).
+5. All spacing values in component styles use `var(--space-*)` tokens -- no raw `px` or `rem` for padding/margin/gap.
+6. Every component in `$lib/components/` has a corresponding entry in the barrel export (`index.ts`), or is documented as internal-only.
+7. Button elements across all pages use `.btn` + variant classes from `base.css`, not component-scoped button styles (ListPanelHeader exception documented in ADR-003).
+8. The taxonomy table Status column accurately reflects which components exist vs. are planned.
+9. Callback props follow the camelCase convention for custom events (`onClose`, `onNew`) and lowercase for DOM events (`onclick`, `onchange`).
+10. Grep enforcement tests (Section 8.4) are defined and runnable, even if not yet blocking in CI.

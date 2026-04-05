@@ -3,7 +3,7 @@
 **Date:** 2026-04-04
 **Doc:** 6 of 6 (Design System Series)
 **Status:** Reference specification
-**Depends on:** Doc 1 (Foundation), Doc 4 (Atoms -- LoadingSpinner, EmptyState)
+**Depends on:** Doc 1 (Foundation), Doc 4 (Content Patterns -- LoadingSpinner, EmptyState)
 
 This document specifies every data visualization component in the Forge UI: ECharts wrappers, dashboard metric containers, the Sigma.js provenance graph, and the document render viewport. It defines component APIs, chart theming integration, dashboard layout patterns, and loading/error states.
 
@@ -123,15 +123,15 @@ The container is styled with `style:height` and `style:width` bound to props. No
 | **Color palette** `color[0..7]` | `--color-chart-1` through `--color-chart-8` | `#6c63ff`, `#22c55e`, `#f59e0b`, `#ef4444`, `#06b6d4`, `#8b5cf6`, `#ec4899`, `#14b8a6` | Auto-assigned to series in order |
 | **Background** | (none) | `transparent` | Charts float on card backgrounds |
 | **Title text** | `--text-primary` | `#1a1a2e` | |
-| **Title font** | `--font-sans` | `Inter, system-ui, sans-serif` | |
+| **Title font** | `--font-sans` | `Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif` | Must match the actual `--font-sans` token value in tokens.css |
 | **Subtitle text** | `--text-secondary` | `#6b7280` | |
 | **Legend text** | `--text-primary` | `#1a1a2e` | |
 | **Tooltip background** | `--color-surface` | `#ffffff` | |
-| **Tooltip border** | `--border-primary` | `#e5e7eb` | |
+| **Tooltip border** | `--color-border` | `#e5e7eb` | (not `--border-primary` -- that token does not exist) |
 | **Tooltip text** | `--text-primary` | `#1a1a2e` | |
-| **Axis lines** | `--border-primary` | `#e5e7eb` | Category and value axes |
+| **Axis lines** | `--color-border` | `#e5e7eb` | Category and value axes |
 | **Axis labels** | `--text-secondary` | `#6b7280` | |
-| **Grid/split lines** | `--border-subtle` | `#f3f4f6` | |
+| **Grid/split lines** | `--color-surface-sunken` | `#f3f4f6` | (not `--border-subtle` -- that token does not exist; using surface-sunken as the nearest semantic match) |
 
 ### 3.3 Dark Mode
 
@@ -495,10 +495,10 @@ Edges are directed arrows connecting parent to child nodes. Two visual states ex
 
 | Edge State | Color | Width | Meaning |
 |-----------|-------|-------|---------|
-| Matching | `#94a3b8` (slate) | 1px (2px for primary) | Snapshot matches current content |
-| Drifted | `#ef4444` (red) | 1px | Snapshot no longer matches; integrity alert |
+| Matching | `#94a3b8` (slate) | size: 1 (Sigma units, not CSS px) (size: 2 for primary) | Snapshot matches current content |
+| Drifted | `#ef4444` (red) | size: 1 (Sigma units) | Snapshot no longer matches; integrity alert |
 
-Primary source links (the canonical source for a bullet) render at 2px width. Non-primary links render at 1px.
+Primary source links (the canonical source for a bullet) render at size 2 (Sigma units). Non-primary links render at size 1. These are Sigma.js edge size values, not CSS pixels -- Sigma scales them based on zoom level.
 
 ### 6.5 Graph Layout
 
@@ -758,6 +758,8 @@ Both call `sigmaInstance.kill()` which releases WebGL resources.
 
 ## 7. RenderViewport
 
+> **Status:** Design placeholder -- library decisions TBD. The rendering pipeline (remark/rehype vs. markdown-it, highlight.js vs. CodeMirror, pdf.js vs. iframe) has not been finalized. The API and CSS below are target specifications that may change based on library selection.
+
 ### 7.1 Purpose
 
 An embedded renderer for document preview. Supports three output formats: rendered Markdown (GFM), syntax-highlighted LaTeX source, and embedded PDF viewing. Used in the resume editor "Source" tab and future note preview contexts.
@@ -879,22 +881,26 @@ __tests__/component-name-utils.test.ts  # Unit tests for the utility module
 
 ### 8.2 Catalog
 
-| Component | Chart Type | Utility Module | Data Source | Key Features |
-|-----------|-----------|----------------|-------------|--------------|
-| **SkillsSunburst** | Sunburst + Pie | `skills-chart-utils.ts` | Skills + Bullets + Perspectives | Drill-down from category to pie; domain-archetype nested pie |
-| **SkillsTreemap** | Treemap | `treemap-utils.ts` | Skills + Bullets | Category grouping; zoom-to-node; breadcrumb |
-| **BulletsTreemap** | Treemap | `treemap-utils.ts` | Bullets + Perspectives | Grouped by primary source; sized by perspective count |
-| **DomainsTreemap** | Treemap | `treemap-utils.ts` | Perspectives | Single-level; sized by perspective count |
-| **ApplicationGantt** | Custom (renderItem) | `gantt-utils.ts` | Job Descriptions | Horizontal bars; status-colored; dashed right edge for active; Y-axis dataZoom |
-| **RoleChoropleth** | Map | `choropleth-utils.ts` | Job Descriptions + GeoJSON | US state map; continuous indigo visualMap; click-to-select state; remote/unknown badges |
-| **JDSkillRadar** | Radar / Bar (fallback) | `jd-radar-utils.ts` | JD Skills + User Skills + Bullets | Spider chart with fallback to bar when < 3 categories; gap list |
-| **CompensationBulletGraph** | Bar (stacked) | `compensation-utils.ts` | JD salary + Profile expectations | Bullet graph with qualitative bands (markArea) and reference lines (markLine) |
+| Component | Chart Type | Utility Module | Data Source | Self-Wrapping | Key Features |
+|-----------|-----------|----------------|-------------|---------------|--------------|
+| **SkillsSunburst** | Sunburst + Pie | `skills-chart-utils.ts` | Skills + Bullets + Perspectives | Yes (.chart-card) | Drill-down from category to pie; domain-archetype nested pie |
+| **SkillsTreemap** | Treemap | `treemap-utils.ts` | Skills + Bullets | Yes (.chart-card) | Category grouping; zoom-to-node; breadcrumb |
+| **BulletsTreemap** | Treemap | `treemap-utils.ts` | Bullets + Perspectives | Yes (.chart-card) | Grouped by primary source; sized by perspective count |
+| **DomainsTreemap** | Treemap | `treemap-utils.ts` | Perspectives | Yes (.chart-card) | Single-level; sized by perspective count |
+| **ApplicationGantt** | Custom (renderItem) | `gantt-utils.ts` | Job Descriptions | No | Horizontal bars; status-colored; dashed right edge for active; Y-axis dataZoom |
+| **RoleChoropleth** | Map | `choropleth-utils.ts` | Job Descriptions + GeoJSON | No | US state map; continuous indigo visualMap; click-to-select state; remote/unknown badges |
+| **JDSkillRadar** | Radar / Bar (fallback) | `jd-radar-utils.ts` | JD Skills + User Skills + Bullets | No | Spider chart with fallback to bar when < 3 categories; gap list |
+| **CompensationBulletGraph** | Bar (stacked) | `compensation-utils.ts` | JD salary + Profile expectations | No | Bullet graph with qualitative bands (markArea) and reference lines (markLine) |
 
-### 8.3 Data Fetching Rule
+### 8.3 Font Size Divergences
+
+`JDSkillRadar` and `CompensationBulletGraph` use `--font-size-sm`, `--font-size-xs`, and `--font-size-base` in their utility modules, but these tokens do not exist in `tokens.css`. The correct tokens are `--text-sm`, `--text-xs`, and `--text-base`. These divergences should be fixed in the respective `-utils.ts` files. Note that ECharts option builders resolve font sizes as raw pixel values (e.g., `12`, `14`) rather than CSS `var()` references, so the mapping happens in the utility module, not in CSS.
+
+### 8.4 Data Fetching Rule
 
 All chart components use `onMount()` for data fetching, **not** `$effect()`. Rationale: data fetching writes to reactive state (`$state`), which `$effect` would re-track, causing infinite reactive loops. The only exception is `JDSkillRadar`, which uses `$effect` keyed on `jdId` to reload when the selected JD changes -- this is safe because `jdId` is a prop, not internal state.
 
-### 8.4 Utility Module Contract
+### 8.5 Utility Module Contract
 
 Every `*-utils.ts` module exports:
 
@@ -1036,7 +1042,7 @@ chart.showLoading('default', {
 
 - Text is empty (no "Loading..." label inside the chart).
 - Spinner color reads from `--color-primary` token.
-- Mask is semi-transparent white.
+- Mask is semi-transparent white (`rgba(255, 255, 255, 0.7)`). **Dark mode note:** This mask color does not adapt to dark mode. In dark mode, the white mask creates a visible flash. A future fix should resolve `--color-surface` at render time and use it with opacity for a theme-aware mask: `maskColor: resolveTokenColor('--color-surface', '#ffffff') + 'b3'` (where `b3` is ~70% opacity hex).
 
 ### 10.4 Chart Component Loading Pattern
 
@@ -1358,3 +1364,26 @@ The following tokens are not yet defined but would improve theming consistency:
 | Selection dimming color | Hardcoded `#e5e7eb` / `#f3f4f6` | Reuse `--color-border` / `--color-surface-sunken` |
 
 These gaps are documented for future token expansion. The current hardcoded values are acceptable during the migration period (see ADR-004 in Doc 1).
+
+---
+
+## 15. Known Bugs
+
+### 15.1 Pending-Card `href` Bug
+
+On the dashboard, both pending review cards (Pending Bullets and Pending Perspectives) link to the bullets page. The Pending Perspectives card should link to the perspectives page instead. The `href` on the perspectives pending-card should be updated to point to the correct route.
+
+---
+
+## Acceptance Criteria
+
+1. Charts render correctly in both light and dark mode. Theme switching triggers chart re-initialization with fresh token colors.
+2. Loading overlay uses `--color-primary` for spinner color, resolved at render time via `getComputedStyle`.
+3. RenderViewport renders GFM-compatible Markdown with design-token-based typography.
+4. All chart components handle loading, error, and empty states independently with appropriate visual feedback.
+5. EChart SVG renderer is used exclusively -- no Canvas renderer in the bundle.
+6. Chart utility modules are pure functions testable with Vitest in Node (no DOM dependency).
+7. Node colors in the graph use hardcoded hex values documented as a token gap (future: `--color-graph-*` tokens).
+8. Sigma.js is dynamically imported to avoid bundle size impact on non-graph pages.
+9. Dashboard pending-card href bug is documented as a known issue.
+10. Font-size divergences in JDSkillRadar and CompensationBulletGraph utility modules are documented for remediation.

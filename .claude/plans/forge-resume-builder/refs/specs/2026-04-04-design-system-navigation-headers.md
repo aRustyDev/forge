@@ -417,7 +417,8 @@ The TabBar implements the [WAI-ARIA Tabs Pattern](https://www.w3.org/WAI/ARIA/ap
 | `Enter` / `Space` | Activate focused tab (native button behavior) |
 
 **ARIA attributes:**
-- Container: `role="tablist"`, `aria-label="Tabs"`
+- Container: `<div role="tablist">` (not `<nav role="tablist">` -- a `<nav>` with `role="tablist"` is semantically redundant and confusing to screen readers)
+- Container: `aria-label="Tabs"`
 - Each tab: `role="tab"`, `aria-selected={active === t.value}`
 - Roving tabindex: active tab gets `tabindex="0"`, others get `tabindex="-1"`
 
@@ -505,7 +506,30 @@ Segmented toggle for switching between `list` and `board` view modes. Appears in
 - Hover (inactive): `--color-ghost` bg
 - Sizing: `--space-1` vertical padding, `--space-3` horizontal padding, `--text-sm` font
 
-### 6.4 Persistence via viewMode Store
+### 6.4 Accessibility
+
+The ViewToggle should use `role="radiogroup"` with `aria-label="View mode"` on the container, and each button should have `role="radio"` with `aria-checked` reflecting the active state:
+
+```svelte
+<div class="view-toggle" role="radiogroup" aria-label="View mode">
+  <button
+    class="toggle-btn"
+    class:active={mode === 'list'}
+    role="radio"
+    aria-checked={mode === 'list'}
+    onclick={() => onchange('list')}
+  >List</button>
+  <button
+    class="toggle-btn"
+    class:active={mode === 'board'}
+    role="radio"
+    aria-checked={mode === 'board'}
+    onclick={() => onchange('board')}
+  >Board</button>
+</div>
+```
+
+### 6.5 Persistence via viewMode Store
 
 View mode preferences are persisted to `localStorage` via the viewMode store:
 
@@ -545,9 +569,9 @@ export function setViewMode(entity: string, mode: ViewMode) {
 - Stores under the key `forge:viewMode:{entity}` in localStorage
 - Each page/view is responsible for calling `getViewMode` on init and `setViewMode` on change
 
-### 6.5 Integration with DualModePage
+### 6.6 Integration with DualModePage
 
-The `ViewToggle` is the control mechanism for the DualModePage pattern (Doc 1, Section 8.1):
+The `ViewToggle` is the control mechanism for the DualModePage pattern (Doc 2, Section 5.3):
 
 ```svelte
 <PageHeader title="Sources" subtitle="Experience entries and their bullets">
@@ -808,9 +832,35 @@ Filter bars appear in two locations:
 </GenericKanban>
 ```
 
-**Below the header in list/split-panel view:** Rendered directly in the page template between the header and the list content.
+**Below the header in list/split-panel view:** Rendered directly in the page template between the header and the list content:
 
-### 9.6 Filter Bar Token Reference
+```svelte
+<!-- Filter bar placement in list mode (inside SplitPanel list pane) -->
+<SplitPanel {listWidth}>
+  {#snippet list()}
+    <ListPanelHeader title="Sources" onNew={create} />
+    <div style="padding: var(--space-2) var(--space-3);">
+      <SourceFilterBar bind:filters={listFilters} onchange={applyFilters} />
+    </div>
+    <div style="overflow-y: auto; flex: 1;">
+      {#each filteredItems as item}
+        <PaddedEntry onclick={() => select(item.id)}>{item.name}</PaddedEntry>
+      {/each}
+    </div>
+  {/snippet}
+  {#snippet detail()}
+    <!-- detail content -->
+  {/snippet}
+</SplitPanel>
+```
+
+### 9.6 Known Divergences
+
+**JDFilterBar API divergence:** `JDFilterBar` accepts individual filter props (`status`, `search`, `organization`) instead of the standard `filters` object pattern used by other filter bars. This should be migrated to the standard `{ filters, onchange }` pattern for consistency.
+
+**BulletFilterBar 500-item fetch:** `BulletFilterBar` fetches up to 500 items to populate its dropdown options on mount. This is an anti-pattern for large data sets. A better approach would be to accept pre-loaded filter options via props or use a paginated/search-as-you-type combobox.
+
+### 9.7 Filter Bar Token Reference
 
 | Element | Token |
 |---------|-------|
@@ -995,10 +1045,23 @@ ViewToggle
 | PageHeader | Section 2 | Doc 2 (as content within ContentArea) |
 | ListPanelHeader | Section 3 | Doc 5 (SplitPanel composition patterns) |
 | TabBar | Section 5 | Doc 1 (type export example) |
-| ViewToggle | Section 6 | Doc 1 (DualModePage pattern) |
+| ViewToggle | Section 6 | Doc 2 (DualModePage pattern) |
 | ListSearchInput | Section 7 | Doc 5 (list panel filter patterns) |
 | .field-select | Section 8 | Doc 1 (global CSS classes in base.css) |
 | .field-input | Section 8 | Doc 1 (global CSS classes in base.css) |
 | Filter Bars | Section 9 | Doc 5 (GenericKanban filterBar snippet) |
 | PageWrapper | Section 10 | Doc 2 (container specification) |
-| SplitPanel | Section 10 | Doc 3 (view specification) |
+| SplitPanel | Section 10 | Doc 2 (view specification) |
+
+---
+
+## Acceptance Criteria
+
+1. All headers (PageHeader, ListPanelHeader) use design tokens exclusively -- no hardcoded colors, font sizes, or spacing.
+2. TabBar keyboard navigation wraps at boundaries: ArrowRight from last tab focuses first tab, ArrowLeft from first tab focuses last tab.
+3. ViewToggle persists selected mode across page reloads via localStorage.
+4. ViewToggle uses `role="radiogroup"` and `aria-label` for screen reader accessibility.
+5. TabBar uses `<div role="tablist">` (not `<nav role="tablist">`).
+6. Filter bars follow the standard `{ filters, onchange }` API pattern (JDFilterBar divergence documented as known gap).
+7. ListSearchInput supports `bind:value` for two-way reactive filtering.
+8. PageHeader renders a semantic `<header>` element with `<h1>` for correct heading hierarchy.

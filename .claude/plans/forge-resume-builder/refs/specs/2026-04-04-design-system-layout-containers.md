@@ -55,7 +55,7 @@ The outermost `<div class="app">` is a flex row spanning the full viewport.
 
 **Rules:**
 - The `.app` container NEVER has `overflow` set. It is a passthrough flex container.
-- It has exactly two persistent children: `.sidebar` and `.content`. The right sidebar, toast container, and modals are mounted as siblings or portals outside `.app`.
+- It has exactly three persistent children: `.sidebar`, `.content`, and (optionally) `.right-sidebar`. The right sidebar is INSIDE `.app` as a flex sibling (see Section 4.4). Toast container and modals are mounted as portals outside `.app`.
 
 ---
 
@@ -238,8 +238,7 @@ The right sidebar is a sibling of `.content` inside `.app`, not a child of `.con
   display: flex;
   flex-direction: column;
   height: 100vh;
-  position: sticky;
-  top: 0;
+  position: relative;                    /* flex sibling, not sticky -- pushed by flex layout */
   overflow-y: auto;
   animation: slide-in-right 0.2s ease;
 }
@@ -293,7 +292,7 @@ Forge pages fall into three categories based on their scroll and layout behavior
 
 **Use for:** Forms, settings, dashboards, simple lists, template galleries, summaries.
 
-**Current examples:** `/config/profile`, `/config/export`, `/data/notes`, `/data/domains`, `/data/skills`, `/resumes/templates`, `/resumes/summaries`, `/` (dashboard)
+**Current examples:** `/config/profile`, `/config/export`, `/data/notes`, `/data/domains`, `/resumes/templates`, `/resumes/summaries`, `/` (dashboard), `/chain` (note: graph container height is set explicitly to fill available space)
 
 **Template:**
 ```svelte
@@ -325,7 +324,7 @@ Forge pages fall into three categories based on their scroll and layout behavior
 
 **Use for:** Split panels, kanban boards -- any "app-like" interface with fixed header areas and independently scrolling regions.
 
-**Current examples:** `/data/contacts` (SplitPanel), `/data/organizations` (SplitPanel), `/opportunities/organizations` (KanbanBoard), `/opportunities/job-descriptions` (DualModePage wrapping both)
+**Current examples:** `/data/contacts` (SplitPanel), `/data/organizations` (SplitPanel), `/data/skills` (PageWrapper), `/opportunities/organizations` (KanbanBoard)
 
 **Template:**
 ```svelte
@@ -363,7 +362,7 @@ Forge pages fall into three categories based on their scroll and layout behavior
 
 **Use for:** Entities that support both list/detail (SplitPanel) and board (KanbanBoard) views.
 
-**Current examples:** `/opportunities/job-descriptions` (list + board), `/data/bullets` (delegates to a view component that handles both)
+**Current examples:** `/opportunities/job-descriptions` (list + board), `/data/bullets` (delegates to a view component that handles both), `/resumes` (list + board)
 
 **Template:**
 ```svelte
@@ -443,7 +442,7 @@ Does the page need fixed-height regions that scroll independently?
 
 This is the core mechanism. Understand it or nothing else makes sense.
 
-1. `.content` has `padding: 2rem` (which is `var(--space-8)`).
+1. `.content` has `padding: 2rem` (which is `var(--space-8)` -- note: `--space-8: 2rem` per the spacing scale).
 2. FlowPages live happily inside this padding.
 3. AppPages need to fill the full viewport width and height, edge to edge within the content area.
 4. `PageWrapper` applies `margin: calc(-1 * var(--space-8))` -- a negative margin equal to the padding -- which pulls the wrapper's edges outward to align with `.content`'s border box.
@@ -476,7 +475,7 @@ The hardcoded `var(--space-8)` works because `--space-8: 2rem` matches `.content
 
 ## 7. SplitPanel Component
 
-Documented in detail in Doc 3 (Views). Summary here for layout context.
+Documented in detail in Doc 5 (Interactive Systems) for drag-and-drop behavior. Summary here for layout context.
 
 ### 7.1 Structure
 
@@ -765,12 +764,67 @@ When building a new page, follow this checklist:
 
 ---
 
-## 13. Cross-References
+## 13. Known Patterns and Anti-Patterns
+
+### 13.1 Sidebar Double `overflow-y: auto`
+
+Both `.sidebar` and `.nav-list` have `overflow-y: auto`. This is intentional: `.sidebar`'s overflow catches any edge case where the entire sidebar container overflows (e.g., due to dynamic content), while `.nav-list`'s overflow is the primary scroll region for navigation items. In practice, only `.nav-list` scrolls because it has `flex: 1` and its sibling elements (logo, profile button) have fixed sizes.
+
+### 13.2 Self-Wrapping Component Anti-Pattern
+
+`KanbanBoard.svelte` (the legacy version) wraps itself in a `PageWrapper` internally, which means the page-level orchestrator cannot control the wrapper's overflow mode or share the wrapper with sibling components. This violates the principle that containers are composed by pages, not by views.
+
+**Correct pattern:** The page wraps the kanban in `<PageWrapper>`:
+```svelte
+<PageWrapper overflow="hidden">
+  <GenericKanban columns={columns} items={items} onDrop={handleDrop}>
+    ...
+  </GenericKanban>
+</PageWrapper>
+```
+
+**Anti-pattern:** The kanban component wraps itself:
+```svelte
+<!-- KanbanBoard.svelte -- WRONG -->
+<PageWrapper overflow="hidden">
+  <div class="board-columns">...</div>
+</PageWrapper>
+```
+
+`GenericKanban` does NOT have this problem -- it is a pure view component that expects an external `PageWrapper`.
+
+### 13.3 Mobile Layout
+
+**Minimum viewport width:** The sidebar-plus-content layout assumes a minimum viewport of approximately 768px. Below this, the left sidebar should collapse to an icon-only rail or a hamburger-triggered overlay. This behavior is not yet implemented.
+
+**Sidebar collapse on mobile:** When the viewport is below 768px:
+- The left sidebar should hide and be accessible via a hamburger menu button
+- The right sidebar should use fixed overlay mode (already specified in Section 4.3)
+- PageWrapper height calculation may need adjustment for mobile viewports without persistent sidebars
+
+**Status:** Mobile layout is planned but not yet implemented. The current layout is desktop-only.
+
+---
+
+## 14. Cross-References
 
 | Doc | Relevance |
 |-----|-----------|
 | **Doc 1** (Foundation) | Token definitions, CSS architecture rules, component taxonomy |
-| **Doc 3** (Views) | Detailed specs for SplitPanel, KanbanBoard, ListView, EdgeNodeGraph |
-| **Doc 4** (Components) | PageHeader, ListPanelHeader, ViewToggle, TabBar |
-| **Doc 5** (Patterns) | Page composition recipes, data flow wiring |
+| **Doc 3** (Navigation & Headers) | PageHeader, ListPanelHeader, ViewToggle, TabBar |
+| **Doc 4** (Content Patterns) | Entry, PaddedEntry, forms, detail panels |
+| **Doc 5** (Interactive Systems) | KanbanBoard, modals, drawers, drag-and-drop |
 | **Doc 6** (Data Viz) | Graph viewport and chart container layout requirements |
+
+---
+
+## Acceptance Criteria
+
+1. FlowPage shows exactly one scrollbar (`.content`'s `overflow-y: auto`). No double scrollbars appear at any browser height.
+2. AppPage headers (ListPanelHeader, PageHeader inside PageWrapper) never scroll -- they remain pinned above scroll regions.
+3. Right sidebar pushes content narrower on desktop (>1024px) via flex layout, not overlay.
+4. Right sidebar overlays content on mobile (<1024px) with backdrop.
+5. PageWrapper negative margin math correctly cancels `.content`'s 2rem padding at all viewport sizes.
+6. SplitPanel's `.split-list` and `.split-detail` scroll independently -- resizing the browser height does not produce double scrollbars.
+7. All three page types (FlowPage, AppPage, DualModePage) are correctly classified in the route mapping and decision tree.
+8. No `overflow` property is set on `.app` -- it is a passthrough flex container only.

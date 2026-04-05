@@ -3,7 +3,7 @@
 **Date:** 2026-04-04
 **Doc:** 5 of 6 (Design System Series)
 **Status:** Reference specification
-**Depends on:** Doc 1 (Foundation), Doc 3 (View Components), Doc 4 (Component and Atom Catalog)
+**Depends on:** Doc 1 (Foundation), Doc 2 (Layout & Containers), Doc 4 (Content Patterns)
 
 This document specifies the interactive system components: kanban boards, modals, slide-out drawers, drag-and-drop integration, and the contextual inline/modal rendering pattern. These components handle complex user interactions -- focus management, drag gestures, overlay stacking, and keyboard navigation -- and have strict accessibility requirements.
 
@@ -320,7 +320,7 @@ The default `.modal-dialog` in `base.css` uses `max-width: 480px` (between `sm` 
 
 ```svelte
 <!-- Overlay backdrop -->
-<div class="modal-overlay" onclick={onclose} role="presentation">
+<div class="modal-overlay" onclick={onClose} role="presentation">
   <!-- Dialog panel -->
   <div
     class="modal-dialog modal-dialog--{size}"
@@ -332,7 +332,7 @@ The default `.modal-dialog` in `base.css` uses `max-width: 480px` (between `sm` 
     <!-- Header -->
     <div class="modal-header">
       <h3 id="modal-title" class="modal-title">{title}</h3>
-      <button class="btn-icon modal-close" onclick={onclose} aria-label="Close">
+      <button class="btn-icon modal-close" onclick={onClose} aria-label="Close">
         &times;
       </button>
     </div>
@@ -412,7 +412,7 @@ The default `.modal-dialog` in `base.css` uses `max-width: 480px` (between `sm` 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `open` | `boolean` | required | Controls visibility |
-| `onclose` | `() => void` | required | Called on dismiss (Escape, backdrop, close button) |
+| `onClose` | `() => void` | required | Called on dismiss (Escape, backdrop, close button) |
 | `size` | `'sm' \| 'md' \| 'lg' \| 'xl' \| 'full'` | `'md'` | Dialog width |
 | `title` | `string` | `''` | Header title text |
 | `header` | `Snippet` | `undefined` | Custom header content (replaces default title + close) |
@@ -423,9 +423,9 @@ The default `.modal-dialog` in `base.css` uses `max-width: 480px` (between `sm` 
 
 | Trigger | Behavior |
 |---------|----------|
-| Escape key | Calls `onclose`. If a nested dialog is open (e.g., ConfirmDialog inside a detail modal), the innermost dialog handles Escape first. |
-| Backdrop click | Calls `onclose`. Uses `onclick` on overlay + `e.stopPropagation()` on dialog to distinguish. |
-| Close button (X) | Calls `onclose`. |
+| Escape key | Calls `onClose`. If a nested dialog is open (e.g., ConfirmDialog inside a detail modal), the innermost dialog handles Escape first. |
+| Backdrop click | Calls `onClose`. Uses `onclick` on overlay + `e.stopPropagation()` on dialog to distinguish. |
+| Close button (X) | Calls `onClose`. |
 | Programmatic | Set `open = false` from parent. |
 
 **Nested modal priority:** When a `ConfirmDialog` is open inside a detail modal, the confirm dialog's Escape handler fires first. The parent modal checks for open child dialogs before handling Escape:
@@ -435,7 +435,7 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     // If a sub-dialog is open, let it handle Escape
     if (showDeriveDialog || showDeleteConfirm) return
-    onclose()
+    onClose()
   }
 }
 ```
@@ -609,8 +609,8 @@ When on the kanban board view, clicking a card opens a **modal** containing the 
 {#if showBulletDetail && selectedBulletId}
   <BulletDetailModal
     bulletId={selectedBulletId}
-    onclose={() => { showBulletDetail = false; selectedBulletId = null }}
-    onupdate={refreshData}
+    onClose={() => { showBulletDetail = false; selectedBulletId = null }}
+    onUpdate={refreshData}
   />
 {/if}
 ```
@@ -689,7 +689,7 @@ A detail component that supports dual context MUST:
 
 1. **Not hardcode width or height.** Use `flex: 1`, `width: 100%`, or `min-width: 0` so it adapts to its container.
 2. **Not assume scroll behavior.** The parent container (SplitPanel pane or modal-body) provides the scroll context.
-3. **Accept `onclose` as optional.** In inline context, there is no close action. In modal context, the parent passes a close handler.
+3. **Accept `onClose` as optional.** In inline context, there is no close action. In modal context, the parent passes a close handler.
 4. **Manage its own data loading.** Accept an entity ID prop, not the full entity object. This avoids stale data when switching between inline selections.
 
 ### 7.4 ChainViewModal: isModal Pattern
@@ -711,16 +711,18 @@ When `isModal=true`, the component renders its own overlay, backdrop, and close 
 **Layer:** Container
 **Status:** Planned (not yet implemented)
 
-A contextual panel that slides in from the right edge of the viewport. Less disruptive than a modal -- the main content remains visible and partially interactive beneath a subtle backdrop.
+A contextual panel that slides in from the right edge of the viewport. Less disruptive than a modal -- the main content remains visible and partially interactive.
+
+**Layout architecture:** See **Doc 2 (Layout & Containers) Section 4** for the canonical layout architecture. On desktop, the right sidebar is a flex sibling inside `.app` that pushes content narrower. On mobile, it is a fixed overlay with backdrop. This section specifies only the component chrome (header, body, animation, close behavior).
 
 ### 8.1 API
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `open` | `boolean` | required | Controls visibility |
-| `onclose` | `() => void` | required | Called on dismiss |
+| `onClose` | `() => void` | required | Called on dismiss |
 | `title` | `string` | `''` | Header title |
-| `width` | `string` | `'350px'` | Panel width |
+| `width` | `string` | `'320px'` | Panel width (matches `--right-sidebar-width` from Doc 2) |
 | `children` | `Snippet` | required | Panel body content |
 
 ### 8.2 Use Cases
@@ -729,36 +731,11 @@ A contextual panel that slides in from the right edge of the viewport. Less disr
 - **Supplementary metadata:** Additional context that doesn't warrant a full modal
 - **Quick actions:** Batch operations or settings that relate to the current view
 
-### 8.3 Layout CSS
+### 8.3 Component Chrome CSS
+
+The layout positioning (flex sibling vs. fixed overlay) is handled by the root layout per Doc 2 Section 4. This CSS covers only the internal structure:
 
 ```css
-.drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: calc(var(--z-modal) - 1);    /* 9999, below modals */
-  background: rgba(0, 0, 0, 0.15);       /* subtler than modal overlay */
-  transition: opacity 0.2s ease;
-}
-
-.drawer-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 350px;
-  z-index: var(--z-modal);               /* same as modal, above backdrop */
-  background: var(--color-surface);
-  box-shadow: var(--shadow-lg);
-  display: flex;
-  flex-direction: column;
-  transform: translateX(100%);
-  transition: transform 0.25s ease;
-}
-
-.drawer-panel--open {
-  transform: translateX(0);
-}
-
 .drawer-header {
   display: flex;
   align-items: center;
@@ -778,6 +755,33 @@ A contextual panel that slides in from the right edge of the viewport. Less disr
   flex: 1;
   overflow-y: auto;
   padding: var(--space-4) var(--space-5);
+}
+```
+
+**Mobile overlay backdrop** (only on viewports < 1024px):
+
+```css
+@media (max-width: 1024px) {
+  .drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-modal) - 1);
+    background: rgba(0, 0, 0, 0.15);       /* subtler than modal overlay */
+    transition: opacity 0.2s ease;
+  }
+}
+```
+
+**Animation:**
+
+```css
+.right-sidebar {
+  animation: slide-in-right 0.2s ease;
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
 }
 ```
 
@@ -811,20 +815,20 @@ Same as Modal: Escape key, backdrop click, close button. The drawer animates out
 
   let {
     open,
-    onclose,
+    onClose,
     title = '',
-    width = '350px',
+    width = '320px',
     children,
   }: {
     open: boolean
-    onclose: () => void
+    onClose: () => void
     title?: string
     width?: string
     children: Snippet
   } = $props()
 
   function handleKeydown(e: KeyboardEvent) {
-    if (open && e.key === 'Escape') onclose()
+    if (open && e.key === 'Escape') onClose()
   }
 </script>
 
@@ -832,7 +836,7 @@ Same as Modal: Escape key, backdrop click, close button. The drawer animates out
 
 {#if open}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="drawer-backdrop" onclick={onclose} role="presentation"></div>
+  <div class="drawer-backdrop" onclick={onClose} role="presentation"></div>
 {/if}
 
 <div
@@ -844,7 +848,7 @@ Same as Modal: Escape key, backdrop click, close button. The drawer animates out
 >
   <div class="drawer-header">
     <h3 class="drawer-title">{title}</h3>
-    <button class="btn-icon" onclick={onclose} aria-label="Close panel">&times;</button>
+    <button class="btn-icon" onclick={onClose} aria-label="Close panel">&times;</button>
   </div>
   <div class="drawer-body">
     {@render children()}
@@ -897,9 +901,9 @@ Same as Modal: Escape key, backdrop click, close button. The drawer animates out
 
 ### 9.2 Key Requirements
 
-1. **Items must have `id: string`.** If the source data uses a different ID field, map it:
+1. **Items must have `id: string`.** If the source data uses a different ID field (e.g., `uuid`), map it:
    ```typescript
-   const dndItems = items.map(o => ({ ...o, id: o.id }))
+   const dndItems = items.map(o => ({ ...o, id: o.uuid }))
    ```
 
 2. **Local mutable copy.** The `dndzone` action mutates the array during drag. Never pass reactive props directly. Always use a `$state` copy synced via `$effect`.
@@ -972,95 +976,13 @@ An ARIA live region announces drag state changes:
 
 ## 10. Entry and PaddedEntry
 
-**Layer:** Component
-**Status:** Planned (pattern exists inline; to be extracted)
-
-### 10.1 Entry
-
-Base list entry row used in `SplitPanel` list panes. Provides click handling, selected state, and a consistent height target for list items.
-
-```css
-.entry {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  transition: background 0.1s;
-  min-height: 2.5rem;
-}
-
-.entry:hover {
-  background: var(--color-ghost);
-}
-
-.entry--selected {
-  background: var(--color-primary-subtle);
-  border-left: 3px solid var(--color-primary);
-}
-```
-
-**API:**
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `selected` | `boolean` | `false` | Whether this entry is the active selection |
-| `onclick` | `() => void` | `undefined` | Click handler |
-| `children` | `Snippet` | required | Entry content |
-
-### 10.2 PaddedEntry
-
-Entry variant with standard internal padding and a bottom border. Used when entries should visually separate from each other (list items in a split panel).
-
-```css
-.padded-entry {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-}
-```
-
-`PaddedEntry` composes `Entry`:
-
-```svelte
-<Entry {selected} {onclick}>
-  <div class="padded-entry">
-    {@render children()}
-  </div>
-</Entry>
-```
+See **Doc 4 (Content Patterns) Sections 1-2** for Entry and PaddedEntry specifications. These components are content patterns, not interactive systems. Doc 4 is the canonical home for their API, CSS, and usage guidance.
 
 ---
 
 ## 11. SectionedList
 
-**Layer:** Component
-**Status:** Planned
-
-A list with grouped sections, each with a section title. Used in list panels where items are organized by category (e.g., sources grouped by type, bullets grouped by domain).
-
-### 11.1 API
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `sections` | `SectionGroup[]` | required | Array of `{ title: string, items: T[] }` |
-| `entry` | `Snippet<[T]>` | required | Render function for each item |
-| `emptyMessage` | `string` | `'No items'` | Shown when sections array is empty |
-
-### 11.2 CSS
-
-```css
-.sectioned-list__title {
-  font-size: var(--text-xs);
-  font-weight: var(--font-bold);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: var(--space-3) var(--space-4) var(--space-1);
-  background: var(--color-surface-sunken);
-  border-bottom: 1px solid var(--color-border);
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-```
+See **Doc 4 (Content Patterns) Section 3** for SectionedList specification.
 
 ---
 
@@ -1156,10 +1078,10 @@ All interactive overlay components participate in a defined stacking order:
 var(--z-toast)                 10100    Toast notifications (always on top)
 var(--z-modal)                 10000    Modal dialogs, drawer panels
 calc(var(--z-modal) - 1)        9999    Drawer backdrop
-var(--z-dropdown)                100    Dropdowns, combobox popover
-var(--z-popover)                 (gap)  Popovers (planned, between dropdown and modal)
-Column header (sticky)            10    KanbanColumn header
-Page content                       0    Base layer
+var(--z-popover)                  500   Popovers, combobox dropdowns (between z-dropdown and z-modal)
+var(--z-dropdown)                 100   Dropdowns, select popover
+Column header (sticky)             10   KanbanColumn header
+Page content                        0   Base layer
 ```
 
 Nested modals (e.g., ConfirmDialog inside a detail modal) both render at `z-index: var(--z-modal)`. DOM order ensures the later-rendered element stacks on top.
@@ -1208,7 +1130,49 @@ Nested modals (e.g., ConfirmDialog inside a detail modal) both render at `z-inde
 
 ---
 
-## 16. Cross-References
+## 16. Known Gaps and Debt
+
+### 16.1 GenericKanban Missing `overflow-x: auto`
+
+The `.board-columns` container has `overflow-x: auto` in the spec (Section 1.3), but `GenericKanban.svelte` may not consistently apply this when nested inside certain PageWrapper configurations. Verify that horizontal scrolling works when column count exceeds the viewport width.
+
+### 16.2 BulletDetailModal `z-index: 1000`
+
+`BulletDetailModal.svelte` currently uses a hardcoded `z-index: 1000` instead of `var(--z-modal)` (which is `10000`). This is a remediation item -- the component should use the token to participate in the stacking order correctly.
+
+### 16.3 BulletDetailModal `onClose` Required
+
+`BulletDetailModal.onClose` is currently required (the component always renders a close button), which violates ADR-006's guidance that `onClose` should be optional for inline context. This is a known debt item -- the component should be refactored to make `onClose` optional, hiding the close button when not provided.
+
+### 16.4 Focus Management
+
+Focus management (trapping, restoration) as described in Section 4.6 is planned but not yet fully implemented across all modal components. `ConfirmDialog` has basic focus trapping. `BulletDetailModal` and `OrgDetailModal` rely on the browser's default focus behavior. Full focus trap and restoration should be implemented as part of the GenericModal extraction.
+
+### 16.5 GenericModal (Planned)
+
+A `GenericModal.svelte` component should be extracted to `$lib/components/GenericModal.svelte` to provide the standard modal chrome (overlay, dialog, header with close button, scrollable body, optional footer) as a reusable wrapper. Current modals duplicate the overlay/dialog structure inline. This extraction is a prerequisite for consistent focus management and animation.
+
+### 16.6 Reduced-Motion Support
+
+All animations (modal slide-up, drawer slide-in, kanban card flip, column collapse) should respect the user's `prefers-reduced-motion` preference:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay,
+  .modal-dialog,
+  .drawer-panel,
+  .right-sidebar {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+```
+
+This is not yet implemented and should be added to `base.css` or `tokens.css` as a global rule.
+
+---
+
+## 17. Cross-References
 
 | Reference | Location |
 |-----------|----------|
@@ -1218,6 +1182,22 @@ Nested modals (e.g., ConfirmDialog inside a detail modal) both render at `z-inde
 | Button strategy (global CSS classes) | Doc 1, ADR-003 |
 | Dual-context detail components | Doc 1, ADR-006 |
 | Container components (PageWrapper, ContentArea) | Doc 2 |
-| View components (SplitPanel, KanbanBoard layouts) | Doc 3 |
-| Atom catalog (StatusBadge, SearchBar, TagsList) | Doc 4 |
+| Right sidebar layout architecture | Doc 2, Section 4 |
+| Navigation & Headers (PageHeader, ListPanelHeader) | Doc 3 |
+| Content patterns (Entry, PaddedEntry, forms) | Doc 4 |
 | Data visualization (Charts, Graphs) | Doc 6 |
+
+---
+
+## Acceptance Criteria
+
+1. Modal Escape key closes the topmost (innermost) modal only -- parent modal remains open when a nested ConfirmDialog is dismissed.
+2. Kanban drag fires exactly one `onDrop` callback per card drop. No duplicate API calls on column transitions.
+3. Focus returns to the previously focused element after a modal closes.
+4. Drawer slide-in animation uses `transform: translateX` (not `width`) to avoid layout reflow.
+5. All modals use `role="dialog"` and `aria-modal="true"` for screen reader accessibility.
+6. ConfirmDialog focuses the cancel button by default (not the destructive confirm button).
+7. Kanban column collapse toggle activates on Enter/Space for keyboard users.
+8. All custom callback props use camelCase (`onClose`, `onUpdate`, `onDrop`) -- DOM events stay lowercase (`onclick`, `onchange`).
+9. BulletDetailModal z-index is documented as a remediation item until migrated to `var(--z-modal)`.
+10. Reduced-motion media query is planned for all animations.

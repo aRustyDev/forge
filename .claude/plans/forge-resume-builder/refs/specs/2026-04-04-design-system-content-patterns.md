@@ -98,6 +98,7 @@ Entry has **no visual container of its own**. It is a transparent row that lets 
 |------|------|---------|-------------|
 | `onclick` | `() => void` | -- | Click handler |
 | `selected` | `boolean` | `false` | Whether this entry is visually selected |
+| `disabled` | `boolean` | `false` | Dims the entry and disables interaction |
 | `variant` | `'default' \| 'template'` | `'default'` | Visual variant for special card types |
 | `children` | `Snippet` | -- | Content to render inside the card |
 
@@ -121,8 +122,14 @@ Entry has **no visual container of its own**. It is a transparent row that lets 
 
 .padded-entry.selected {
   border-left: 3px solid var(--color-primary);
-  padding-left: calc(var(--space-4) - 2px); /* compensate for thicker border */
+  padding-left: calc(var(--space-4) - 3px); /* compensate for 3px border vs 1px default = 2px difference, but we subtract 3px to account for border-left replacing 1px of the original border */
   background: var(--color-primary-subtle);
+}
+
+.padded-entry.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .padded-entry--template {
@@ -197,6 +204,7 @@ This is the exact pattern PaddedEntry extracts. The component replaces these rep
 | `sections` | `SectionDef[]` | -- | Array of section definitions |
 | `renderItem` | `Snippet<[item: unknown]>` | -- | Snippet to render each item |
 | `emptyMessage` | `string` | `'No items'` | Message when a section is empty |
+| `hideWhenEmpty` | `boolean` | `false` | When true, sections with zero items are not rendered at all |
 
 ```typescript
 export interface SectionDef {
@@ -432,6 +440,18 @@ The global `.pill` class in `base.css` provides the base pill styling. TagsList 
 
 ---
 
+## 4.5 OrgCombobox
+
+**File:** `$lib/components/OrgCombobox.svelte`
+**Layer:** Component
+**Status:** Exists but not yet documented
+
+`OrgCombobox` is a searchable select/create combo box for choosing organizations. It provides type-ahead search with the ability to create new organizations inline. This component is a gap in the current spec -- a full API and CSS specification should be added when the component is stabilized.
+
+**Known usage:** Source editor (organization selection), JD editor (employer selection), resume target employer field.
+
+---
+
 ## 5. DataInput
 
 **Layer:** Atom
@@ -630,7 +650,35 @@ TitledDataInput is implemented as the global `.form-field` + `.field-label` CSS 
 </div>
 ```
 
-### 6.3 Current Naming Variants
+### 6.3 Checkbox / Toggle Input Pattern
+
+For boolean fields, use a horizontal layout with the label beside the checkbox:
+
+```svelte
+<!-- DO THIS: Checkbox in a form-field -->
+<div class="form-field form-field--inline">
+  <label class="field-label" for="is-template">
+    <input id="is-template" type="checkbox" bind:checked={isTemplate} />
+    Mark as template
+  </label>
+</div>
+```
+
+```css
+.form-field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.form-field--inline input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-primary);
+}
+```
+
+### 6.4 Current Naming Variants
 
 The same TitledDataInput pattern exists under multiple class names across the codebase:
 
@@ -654,7 +702,7 @@ The canonical names are `.form-field` (container), `.field-label` (label), `.fie
 ### 7.1 Form Structure
 
 ```svelte
-<form class="entity-form" onsubmit|preventDefault={handleSave}>
+<form class="entity-form" onsubmit={(e) => { e.preventDefault(); handleSave() }}>
   <!-- Vertical stack of form fields -->
   <div class="form-group">
     <div class="form-field">
@@ -808,74 +856,17 @@ When a form has multiple logical sections (e.g., profile's contact info vs salar
 
 ## 8. Detail Component Pattern (ADR-006)
 
-**Layer:** Pattern
-**Purpose:** The same detail/editor component renders identically in two contexts: inline within a SplitPanel detail pane, or inside a Modal overlay accessed from a different page. The component does not know which context it is in.
+The dual-context detail component pattern (inline in SplitPanel vs. modal overlay) is fully specified in **Doc 5 (Interactive Systems) Section 7**. See that section for:
 
-### 8.1 Architecture
+- Architecture diagram and composition rule
+- Implementation patterns for inline and modal contexts
+- Component requirements for dual-context rendering (no hardcoded width, optional `onClose`, flex layout)
+- The `isModal` prop variant (ChainViewModal pattern)
+- Anti-patterns and migration guidance
 
-```
-+page.svelte (SplitPanel context)
-  -> SplitPanel
-    -> {#snippet detail()}
-      -> BulletDetail {bullet, onClose, onUpdate}
+This section exists here as a cross-reference to avoid duplicating the full specification. The detail panel CSS below is the canonical style guide for content patterns within detail components:
 
-+page.svelte (Modal context)
-  -> {#if modalOpen}
-    -> <div class="modal-overlay">
-      -> <div class="modal-dialog">
-        -> BulletDetail {bullet, onClose, onUpdate}
-```
-
-The detail component receives the same props regardless of context. The parent decides the rendering wrapper.
-
-### 8.2 Detail Component Structure
-
-```svelte
-<!-- BulletDetail.svelte (simplified) -->
-<script lang="ts">
-  import type { Bullet } from '@forge/sdk'
-
-  interface Props {
-    bullet: Bullet
-    onClose?: () => void
-    onUpdate?: () => void
-  }
-
-  let { bullet, onClose, onUpdate }: Props = $props()
-</script>
-
-<div class="detail-panel">
-  <!-- Header -->
-  <div class="detail-panel__header">
-    <h3 class="detail-panel__title">{bullet.content}</h3>
-    {#if onClose}
-      <button class="btn-icon detail-panel__close" onclick={onClose}>&times;</button>
-    {/if}
-  </div>
-
-  <!-- Body: form fields -->
-  <div class="detail-panel__body">
-    <div class="form-field">
-      <label class="field-label" for="content">Content</label>
-      <textarea id="content" class="field-input" bind:value={editContent} rows="4" />
-    </div>
-
-    <div class="form-field">
-      <label class="field-label">Skills</label>
-      <TagsList tags={skillNames} onRemove={removeSkill} color="info" />
-    </div>
-    <!-- ... more fields ... -->
-  </div>
-
-  <!-- Footer -->
-  <div class="detail-panel__footer">
-    <button class="btn btn-primary" onclick={save} disabled={saving}>Save</button>
-    <button class="btn btn-danger-ghost" onclick={() => showDeleteConfirm = true}>Delete</button>
-  </div>
-</div>
-```
-
-### 8.3 CSS Specification
+### 8.1 Detail Panel CSS
 
 ```css
 /* Detail panel - scoped in the detail component */
@@ -932,109 +923,6 @@ The detail component receives the same props regardless of context. The parent d
 }
 ```
 
-### 8.4 Inline Context (SplitPanel)
-
-When rendered in a SplitPanel's detail pane, the detail component fills the available space. The SplitPanel's `.split-detail` is `flex: 1; overflow-y: auto`, and the detail component's `.detail-panel` uses `height: 100%` to fill it.
-
-```svelte
-<!-- In a SplitPanel page -->
-<PageWrapper overflow="hidden">
-  <SplitPanel {listWidth}>
-    {#snippet list()}
-      <!-- ... list items ... -->
-    {/snippet}
-    {#snippet detail()}
-      {#if selectedBullet}
-        <BulletDetail
-          bullet={selectedBullet}
-          onUpdate={refreshList}
-        />
-      {:else}
-        <EmptyPanel message="Select a bullet to view details." />
-      {/if}
-    {/snippet}
-  </SplitPanel>
-</PageWrapper>
-```
-
-Note: `onClose` is typically not passed in inline context because the user deselects by clicking another item in the list, not by closing the panel.
-
-### 8.5 Modal Context
-
-When rendered in a modal, the parent wraps the same component in a modal overlay. The modal constrains width and height; the detail component adapts via flex layout.
-
-```svelte
-<!-- In a modal context (e.g., clicked from a kanban card) -->
-{#if modalBulletId}
-  <div
-    class="modal-overlay"
-    onclick={() => modalBulletId = null}
-    role="presentation"
-  >
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div
-      class="modal-dialog"
-      onclick={(e) => e.stopPropagation()}
-      role="dialog"
-      aria-modal="true"
-      style:max-width="640px"
-      style:max-height="85vh"
-    >
-      <BulletDetail
-        bullet={modalBullet}
-        onClose={() => modalBulletId = null}
-        onUpdate={refreshBoard}
-      />
-    </div>
-  </div>
-{/if}
-```
-
-### 8.6 Rules
-
-1. **The detail component MUST NOT set its own width.** Width is controlled by the container (SplitPanel divider or modal max-width).
-2. **The detail component MUST NOT set `position: fixed` or `z-index`.** Overlay stacking is the modal wrapper's job.
-3. **The detail component SHOULD accept `onClose` as optional.** In inline (SplitPanel) context, there is no close button. In modal context, `onClose` dismisses the overlay.
-4. **The detail component MUST use `flex-direction: column; height: 100%`** so it fills its container in both contexts.
-5. **The detail component MUST NOT import or render `modal-overlay`.** That is the parent's responsibility.
-
-### 8.7 Anti-Patterns
-
-```svelte
-<!-- DON'T DO THIS: Detail component with its own modal overlay -->
-<!-- The component should not own the modal wrapper. -->
-<script>
-  // BulletDetail.svelte -- WRONG
-</script>
-<div class="modal-overlay">
-  <div class="modal-dialog">
-    <!-- detail content -->
-  </div>
-</div>
-
-<!-- DON'T DO THIS: Hardcoded width in the detail component -->
-<style>
-  .detail-panel {
-    width: 640px;    /* NO -- the container decides width */
-    max-width: 90%;  /* NO -- the container decides width */
-  }
-</style>
-
-<!-- DON'T DO THIS: Separate components for inline and modal -->
-<!-- ONE component, TWO rendering contexts. -->
-<!-- BulletDetailInline.svelte + BulletDetailModal.svelte --> <!-- WRONG -->
-```
-
-### 8.8 Current State and Migration
-
-Currently, `BulletDetailModal.svelte` combines both the modal overlay and the detail content in a single file. The migration path is:
-
-1. Extract the inner detail content into `BulletDetail.svelte` (the context-free component).
-2. Reduce `BulletDetailModal.svelte` to a thin wrapper that renders `<BulletDetail>` inside a `modal-overlay` + `modal-dialog`.
-3. Reuse `BulletDetail` in any SplitPanel context.
-
-The same pattern applies to `OrgDetailModal`, `ChainViewModal`, and any future detail views.
-
 ---
 
 ## 9. Component Summary Matrix
@@ -1081,14 +969,107 @@ Quick reference for when to use each content pattern.
 
 ---
 
-## 11. Cross-References
+## 11. EmptyState and EmptyPanel
+
+### 11.1 EmptyState
+
+**File:** `$lib/components/EmptyState.svelte`
+**Layer:** Component
+**Purpose:** Centered message with an optional call-to-action button. Used in main content areas when no data exists for a given view or filter.
+
+**When to use:**
+- A list/board/chart has no items to display
+- A search/filter returns zero results
+- A new user has not yet created any entities of a given type
+
+**API:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `title` | `string` | -- | Short heading (e.g., "No bullets yet") |
+| `description` | `string` | `undefined` | Longer explanatory text |
+| `children` | `Snippet` | `undefined` | Optional CTA button or link |
+
+**CSS:**
+
+```css
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12);
+  text-align: center;
+  color: var(--text-muted);
+  gap: var(--space-4);
+}
+
+.empty-state__title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+}
+
+.empty-state__description {
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  max-width: 400px;
+}
+
+.empty-state__cta {
+  margin-top: var(--space-2);
+}
+```
+
+### 11.2 EmptyPanel
+
+**File:** `$lib/components/EmptyPanel.svelte`
+**Layer:** Component
+**Purpose:** Specialized empty state for the detail pane of a SplitPanel. Lighter styling, no CTA. Displays a message like "Select an item to view details."
+
+**When to use:**
+- SplitPanel detail pane when no item is selected
+- Any secondary panel that requires an item selection to show content
+
+**API:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `message` | `string` | `'Select an item to view details'` | The placeholder message |
+
+**CSS:**
+
+```css
+.empty-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+```
+
+### 11.3 When to Use Which
+
+| Scenario | Use |
+|----------|-----|
+| No data exists for the view | `EmptyState` with title + description + optional CTA |
+| Filter/search returns zero results | `EmptyState` with "No results" message (no CTA) |
+| SplitPanel detail pane, nothing selected | `EmptyPanel` |
+| KanbanColumn with zero cards | Inline message (handled by GenericKanbanColumn) |
+
+---
+
+## 12. Cross-References
 
 | Doc | Relevance |
 |-----|-----------|
 | Doc 1 (Foundation) | Token definitions, CSS architecture, ADRs |
-| Doc 2 (Containers) | PageWrapper, ContentArea that host these patterns |
-| Doc 3 (Views) | SplitPanel and KanbanBoard that compose Entry/PaddedEntry |
-| Doc 5 (Composition Patterns) | Page-level recipes combining these content patterns |
+| Doc 2 (Layout & Containers) | PageWrapper, ContentArea that host these patterns |
+| Doc 3 (Navigation & Headers) | PageHeader, ListPanelHeader that sit above Entry lists |
+| Doc 5 (Interactive Systems) | KanbanBoard and modals that compose Entry/PaddedEntry; ADR-006 detail panel pattern |
 | Doc 6 (Data Visualization) | MetricContainer cards that follow PaddedEntry visual language |
 
 ---
@@ -1134,3 +1115,18 @@ var(--space-4)                 /* Header/footer padding */
 var(--space-5)                 /* Body padding */
 var(--text-lg)                 /* Detail panel title size */
 ```
+
+---
+
+## Acceptance Criteria
+
+1. Entry selected state shows primary-colored left border (`--color-primary`) and subtle background (`--color-primary-subtle`).
+2. PaddedEntry has no layout shift on selection -- the `padding-left` adjustment compensates exactly for the wider border.
+3. PaddedEntry disabled state dims to 50% opacity and disables pointer events.
+4. All forms use TitledDataInput pattern (`.form-field` + `.field-label` + `.field-input`) -- no custom label/input styling.
+5. SectionedList renders section headers with uppercase styling and count badges.
+6. TagsList remove buttons have `aria-label="Remove {tagName}"` for accessibility.
+7. Detail components accept `onClose` as optional (present in modal context, absent in inline context).
+8. EmptyPanel renders centered italic text for "nothing selected" states in SplitPanel detail panes.
+9. EmptyState renders centered title + description + optional CTA for empty data views.
+10. No `onsubmit|preventDefault` Svelte 4 syntax -- all forms use `onsubmit={(e) => { e.preventDefault(); ... }}`.

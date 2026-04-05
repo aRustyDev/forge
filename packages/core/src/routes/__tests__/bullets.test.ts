@@ -183,8 +183,11 @@ describe('Bullet Routes', () => {
   test('PATCH /bullets/:id with empty technologies clears all', async () => {
     const sourceId = seedSource(ctx.db)
     const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
-    // Seed initial technologies
-    ctx.db.run('INSERT INTO bullet_technologies (bullet_id, technology) VALUES (?, ?)', [bulletId, 'ts'])
+    // Phase 89: technologies are now backed by bullet_skills + skills.
+    // Seed via the skill + bullet_skills junction.
+    const skillId = crypto.randomUUID()
+    ctx.db.run(`INSERT INTO skills (id, name, category) VALUES (?, ?, 'other')`, [skillId, 'ts'])
+    ctx.db.run(`INSERT INTO bullet_skills (bullet_id, skill_id) VALUES (?, ?)`, [bulletId, skillId])
 
     const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}`, { technologies: [] })
     expect(res.status).toBe(200)

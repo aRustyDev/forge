@@ -75,10 +75,17 @@ export class ReviewService {
       source_title: row.source_title,
     }))
 
-    // Hydrate technologies for each bullet
+    // Hydrate technologies for each bullet.
+    // Phase 89: technologies are now backed by the bullet_skills + skills join.
     for (const bullet of bullets) {
       const techRows = this.db
-        .query('SELECT technology FROM bullet_technologies WHERE bullet_id = ? ORDER BY technology')
+        .query(
+          `SELECT lower(trim(s.name)) AS technology
+           FROM bullet_skills bs
+           JOIN skills s ON s.id = bs.skill_id
+           WHERE bs.bullet_id = ?
+           ORDER BY technology`,
+        )
         .all(bullet.id) as Array<{ technology: string }>
       bullet.technologies = techRows.map((r) => r.technology)
     }

@@ -27,6 +27,8 @@ export type {
   ResumeTemplate,
   TemplateSectionDef,
   Skill,
+  SkillCategory,
+  SkillWithDomains,
   UserNote,
   UserProfile,
   Summary,

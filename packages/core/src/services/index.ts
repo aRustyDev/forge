@@ -26,6 +26,7 @@ import { SummaryService } from './summary-service'
 import { ContactService } from './contact-service'
 import { IndustryService } from './industry-service'
 import { RoleTypeService } from './role-type-service'
+import { SkillService } from './skill-service'
 import { EmbeddingService } from './embedding-service'
 
 export interface Services {
@@ -49,6 +50,7 @@ export interface Services {
   contacts: ContactService
   industries: IndustryService
   roleTypes: RoleTypeService
+  skills: SkillService
   embedding?: EmbeddingService  // Optional: async-initialized, injected post-createServices()
 }
 
@@ -80,6 +82,7 @@ export function createServices(db: Database, dbPath: string): Services {
     contacts: new ContactService(db),
     industries: new IndustryService(db),
     roleTypes: new RoleTypeService(db),
+    skills: new SkillService(db),
   }
 }
 
@@ -104,4 +107,5 @@ export { SummaryService } from './summary-service'
 export { ContactService } from './contact-service'
 export { IndustryService } from './industry-service'
 export { RoleTypeService } from './role-type-service'
+export { SkillService } from './skill-service'
 export { EmbeddingService } from './embedding-service'

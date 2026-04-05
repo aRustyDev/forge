@@ -563,7 +563,7 @@ describe('ResumeService', () => {
     test('addSkill adds skill to section', () => {
       const resumeId = seedResume(db)
       const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
-      const skillId = seedSkill(db, { name: 'Python', category: 'Languages' })
+      const skillId = seedSkill(db, { name: 'Python', category: 'language' })
 
       const result = service.addSkill(resumeId, secId, skillId)
       expect(result.ok).toBe(true)

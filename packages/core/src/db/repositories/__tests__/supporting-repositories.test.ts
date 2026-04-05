@@ -11,7 +11,7 @@
 
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { Database } from 'bun:sqlite'
-import { createTestDb } from '../../__tests__/helpers'
+import { createTestDb, seedDomain } from '../../__tests__/helpers'
 import * as SkillRepo from '../skill-repository'
 import * as PromptLogRepo from '../prompt-log-repository'
 
@@ -39,16 +39,17 @@ describe('SkillRepository', () => {
 
     expect(skill.id).toHaveLength(36)
     expect(skill.name).toBe('TypeScript')
-    expect(skill.category).toBeNull()
+    // Phase 89: category defaults to 'other' when not specified (was nullable pre-migration 031)
+    expect(skill.category).toBe('other')
   })
 
   test('create with category', () => {
     const skill = SkillRepo.create(db, {
       name: 'Kubernetes',
-      category: 'infrastructure',
+      category: 'tool',
     })
 
-    expect(skill.category).toBe('infrastructure')
+    expect(skill.category).toBe('tool')
   })
 
   test('get returns the skill by id', () => {
@@ -79,7 +80,7 @@ describe('SkillRepository', () => {
   test('list with category filter returns only matching skills', () => {
     SkillRepo.create(db, { name: 'TypeScript', category: 'language' })
     SkillRepo.create(db, { name: 'Python', category: 'language' })
-    SkillRepo.create(db, { name: 'Docker', category: 'infrastructure' })
+    SkillRepo.create(db, { name: 'Docker', category: 'tool' })
 
     const languages = SkillRepo.list(db, { category: 'language' })
     expect(languages).toHaveLength(2)
@@ -98,11 +99,11 @@ describe('SkillRepository', () => {
   test('getOrCreate returns existing skill when name already exists (idempotent)', () => {
     const first = SkillRepo.getOrCreate(db, {
       name: 'Terraform',
-      category: 'infrastructure',
+      category: 'tool',
     })
     const second = SkillRepo.getOrCreate(db, {
       name: 'Terraform',
-      category: 'infrastructure',
+      category: 'tool',
     })
 
     expect(second.id).toBe(first.id)
@@ -121,6 +122,167 @@ describe('SkillRepository', () => {
     SkillRepo.del(db, skill.id)
 
     expect(SkillRepo.get(db, skill.id)).toBeNull()
+  })
+
+  // Phase 89: skill ↔ domain junction (migration 031)
+  describe('Skill ↔ Domain junction', () => {
+    test('addDomain links a skill to a domain', () => {
+      const skill = SkillRepo.create(db, { name: 'Terraform', category: 'tool' })
+      const domainId = seedDomain(db, { name: 'cloud_ops' })
+
+      SkillRepo.addDomain(db, skill.id, domainId)
+      const domains = SkillRepo.getDomains(db, skill.id)
+
+      expect(domains).toHaveLength(1)
+      expect(domains[0].id).toBe(domainId)
+      expect(domains[0].name).toBe('cloud_ops')
+    })
+
+    test('addDomain is idempotent', () => {
+      const skill = SkillRepo.create(db, { name: 'Python' })
+      const domainId = seedDomain(db, { name: 'data_sci' })
+
+      SkillRepo.addDomain(db, skill.id, domainId)
+      SkillRepo.addDomain(db, skill.id, domainId)
+      SkillRepo.addDomain(db, skill.id, domainId)
+
+      expect(SkillRepo.getDomains(db, skill.id)).toHaveLength(1)
+    })
+
+    test('removeDomain unlinks a skill from a domain', () => {
+      const skill = SkillRepo.create(db, { name: 'Rust' })
+      const domainId = seedDomain(db, { name: 'systems_test' })
+
+      SkillRepo.addDomain(db, skill.id, domainId)
+      expect(SkillRepo.getDomains(db, skill.id)).toHaveLength(1)
+
+      SkillRepo.removeDomain(db, skill.id, domainId)
+      expect(SkillRepo.getDomains(db, skill.id)).toHaveLength(0)
+    })
+
+    test('removeDomain is a no-op when the link does not exist', () => {
+      const skill = SkillRepo.create(db, { name: 'Go' })
+      const domainId = seedDomain(db, { name: 'no_link_domain' })
+
+      // Should not throw even though no link exists
+      SkillRepo.removeDomain(db, skill.id, domainId)
+      expect(SkillRepo.getDomains(db, skill.id)).toHaveLength(0)
+    })
+
+    test('getDomains returns all linked domains ordered by name', () => {
+      const skill = SkillRepo.create(db, { name: 'K8s' })
+      const d1 = seedDomain(db, { name: 'zulu_ops' })
+      const d2 = seedDomain(db, { name: 'alpha_ops' })
+      const d3 = seedDomain(db, { name: 'mike_ops' })
+
+      SkillRepo.addDomain(db, skill.id, d1)
+      SkillRepo.addDomain(db, skill.id, d2)
+      SkillRepo.addDomain(db, skill.id, d3)
+
+      const domains = SkillRepo.getDomains(db, skill.id)
+      expect(domains.map((d) => d.name)).toEqual(['alpha_ops', 'mike_ops', 'zulu_ops'])
+    })
+
+    test('getWithDomains returns the skill plus its linked domains', () => {
+      const skill = SkillRepo.create(db, { name: 'Docker', category: 'tool' })
+      const domainId = seedDomain(db, { name: 'containers_dom' })
+      SkillRepo.addDomain(db, skill.id, domainId)
+
+      const hydrated = SkillRepo.getWithDomains(db, skill.id)
+
+      expect(hydrated).not.toBeNull()
+      expect(hydrated!.id).toBe(skill.id)
+      expect(hydrated!.name).toBe('Docker')
+      expect(hydrated!.category).toBe('tool')
+      expect(hydrated!.domains).toHaveLength(1)
+      expect(hydrated!.domains[0].id).toBe(domainId)
+    })
+
+    test('getWithDomains returns null for nonexistent skill', () => {
+      expect(SkillRepo.getWithDomains(db, crypto.randomUUID())).toBeNull()
+    })
+
+    test('listWithDomains returns all skills with their domains populated', () => {
+      const s1 = SkillRepo.create(db, { name: 'TypeScript', category: 'language' })
+      const s2 = SkillRepo.create(db, { name: 'Bash', category: 'language' })
+      const d1 = seedDomain(db, { name: 'frontend_lwd' })
+      const d2 = seedDomain(db, { name: 'shell_lwd' })
+
+      SkillRepo.addDomain(db, s1.id, d1)
+      SkillRepo.addDomain(db, s2.id, d2)
+
+      const all = SkillRepo.listWithDomains(db)
+      const bySkillName = new Map(all.map((s) => [s.name, s]))
+
+      expect(bySkillName.get('TypeScript')!.domains).toHaveLength(1)
+      expect(bySkillName.get('TypeScript')!.domains[0].name).toBe('frontend_lwd')
+      expect(bySkillName.get('Bash')!.domains).toHaveLength(1)
+      expect(bySkillName.get('Bash')!.domains[0].name).toBe('shell_lwd')
+    })
+
+    test('list with domain_id filter returns only skills linked to that domain', () => {
+      const s1 = SkillRepo.create(db, { name: 'Postgres', category: 'platform' })
+      const s2 = SkillRepo.create(db, { name: 'Redis', category: 'platform' })
+      const s3 = SkillRepo.create(db, { name: 'Figma', category: 'tool' })
+      const dbDomain = seedDomain(db, { name: 'database_eng' })
+      const designDomain = seedDomain(db, { name: 'design_eng' })
+
+      SkillRepo.addDomain(db, s1.id, dbDomain)
+      SkillRepo.addDomain(db, s2.id, dbDomain)
+      SkillRepo.addDomain(db, s3.id, designDomain)
+
+      const dbSkills = SkillRepo.list(db, { domain_id: dbDomain })
+      expect(dbSkills).toHaveLength(2)
+      expect(dbSkills.map((s) => s.name).sort()).toEqual(['Postgres', 'Redis'])
+
+      const designSkills = SkillRepo.list(db, { domain_id: designDomain })
+      expect(designSkills).toHaveLength(1)
+      expect(designSkills[0].name).toBe('Figma')
+    })
+
+    test('list combines category and domain_id filters', () => {
+      const s1 = SkillRepo.create(db, { name: 'Ruby', category: 'language' })
+      const s2 = SkillRepo.create(db, { name: 'Kafka', category: 'platform' })
+      const s3 = SkillRepo.create(db, { name: 'SAS', category: 'language' })
+      const domainId = seedDomain(db, { name: 'combined_dom' })
+
+      SkillRepo.addDomain(db, s1.id, domainId)
+      SkillRepo.addDomain(db, s2.id, domainId)
+      SkillRepo.addDomain(db, s3.id, domainId)
+
+      const languagesInDomain = SkillRepo.list(db, {
+        category: 'language',
+        domain_id: domainId,
+      })
+      expect(languagesInDomain).toHaveLength(2)
+      expect(languagesInDomain.map((s) => s.name).sort()).toEqual(['Ruby', 'SAS'])
+    })
+
+    test('deleting a skill cascades and removes its domain links', () => {
+      const skill = SkillRepo.create(db, { name: 'Ephemeral' })
+      const domainId = seedDomain(db, { name: 'ephemeral_dom' })
+      SkillRepo.addDomain(db, skill.id, domainId)
+
+      expect(
+        (db.query('SELECT COUNT(*) AS c FROM skill_domains WHERE skill_id = ?').get(skill.id) as { c: number }).c,
+      ).toBe(1)
+
+      SkillRepo.del(db, skill.id)
+
+      expect(
+        (db.query('SELECT COUNT(*) AS c FROM skill_domains WHERE skill_id = ?').get(skill.id) as { c: number }).c,
+      ).toBe(0)
+    })
+
+    test('findByCategory returns only skills with the given category', () => {
+      SkillRepo.create(db, { name: 'C', category: 'language' })
+      SkillRepo.create(db, { name: 'Cpp', category: 'language' })
+      SkillRepo.create(db, { name: 'Scrum', category: 'methodology' })
+
+      const langs = SkillRepo.findByCategory(db, 'language')
+      expect(langs).toHaveLength(2)
+      expect(langs.every((s) => s.category === 'language')).toBe(true)
+    })
   })
 })
 

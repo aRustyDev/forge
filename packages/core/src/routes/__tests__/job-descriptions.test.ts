@@ -260,8 +260,8 @@ describe('Job Description Routes', () => {
     const jdId = seedJobDescription(ctx.db)
     const skillId1 = crypto.randomUUID()
     const skillId2 = crypto.randomUUID()
-    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId1, 'Terraform', 'devops'])
-    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId2, 'Kubernetes', 'devops'])
+    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId1, 'Terraform', 'methodology'])
+    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId2, 'Kubernetes', 'methodology'])
     ctx.db.run("INSERT INTO job_description_skills (job_description_id, skill_id) VALUES (?, ?)", [jdId, skillId1])
     ctx.db.run("INSERT INTO job_description_skills (job_description_id, skill_id) VALUES (?, ?)", [jdId, skillId2])
 
@@ -365,7 +365,7 @@ describe('Job Description Routes', () => {
   test('Deleting a JD cascades to job_description_skills', async () => {
     const jdId = seedJobDescription(ctx.db)
     const skillId = crypto.randomUUID()
-    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId, 'AWS', 'cloud'])
+    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId, 'AWS', 'platform'])
     ctx.db.run("INSERT INTO job_description_skills (job_description_id, skill_id) VALUES (?, ?)", [jdId, skillId])
 
     await apiRequest(ctx.app, 'DELETE', `/job-descriptions/${jdId}`)
@@ -377,7 +377,7 @@ describe('Job Description Routes', () => {
   test('Deleting a skill cascades to job_description_skills', async () => {
     const jdId = seedJobDescription(ctx.db)
     const skillId = crypto.randomUUID()
-    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId, 'Docker', 'devops'])
+    ctx.db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [skillId, 'Docker', 'methodology'])
     ctx.db.run("INSERT INTO job_description_skills (job_description_id, skill_id) VALUES (?, ?)", [jdId, skillId])
 
     ctx.db.run('DELETE FROM skills WHERE id = ?', [skillId])

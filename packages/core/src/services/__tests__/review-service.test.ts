@@ -85,14 +85,13 @@ describe('ReviewService', () => {
       'INSERT INTO bullet_sources (bullet_id, source_id, is_primary) VALUES (?, ?, 1)',
       [bulletId, srcId],
     )
-    db.run(
-      'INSERT INTO bullet_technologies (bullet_id, technology) VALUES (?, ?)',
-      [bulletId, 'typescript'],
-    )
-    db.run(
-      'INSERT INTO bullet_technologies (bullet_id, technology) VALUES (?, ?)',
-      [bulletId, 'aws'],
-    )
+    // Phase 89: technologies are now backed by bullet_skills + skills junction.
+    const tsId = crypto.randomUUID()
+    const awsId = crypto.randomUUID()
+    db.run(`INSERT INTO skills (id, name, category) VALUES (?, 'typescript', 'other')`, [tsId])
+    db.run(`INSERT INTO skills (id, name, category) VALUES (?, 'aws', 'other')`, [awsId])
+    db.run('INSERT INTO bullet_skills (bullet_id, skill_id) VALUES (?, ?)', [bulletId, tsId])
+    db.run('INSERT INTO bullet_skills (bullet_id, skill_id) VALUES (?, ?)', [bulletId, awsId])
 
     const result = service.getPendingReview()
     expect(result.ok).toBe(true)

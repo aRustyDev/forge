@@ -105,9 +105,13 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
       let skill = db.query('SELECT * FROM skills WHERE name = ? COLLATE NOCASE').get(name) as any
       if (!skill) {
         const id = crypto.randomUUID()
+        // Category is a CHECK enum (Phase 89) — only allow valid values; fall back to 'other'.
+        const validCategories = ['language', 'framework', 'platform', 'tool', 'library',
+          'methodology', 'protocol', 'concept', 'soft_skill', 'other']
+        const category = validCategories.includes(body.category) ? body.category : 'other'
         skill = db.query(
           `INSERT INTO skills (id, name, category) VALUES (?, ?, ?) RETURNING *`
-        ).get(id, name, body.category ?? 'general')
+        ).get(id, name, category)
       }
       db.run('INSERT OR IGNORE INTO job_description_skills (job_description_id, skill_id) VALUES (?, ?)',
         [jdId, skill.id])

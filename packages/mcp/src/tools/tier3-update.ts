@@ -15,12 +15,10 @@ export function registerTier3UpdateTools(
   registerTool(
     server,
     'forge_update_bullet',
-    'Edit bullet content, metrics, domain, or notes.',
+    'Edit bullet content, metrics, domain, or notes. To change the skills/technologies linked to a bullet, use the bullet-skills endpoints (add/remove skill) rather than passing them here — Phase 89 absorbed technologies into the unified skills taxonomy.',
     {
       bullet_id: z.string().describe('Bullet ID'),
       content: z.string().optional().describe('Updated bullet text'),
-      technologies: z.array(z.string()).optional()
-        .describe('Technology tags (e.g., ["Python", "Kubernetes", "AWS"])'),
       metrics: z.string().nullable().optional()
         .describe('Quantifiable metrics (set null to clear)'),
       domain: z.string().nullable().optional()

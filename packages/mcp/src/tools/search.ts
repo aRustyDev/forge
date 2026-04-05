@@ -35,7 +35,7 @@ export function registerSearchTools(server: McpServer, sdk: ForgeClient): void {
   registerTool(
     server,
     'forge_search_bullets',
-    'Search bullet inventory by domain, status, source, content. Each bullet includes sources[] and technologies[].',
+    'Search bullet inventory by domain, status, source, content. Each bullet includes sources[] and technologies[] (a read-only projection of linked skill names since Phase 89 — use bullet-skills endpoints to mutate).',
     {
       domain: z.string().optional()
         .describe('Filter by domain slug (e.g., "infrastructure", "security")'),

@@ -196,7 +196,7 @@ export function seedResumeSkill(db: Database, sectionId: string, skillId: string
   return id
 }
 
-/** Seed a test skill and return its ID */
+/** Seed a test skill and return its ID. Category defaults to 'language' (Phase 89 enum). */
 export function seedSkill(db: Database, opts: {
   name?: string
   category?: string | null
@@ -205,7 +205,7 @@ export function seedSkill(db: Database, opts: {
   db.run(
     `INSERT INTO skills (id, name, category)
      VALUES (?, ?, ?)`,
-    [id, opts.name ?? 'Python', opts.category ?? 'Languages']
+    [id, opts.name ?? 'Python', opts.category ?? 'language']
   )
   return id
 }

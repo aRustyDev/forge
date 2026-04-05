@@ -161,7 +161,7 @@ describe("runMigrations", () => {
     expect(rows[29].name).toBe("032_industries_role_types");
     expect(rows[30].name).toBe("033_summary_structured_fields");
     expect(rows[31].name).toBe("034_resume_entry_source_id");
-    expect(rows[32].name).toBe("034_resume_tagline_engine");
+    expect(rows[32].name).toBe("035_resume_tagline_engine");
   });
 
   test("already up-to-date: running again is a no-op with no errors", () => {

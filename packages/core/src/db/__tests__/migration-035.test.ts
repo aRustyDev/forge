@@ -1,5 +1,5 @@
 /**
- * Tests for Migration 034: resume tagline engine
+ * Tests for Migration 035: resume tagline engine
  *
  * Verifies that the migration:
  * 1. Adds generated_tagline and tagline_override columns to resumes
@@ -23,7 +23,7 @@ const MIGRATIONS_DIR = resolve(import.meta.dir, '../migrations')
 /**
  * Apply migrations up to (and including) a named one, skipping any already
  * recorded in _migrations. Mirrors migration-031.test.ts's helper so we can
- * set up pre-034 state, seed data, then apply just 034.
+ * set up pre-035 state, seed data, then apply just 035.
  */
 function applyMigrationsUpTo(db: Database, upTo: string): void {
   const files = readdirSync(MIGRATIONS_DIR)
@@ -59,7 +59,7 @@ function applyMigrationsUpTo(db: Database, upTo: string): void {
   }
 }
 
-describe('Migration 034: resume tagline engine', () => {
+describe('Migration 035: resume tagline engine', () => {
   let db: Database
 
   afterEach(() => {
@@ -71,7 +71,7 @@ describe('Migration 034: resume tagline engine', () => {
     runMigrations(db, MIGRATIONS_DIR)
 
     const mig = db
-      .query("SELECT name FROM _migrations WHERE name = '034_resume_tagline_engine'")
+      .query("SELECT name FROM _migrations WHERE name = '035_resume_tagline_engine'")
       .get() as { name: string } | null
     expect(mig).not.toBeNull()
   })
@@ -137,7 +137,7 @@ describe('Migration 034: resume tagline engine', () => {
   test('data migration: summary.tagline copied to resume.tagline_override', () => {
     db = getDatabase(':memory:')
     // Apply all migrations UP TO 033, then seed linked summary + resume with
-    // tagline, then apply 034 and verify the copy.
+    // tagline, then apply 035 and verify the copy.
     applyMigrationsUpTo(db, '033_summary_structured_fields')
 
     const summaryId = crypto.randomUUID()
@@ -153,7 +153,7 @@ describe('Migration 034: resume tagline engine', () => {
       [resumeId, summaryId],
     )
 
-    applyMigrationsUpTo(db, '034_resume_tagline_engine')
+    applyMigrationsUpTo(db, '035_resume_tagline_engine')
 
     const row = db
       .query('SELECT tagline_override, generated_tagline FROM resumes WHERE id = ?')
@@ -180,7 +180,7 @@ describe('Migration 034: resume tagline engine', () => {
       [resumeId, summaryId],
     )
 
-    applyMigrationsUpTo(db, '034_resume_tagline_engine')
+    applyMigrationsUpTo(db, '035_resume_tagline_engine')
 
     const row = db
       .query('SELECT tagline_override FROM resumes WHERE id = ?')
@@ -204,7 +204,7 @@ describe('Migration 034: resume tagline engine', () => {
       [resumeId, summaryId],
     )
 
-    applyMigrationsUpTo(db, '034_resume_tagline_engine')
+    applyMigrationsUpTo(db, '035_resume_tagline_engine')
 
     const row = db
       .query('SELECT tagline_override FROM resumes WHERE id = ?')
@@ -223,7 +223,7 @@ describe('Migration 034: resume tagline engine', () => {
       [resumeId],
     )
 
-    applyMigrationsUpTo(db, '034_resume_tagline_engine')
+    applyMigrationsUpTo(db, '035_resume_tagline_engine')
 
     const row = db
       .query('SELECT tagline_override, generated_tagline FROM resumes WHERE id = ?')
@@ -255,7 +255,7 @@ describe('Migration 034: resume tagline engine', () => {
       [r2, summaryId],
     )
 
-    applyMigrationsUpTo(db, '034_resume_tagline_engine')
+    applyMigrationsUpTo(db, '035_resume_tagline_engine')
 
     const row1 = db
       .query('SELECT tagline_override FROM resumes WHERE id = ?')
@@ -278,7 +278,7 @@ describe('Migration 034: resume tagline engine', () => {
       [summaryId],
     )
 
-    applyMigrationsUpTo(db, '034_resume_tagline_engine')
+    applyMigrationsUpTo(db, '035_resume_tagline_engine')
 
     const row = db
       .query('SELECT * FROM summaries WHERE id = ?')

@@ -33,6 +33,8 @@ import { campusRoutes } from './campuses'
 import { contactRoutes } from './contacts'
 import { industryRoutes } from './industries'
 import { roleTypeRoutes } from './role-types'
+import { credentialRoutes } from './credentials'
+import { certificationRoutes } from './certifications'
 import { alignmentRoutes } from './alignment'
 
 /** Map error codes to HTTP status codes. */
@@ -122,6 +124,8 @@ export function createApp(services: Services, db: Database) {
   app.route('/', contactRoutes(services, db))
   app.route('/', industryRoutes(services))
   app.route('/', roleTypeRoutes(services))
+  app.route('/', credentialRoutes(services))
+  app.route('/', certificationRoutes(services))
   app.route('/', alignmentRoutes(services))
 
   // ── Global error handler ───────────────────────────────────────────

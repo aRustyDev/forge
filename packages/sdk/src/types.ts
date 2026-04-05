@@ -175,6 +175,131 @@ export interface SourceEducation {
 // the `credentials` entity's type-specific details JSON in Phase 85.
 
 // ---------------------------------------------------------------------------
+// Qualifications — credentials + certifications (Phase 84-85)
+// ---------------------------------------------------------------------------
+
+/** Valid credential type discriminator values. */
+export type CredentialType =
+  | 'clearance'
+  | 'drivers_license'
+  | 'bar_admission'
+  | 'medical_license'
+
+/** Valid credential status values. */
+export type CredentialStatus = 'active' | 'inactive' | 'expired'
+
+/** Clearance-specific details stored in credentials.details JSON. */
+export interface ClearanceDetails {
+  level: ClearanceLevel
+  polygraph: ClearancePolygraph | null
+  clearance_type: ClearanceType
+  access_programs: ClearanceAccessProgram[]
+}
+
+/** Driver's license details stored in credentials.details JSON. */
+export interface DriversLicenseDetails {
+  class: string
+  state: string
+  endorsements: string[]
+}
+
+/** Bar admission details stored in credentials.details JSON. */
+export interface BarAdmissionDetails {
+  jurisdiction: string
+  bar_number: string | null
+}
+
+/** Medical license details stored in credentials.details JSON. */
+export interface MedicalLicenseDetails {
+  license_type: string
+  state: string
+  license_number: string | null
+}
+
+/** Union of all credential detail types. */
+export type CredentialDetails =
+  | ClearanceDetails
+  | DriversLicenseDetails
+  | BarAdmissionDetails
+  | MedicalLicenseDetails
+
+/** A credential entity (clearance, license, admission). */
+export interface Credential {
+  id: string
+  credential_type: CredentialType
+  label: string
+  status: CredentialStatus
+  organization_id: string | null
+  details: CredentialDetails
+  issued_date: string | null
+  expiry_date: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Input for creating a credential. */
+export interface CreateCredential {
+  credential_type: CredentialType
+  label: string
+  status?: CredentialStatus
+  organization_id?: string
+  details: CredentialDetails
+  issued_date?: string
+  expiry_date?: string
+}
+
+/** Input for updating a credential. */
+export interface UpdateCredential {
+  label?: string
+  status?: CredentialStatus
+  organization_id?: string | null
+  details?: Partial<CredentialDetails>
+  issued_date?: string | null
+  expiry_date?: string | null
+}
+
+/** A certification entity. */
+export interface Certification {
+  id: string
+  name: string
+  issuer: string | null
+  date_earned: string | null
+  expiry_date: string | null
+  credential_id: string | null
+  credential_url: string | null
+  education_source_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Input for creating a certification. */
+export interface CreateCertification {
+  name: string
+  issuer?: string
+  date_earned?: string
+  expiry_date?: string
+  credential_id?: string
+  credential_url?: string
+  education_source_id?: string
+}
+
+/** Input for updating a certification. */
+export interface UpdateCertification {
+  name?: string
+  issuer?: string | null
+  date_earned?: string | null
+  expiry_date?: string | null
+  credential_id?: string | null
+  credential_url?: string | null
+  education_source_id?: string | null
+}
+
+/** A certification with its linked skills populated. */
+export interface CertificationWithSkills extends Certification {
+  skills: Skill[]
+}
+
+// ---------------------------------------------------------------------------
 // Status types
 // ---------------------------------------------------------------------------
 

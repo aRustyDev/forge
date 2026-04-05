@@ -5,6 +5,7 @@
   import { openChainView } from '$lib/stores/chain-view.svelte'
   import HeaderEditor from './HeaderEditor.svelte'
   import AddSectionDropdown from './AddSectionDropdown.svelte'
+  import ResumeSummaryCard from './ResumeSummaryCard.svelte'
   import type {
     ResumeDocument,
     ExperienceGroup,
@@ -29,6 +30,7 @@
     onRenameSection,
     onMoveSection,
     onRemoveEntry,
+    onUpdateSummary,
   }: {
     ir: ResumeDocument
     resumeId: string
@@ -46,6 +48,10 @@
      * a successful removal (via its own loadIR + onUpdate flow).
      */
     onRemoveEntry?: (entryId: string) => Promise<void>
+    onUpdateSummary?: (update: {
+      summary_id?: string | null
+      summary_override?: string | null
+    }) => Promise<void>
   } = $props()
 
   // Inline editing
@@ -211,6 +217,11 @@
 <div class="dnd-view">
   <!-- Header -->
   <HeaderEditor header={ir.header} {resumeId} onSave={onUpdate} />
+
+  <!-- Summary Card -->
+  {#if onUpdateSummary}
+    <ResumeSummaryCard summary={ir.summary} {onUpdateSummary} />
+  {/if}
 
   <!-- Sections -->
   {#each sortedSections as section, i (section.id)}

@@ -1078,6 +1078,15 @@
                     await removeEntry(entryId)
                     if (selectedResumeId) await loadIR(selectedResumeId)
                   }}
+                  onUpdateSummary={async (update) => {
+                    if (!selectedResumeId) return
+                    const result = await forge.resumes.update(selectedResumeId, update)
+                    if (result.ok) {
+                      await loadIR(selectedResumeId)
+                    } else {
+                      addToast({ message: friendlyError(result.error), type: 'error' })
+                    }
+                  }}
                 />
               {:else if activeViewTab === 'preview'}
                 <PdfView resumeId={selectedResumeId} {ir} />

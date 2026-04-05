@@ -7,12 +7,20 @@
     resumeId,
     sectionId,
     sourceType,
+    educationType,
     onClose,
     onUpdate,
   }: {
     resumeId: string
     sectionId: string
     sourceType: string
+    /**
+     * Optional subtype filter for education sources. When `sourceType` is
+     * `'education'`, pass `'degree'` to show formal degrees only or
+     * `'certificate'` to show certifications only. Ignored for other
+     * source types.
+     */
+    educationType?: string
     onClose: () => void
     onUpdate: () => Promise<void>
   } = $props()
@@ -21,14 +29,23 @@
   let loading = $state(true)
   let adding = $state<string | null>(null)
 
+  // Re-track sourceType/educationType so the picker reloads when the parent
+  // swaps filters (e.g., toggling between degree and certificate).
   $effect(() => {
+    void sourceType
+    void educationType
     loadSources()
   })
 
   async function loadSources() {
     loading = true
     try {
-      const result = await forge.sources.list({ source_type: sourceType, status: 'approved' })
+      const filter: { source_type: string; status: string; education_type?: string } = {
+        source_type: sourceType,
+        status: 'approved',
+      }
+      if (educationType) filter.education_type = educationType
+      const result = await forge.sources.list(filter)
       if (result.ok) {
         sources = result.data
       }
@@ -38,6 +55,16 @@
       loading = false
     }
   }
+
+  const pickerLabel = $derived(
+    sourceType === 'education'
+      ? (educationType === 'certificate' ? 'Certification' : 'Degree')
+      : sourceType === 'project'
+        ? 'Project'
+        : sourceType === 'clearance'
+          ? 'Clearance'
+          : sourceType,
+  )
 
   async function addSource(source: Source) {
     adding = source.id
@@ -87,14 +114,14 @@
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div class="source-picker-modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Select Source">
     <div class="picker-header">
-      <h3>Select {sourceType === 'education' ? 'Education' : sourceType === 'project' ? 'Project' : 'Clearance'}</h3>
+      <h3>Select {pickerLabel}</h3>
       <button class="btn btn-sm btn-ghost" onclick={onClose}>Close</button>
     </div>
 
     {#if loading}
       <p class="loading-text">Loading sources...</p>
     {:else if sources.length === 0}
-      <p class="empty-text">No {sourceType} sources found.</p>
+      <p class="empty-text">No {pickerLabel.toLowerCase()} sources found.</p>
     {:else}
       <div class="source-list">
         {#each sources as source (source.id)}

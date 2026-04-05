@@ -57,6 +57,7 @@ export function sourceRoutes(services: Services, db: Database) {
     if (c.req.query('source_type')) filter.source_type = c.req.query('source_type')!
     if (c.req.query('organization_id')) filter.organization_id = c.req.query('organization_id')!
     if (c.req.query('status')) filter.status = c.req.query('status')!
+    if (c.req.query('education_type')) filter.education_type = c.req.query('education_type')!
 
     const result = services.sources.listSources(filter, offset, limit)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))

@@ -28,6 +28,13 @@ export interface SourceFilter {
   source_type?: SourceType
   organization_id?: string
   status?: SourceStatus
+  /**
+   * Filter education-type sources by their extension subtype.
+   * Values match `source_education.education_type` (e.g. `'degree'`,
+   * `'certificate'`, `'course'`). Only meaningful when combined with
+   * `source_type: 'education'`; on other source types it is ignored.
+   */
+  education_type?: string
 }
 
 /** Paginated list result. */
@@ -320,7 +327,7 @@ export function list(
 ): SourceListResult {
   const conditions: string[] = []
   const params: unknown[] = []
-  let joinClause = ''
+  const joinClauses: string[] = []
 
   if (filter.source_type !== undefined) {
     conditions.push('s.source_type = ?')
@@ -331,12 +338,22 @@ export function list(
     params.push(filter.status)
   }
   if (filter.organization_id !== undefined) {
-    joinClause = `LEFT JOIN source_roles sr ON s.id = sr.source_id
-                  LEFT JOIN source_projects sp ON s.id = sp.source_id`
+    joinClauses.push(
+      'LEFT JOIN source_roles sr ON s.id = sr.source_id',
+      'LEFT JOIN source_projects sp ON s.id = sp.source_id',
+    )
     conditions.push('(sr.organization_id = ? OR sp.organization_id = ?)')
     params.push(filter.organization_id, filter.organization_id)
   }
+  if (filter.education_type !== undefined) {
+    // INNER JOIN so the education_type filter also implicitly scopes to
+    // education-type sources (rows without a source_education row drop out).
+    joinClauses.push('JOIN source_education se ON se.source_id = s.id')
+    conditions.push('se.education_type = ?')
+    params.push(filter.education_type)
+  }
 
+  const joinClause = joinClauses.join(' ')
   const where = conditions.length > 0
     ? `WHERE ${conditions.join(' AND ')}`
     : ''

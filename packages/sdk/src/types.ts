@@ -1232,6 +1232,13 @@ export interface UpdateNote {
 export interface SourceFilter {
   status?: string
   source_type?: string
+  /**
+   * Narrow education-type sources by their subtype. Only meaningful when
+   * `source_type: 'education'` is also set. Values match
+   * `source_education.education_type` (e.g. `'degree'`, `'certificate'`,
+   * `'course'`).
+   */
+  education_type?: string
 }
 
 export interface BulletFilter {

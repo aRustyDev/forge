@@ -138,7 +138,7 @@
   let pickerArchetypeFilter = $state('')
   let pickerDomainFilter = $state('')
   let skillsPickerSectionId = $state<string | null>(null)
-  let sourcePickerState = $state<{ sectionId: string; sourceType: string } | null>(null)
+  let sourcePickerState = $state<{ sectionId: string; sourceType: string; educationType?: string } | null>(null)
   let freeformInput = $state('')
   let freeformSaving = $state(false)
 
@@ -604,7 +604,19 @@
         return
 
       case 'education':
-        sourcePickerState = { sectionId, sourceType: 'education' }
+        // Formal education entries use the 'education' source_type +
+        // 'degree' subtype. The 'certificate' subtype is routed through
+        // the certifications case below so the two don't mix on either
+        // picker.
+        sourcePickerState = { sectionId, sourceType: 'education', educationType: 'degree' }
+        return
+
+      case 'certifications':
+        // Certifications are stored as source_type='education' with
+        // education_type='certificate' (there is no dedicated source_type
+        // for certifications). The picker filters by the subtype so only
+        // certification sources show up.
+        sourcePickerState = { sectionId, sourceType: 'education', educationType: 'certificate' }
         return
 
       case 'projects':
@@ -1189,6 +1201,7 @@
     resumeId={selectedResumeId}
     sectionId={sourcePickerState.sectionId}
     sourceType={sourcePickerState.sourceType}
+    educationType={sourcePickerState.educationType}
     onClose={() => sourcePickerState = null}
     onUpdate={handleIRUpdate}
   />

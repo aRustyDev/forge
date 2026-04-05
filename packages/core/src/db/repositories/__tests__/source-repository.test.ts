@@ -345,6 +345,51 @@ describe('SourceRepository', () => {
       expect(result.data[0].title).toBe('Role at Org')
     })
 
+    test('filters education-type sources by education_type subtype', () => {
+      SourceRepo.create(db, {
+        title: 'BS in CS',
+        description: 'degree',
+        source_type: 'education',
+        education_type: 'degree',
+      })
+      SourceRepo.create(db, {
+        title: 'AWS Certified SA',
+        description: 'cert',
+        source_type: 'education',
+        education_type: 'certificate',
+      })
+      SourceRepo.create(db, {
+        title: 'Another cert',
+        description: 'cert',
+        source_type: 'education',
+        education_type: 'certificate',
+      })
+
+      const degreeResult = SourceRepo.list(
+        db,
+        { source_type: 'education', education_type: 'degree' },
+        0, 50,
+      )
+      expect(degreeResult.total).toBe(1)
+      expect(degreeResult.data[0].title).toBe('BS in CS')
+
+      const certResult = SourceRepo.list(
+        db,
+        { source_type: 'education', education_type: 'certificate' },
+        0, 50,
+      )
+      expect(certResult.total).toBe(2)
+      expect(certResult.data.map(s => s.title).sort()).toEqual(['AWS Certified SA', 'Another cert'])
+
+      // Without the education_type filter, both degree + certificate rows appear
+      const allEdu = SourceRepo.list(
+        db,
+        { source_type: 'education' },
+        0, 50,
+      )
+      expect(allEdu.total).toBe(3)
+    })
+
     test('pagination works', () => {
       for (let i = 0; i < 5; i++) {
         SourceRepo.create(db, { title: `Source ${i}`, description: `desc ${i}` })

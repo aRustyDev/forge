@@ -351,7 +351,7 @@ describe('Resume Routes', () => {
   describe('End-to-end smoke: section lifecycle', () => {
     test('add section -> add skills -> verify IR', async () => {
       const resumeId = seedResume(ctx.db)
-      const skillId = seedSkill(ctx.db, { name: 'TypeScript', category: 'Languages' })
+      const skillId = seedSkill(ctx.db, { name: 'TypeScript', category: 'language' })
 
       // Create skills section
       const createRes = await apiRequest(ctx.app, 'POST', `/resumes/${resumeId}/sections`, {

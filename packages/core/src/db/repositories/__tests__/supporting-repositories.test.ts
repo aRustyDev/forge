@@ -39,16 +39,17 @@ describe('SkillRepository', () => {
 
     expect(skill.id).toHaveLength(36)
     expect(skill.name).toBe('TypeScript')
-    expect(skill.category).toBeNull()
+    // Phase 89: category defaults to 'other' when not specified (was nullable pre-migration 031)
+    expect(skill.category).toBe('other')
   })
 
   test('create with category', () => {
     const skill = SkillRepo.create(db, {
       name: 'Kubernetes',
-      category: 'infrastructure',
+      category: 'tool',
     })
 
-    expect(skill.category).toBe('infrastructure')
+    expect(skill.category).toBe('tool')
   })
 
   test('get returns the skill by id', () => {
@@ -79,7 +80,7 @@ describe('SkillRepository', () => {
   test('list with category filter returns only matching skills', () => {
     SkillRepo.create(db, { name: 'TypeScript', category: 'language' })
     SkillRepo.create(db, { name: 'Python', category: 'language' })
-    SkillRepo.create(db, { name: 'Docker', category: 'infrastructure' })
+    SkillRepo.create(db, { name: 'Docker', category: 'tool' })
 
     const languages = SkillRepo.list(db, { category: 'language' })
     expect(languages).toHaveLength(2)
@@ -98,11 +99,11 @@ describe('SkillRepository', () => {
   test('getOrCreate returns existing skill when name already exists (idempotent)', () => {
     const first = SkillRepo.getOrCreate(db, {
       name: 'Terraform',
-      category: 'infrastructure',
+      category: 'tool',
     })
     const second = SkillRepo.getOrCreate(db, {
       name: 'Terraform',
-      category: 'infrastructure',
+      category: 'tool',
     })
 
     expect(second.id).toBe(first.id)

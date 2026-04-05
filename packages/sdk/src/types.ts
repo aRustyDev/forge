@@ -545,11 +545,30 @@ export interface ResumeEntry {
   updated_at: string
 }
 
+/** Valid skill category enum (expanded in migration 031). */
+export type SkillCategory =
+  | 'language'
+  | 'framework'
+  | 'platform'
+  | 'tool'
+  | 'library'
+  | 'methodology'
+  | 'protocol'
+  | 'concept'
+  | 'soft_skill'
+  | 'other'
+
+/** A named skill with structured category. */
 export interface Skill {
   id: string
   name: string
-  category: string | null
+  category: SkillCategory
   notes: string | null
+}
+
+/** A skill with its linked domains (many-to-many via skill_domains junction). */
+export interface SkillWithDomains extends Skill {
+  domains: Domain[]
 }
 
 export interface UserNote {

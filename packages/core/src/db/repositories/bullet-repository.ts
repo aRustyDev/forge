@@ -2,7 +2,7 @@
  * BulletRepository — pure data access for the bullets table and
  * bullet_sources junction table.
  *
- * Handles CRUD, technology junction management, source associations,
+ * Handles CRUD, skill-backed technology management, source associations,
  * and status updates. Does NOT enforce business rules (status transition
  * validation lives in the BulletService).
  */
@@ -101,22 +101,58 @@ function rowToBullet(row: BulletRow, technologies: string[]): Bullet {
   }
 }
 
+/**
+ * Get a bullet's "technologies" — returns skill names linked via bullet_skills.
+ *
+ * As of migration 031 (Phase 89), the legacy bullet_technologies table was
+ * absorbed into bullet_skills. The `technologies` field on Bullet is now a
+ * computed projection of linked skill names (lowercased and trimmed for
+ * stable ordering / display).
+ */
 function getTechnologies(db: Database, bulletId: string): string[] {
   const rows = db
-    .query('SELECT technology FROM bullet_technologies WHERE bullet_id = ? ORDER BY technology')
+    .query(
+      `SELECT lower(trim(s.name)) AS technology
+       FROM bullet_skills bs
+       JOIN skills s ON s.id = bs.skill_id
+       WHERE bs.bullet_id = ?
+       ORDER BY technology`,
+    )
     .all(bulletId) as TechnologyRow[]
   return rows.map(r => r.technology)
 }
 
+/**
+ * Insert bullet↔skill links for the given technology names.
+ *
+ * Each technology string is matched case-insensitively to an existing skill
+ * (by name) or creates a new skill with category='other'. Then a row is
+ * inserted into bullet_skills (INSERT OR IGNORE handles duplicates).
+ *
+ * This replaces the old bullet_technologies insertion path.
+ */
 function insertTechnologies(db: Database, bulletId: string, technologies: string[]): void {
-  const stmt = db.prepare(
-    'INSERT OR IGNORE INTO bullet_technologies (bullet_id, technology) VALUES (?, ?)',
+  const findSkillStmt = db.prepare('SELECT id FROM skills WHERE lower(name) = lower(?)')
+  const createSkillStmt = db.prepare(
+    `INSERT INTO skills (id, name, category) VALUES (?, ?, 'other')`,
   )
+  const linkStmt = db.prepare(
+    'INSERT OR IGNORE INTO bullet_skills (bullet_id, skill_id) VALUES (?, ?)',
+  )
+
   for (const tech of technologies) {
     const normalized = tech.toLowerCase().trim()
-    if (normalized.length > 0) {
-      stmt.run(bulletId, normalized)
+    if (normalized.length === 0) continue
+
+    let skillId: string
+    const existing = findSkillStmt.get(normalized) as { id: string } | null
+    if (existing) {
+      skillId = existing.id
+    } else {
+      skillId = crypto.randomUUID()
+      createSkillStmt.run(skillId, normalized)
     }
+    linkStmt.run(bulletId, skillId)
   }
 }
 
@@ -216,9 +252,11 @@ export const BulletRepository = {
       params.push(filter.status)
     }
     if (filter.technology) {
-      joins.push('JOIN bullet_technologies bt ON bt.bullet_id = b.id')
-      conditions.push('bt.technology = ?')
-      params.push(filter.technology.toLowerCase().trim())
+      // Technology filter now JOINs through bullet_skills → skills (Phase 89).
+      joins.push('JOIN bullet_skills bs_tech ON bs_tech.bullet_id = b.id')
+      joins.push('JOIN skills s_tech ON s_tech.id = bs_tech.skill_id')
+      conditions.push('lower(s_tech.name) = lower(?)')
+      params.push(filter.technology.trim())
     }
     if (filter.domain) {
       conditions.push('b.domain = ?')
@@ -306,7 +344,17 @@ export const BulletRepository = {
     if (!row) return null
 
     if (hasTechnologies) {
-      db.run('DELETE FROM bullet_technologies WHERE bullet_id = ?', [id])
+      // Replace the bullet's "technology" links. In Phase 89, technologies are
+      // backed by the bullet_skills junction. We delete only the links that
+      // correspond to existing skills (any bullet_skills row), then re-insert
+      // via insertTechnologies which resolves names → skill IDs.
+      //
+      // NOTE: This assumes the bullet's skill links were all technology-style.
+      // In practice, bullet_skills is currently populated exclusively via the
+      // technologies field, so this is a full replacement. If richer skill
+      // tagging is later added directly (without going through technologies),
+      // revisit this to avoid clobbering manual links.
+      db.run('DELETE FROM bullet_skills WHERE bullet_id = ?', [id])
       insertTechnologies(db, id, input.technologies!)
     }
 
@@ -317,12 +365,12 @@ export const BulletRepository = {
   /**
    * Delete a bullet by ID.
    * Throws if the bullet has perspectives (FK RESTRICT).
-   * Cascades deletion to bullet_technologies and bullet_sources (FK CASCADE).
+   * Cascades deletion to bullet_skills, bullet_sources (FK CASCADE).
    * Returns true if a row was deleted, false if not found.
    */
   delete(db: Database, id: string): boolean {
     // This will throw if perspectives reference this bullet (FK RESTRICT).
-    // bullet_technologies and bullet_sources rows are automatically cascaded.
+    // bullet_skills and bullet_sources rows are automatically cascaded.
     const result = db.run('DELETE FROM bullets WHERE id = ?', [id])
     return result.changes > 0
   },

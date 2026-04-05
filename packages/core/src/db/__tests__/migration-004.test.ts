@@ -150,7 +150,7 @@ describe('Migration 004: resume_sections', () => {
     )
 
     const skillId = crypto.randomUUID()
-    db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId, 'Python', 'Languages'])
+    db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId, 'Python', 'language'])
 
     const rsId = crypto.randomUUID()
     db.run(
@@ -233,7 +233,7 @@ describe('Migration 004: resume_sections', () => {
     )
 
     const skillId = crypto.randomUUID()
-    db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId, 'Python', 'Languages'])
+    db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId, 'Python', 'language'])
 
     // First insert should work
     db.run(

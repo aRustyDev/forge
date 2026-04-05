@@ -541,7 +541,7 @@ describe('ResumeRepository', () => {
     test('addSkill and listSkillsForSection', () => {
       const resumeId = seedResume(db)
       const sectionId = seedResumeSection(db, resumeId, 'Skills', 'skills')
-      const skillId = seedSkill(db, { name: 'Python', category: 'Languages' })
+      const skillId = seedSkill(db, { name: 'Python', category: 'language' })
 
       const rs = ResumeRepository.addSkill(db, sectionId, skillId)
       expect(rs.skill_id).toBe(skillId)

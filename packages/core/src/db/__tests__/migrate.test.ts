@@ -28,9 +28,10 @@ const EXPECTED_TABLES = [
   "sources",
   "prompt_logs",
   "bullets",
-  "bullet_technologies",
+  // bullet_technologies: dropped in migration 031 (absorbed into bullet_skills)
   "perspectives",
   "skills",
+  "skill_domains", // added in migration 031
   "bullet_skills",
   "perspective_skills",
   "resumes",
@@ -58,6 +59,8 @@ const EXPECTED_TABLES = [
   "contact_organizations",
   "contact_job_descriptions",
   "contact_resumes",
+  "industries", // added in migration 032
+  "role_types", // added in migration 032
   "_migrations",
 ];
 
@@ -124,7 +127,7 @@ describe("runMigrations", () => {
     const rows = db
       .query("SELECT name FROM _migrations ORDER BY name")
       .all() as { name: string }[];
-    expect(rows).toHaveLength(29);
+    expect(rows).toHaveLength(30);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");
@@ -153,7 +156,8 @@ describe("runMigrations", () => {
     expect(rows[25].name).toBe("027_salary_structured_fields");
     expect(rows[26].name).toBe("028_jd_pipeline_statuses");
     expect(rows[27].name).toBe("029_prompt_logs_jd_entity_type");
-    expect(rows[28].name).toBe("032_industries_role_types");
+    expect(rows[28].name).toBe("031_skills_expansion");
+    expect(rows[29].name).toBe("032_industries_role_types");
   });
 
   test("already up-to-date: running again is a no-op with no errors", () => {
@@ -165,7 +169,7 @@ describe("runMigrations", () => {
     const rows = db.query("SELECT name FROM _migrations ORDER BY name").all() as {
       name: string;
     }[];
-    expect(rows).toHaveLength(29);
+    expect(rows).toHaveLength(30);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");

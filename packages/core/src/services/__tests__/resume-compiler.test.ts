@@ -135,8 +135,8 @@ describe('compileResumeIR', () => {
     // Create skills and link them via resume_skills
     const skillId1 = crypto.randomUUID()
     const skillId2 = crypto.randomUUID()
-    db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId1, 'Python', 'Languages'])
-    db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId2, 'Kubernetes', 'DevSecOps'])
+    db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId1, 'Python', 'language'])
+    db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId2, 'Kubernetes', 'methodology'])
     seedResumeSkill(db, secId, skillId1, 0)
     seedResumeSkill(db, secId, skillId2, 1)
 
@@ -147,10 +147,10 @@ describe('compileResumeIR', () => {
     const group = skillsSection!.items[0]
     if (group.kind === 'skill_group') {
       expect(group.categories.length).toBeGreaterThanOrEqual(1)
-      const langs = group.categories.find(c => c.label === 'Languages')
+      const langs = group.categories.find(c => c.label === 'language')
       expect(langs).toBeDefined()
       expect(langs!.skills).toContain('Python')
-      const devops = group.categories.find(c => c.label === 'DevSecOps')
+      const devops = group.categories.find(c => c.label === 'methodology')
       expect(devops).toBeDefined()
       expect(devops!.skills).toContain('Kubernetes')
     }
@@ -939,7 +939,7 @@ describe('compileResumeIR — Phase 44 data quality', () => {
 
     // Create a valid skill
     const skillId = crypto.randomUUID()
-    db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId, 'Python', 'Languages'])
+    db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [skillId, 'Python', 'language'])
     seedResumeSkill(db, secId, skillId, 0)
 
     // Create an orphaned resume_skills entry (skill_id points to nonexistent skill)
@@ -956,7 +956,7 @@ describe('compileResumeIR — Phase 44 data quality', () => {
     // Valid skill still appears
     const group = skillsSection.items[0]
     if (group.kind === 'skill_group') {
-      const langs = group.categories.find(c => c.label === 'Languages')
+      const langs = group.categories.find(c => c.label === 'language')
       expect(langs).toBeDefined()
       expect(langs!.skills).toContain('Python')
     }
@@ -973,11 +973,12 @@ describe('compileResumeIR — Phase 44 data quality', () => {
     seedProfile(db, { name: 'Adam', email: 'adam@test.com' })
     const secId = seedResumeSection(db, resumeId, 'Skills', 'skills', 0)
 
-    // Insert skills in non-alphabetical order
+    // Phase 89: category is a CHECK enum; use valid values that still
+    // exercise alphabetical ordering across multiple categories.
     const skillIds = [
-      { name: 'Terraform', category: 'DevOps' },
-      { name: 'Python', category: 'Languages' },
-      { name: 'AWS', category: 'Cloud' },
+      { name: 'Terraform', category: 'tool' },
+      { name: 'Python', category: 'language' },
+      { name: 'AWS', category: 'platform' },
     ]
     skillIds.forEach((s, i) => {
       const id = crypto.randomUUID()
@@ -990,7 +991,8 @@ describe('compileResumeIR — Phase 44 data quality', () => {
     const group = skillsSection.items[0]
     if (group.kind === 'skill_group') {
       const labels = group.categories.map(c => c.label)
-      expect(labels).toEqual(['Cloud', 'DevOps', 'Languages'])
+      // 'language' < 'platform' < 'tool' alphabetically
+      expect(labels).toEqual(['language', 'platform', 'tool'])
     }
   })
 })

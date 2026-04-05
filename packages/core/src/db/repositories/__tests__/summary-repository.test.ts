@@ -103,14 +103,14 @@ describe('SummaryRepository', () => {
       seedSummary(db, { title: `Summary ${i}` })
     }
 
-    const page1 = SummaryRepo.list(db, undefined, 0, 2)
+    const page1 = SummaryRepo.list(db, undefined, undefined, 0, 2)
     expect(page1.data).toHaveLength(2)
     expect(page1.total).toBe(5)
 
-    const page2 = SummaryRepo.list(db, undefined, 2, 2)
+    const page2 = SummaryRepo.list(db, undefined, undefined, 2, 2)
     expect(page2.data).toHaveLength(2)
 
-    const page3 = SummaryRepo.list(db, undefined, 4, 2)
+    const page3 = SummaryRepo.list(db, undefined, undefined, 4, 2)
     expect(page3.data).toHaveLength(1)
   })
 

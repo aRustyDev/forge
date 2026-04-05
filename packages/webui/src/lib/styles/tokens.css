@@ -151,8 +151,18 @@ body {
 
   /* --- Z-index layers --- */
   --z-dropdown: 100;
+  --z-sidebar: 500;
   --z-modal: 10000;
   --z-toast: 10100;
+
+  /* --- Layout --- */
+  --content-padding: 2rem;
+  --sidebar-width: 220px;
+  --right-sidebar-width: 320px;
+
+  /* --- Transitions --- */
+  --transition-fast: 0.12s;
+  --transition-normal: 0.2s;
 }
 
 /* ================================================================

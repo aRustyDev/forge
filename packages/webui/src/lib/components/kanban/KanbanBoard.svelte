@@ -194,8 +194,8 @@
   .kanban-page {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 4rem);
-    margin: -2rem;
+    height: calc(100vh - var(--content-padding) * 2);
+    margin: calc(-1 * var(--content-padding));
     background: var(--color-surface);
   }
 

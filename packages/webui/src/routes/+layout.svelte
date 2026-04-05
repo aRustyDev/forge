@@ -165,7 +165,7 @@
   }
 
   .sidebar {
-    width: 220px;
+    width: var(--sidebar-width);
     background: var(--color-sidebar-bg);
     color: var(--color-sidebar-text);
     padding: 1.5rem 0 0;
@@ -292,7 +292,7 @@
 
   .content {
     flex: 1;
-    padding: 2rem;
+    padding: var(--content-padding);
     overflow-y: auto;
   }
 

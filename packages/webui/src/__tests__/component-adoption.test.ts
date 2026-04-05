@@ -30,7 +30,7 @@ const ANTI_PATTERNS: AntiPattern[] = [
     pattern: /height:\s*calc\(100vh\s*-\s*4rem\)/,
     allowedIn: ['PageWrapper.svelte'],
     message: 'Use <PageWrapper> instead of inline viewport-escape CSS (height: calc(100vh - 4rem))',
-    expectedViolations: 1,
+    expectedViolations: 0,
   },
   {
     name: 'SplitPanel',

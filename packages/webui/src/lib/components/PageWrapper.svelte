@@ -15,8 +15,8 @@
 
 <style>
   .page-wrapper {
-    height: calc(100vh - var(--space-8) * 2);
-    margin: calc(-1 * var(--space-8));
+    height: calc(100vh - var(--content-padding) * 2);
+    margin: calc(-1 * var(--content-padding));
     display: flex;
     flex-direction: column;
   }

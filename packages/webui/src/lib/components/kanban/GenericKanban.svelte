@@ -181,5 +181,6 @@
     padding: var(--space-4, 1rem);
     flex: 1;
     align-items: flex-start;
+    overflow-x: auto;
   }
 </style>

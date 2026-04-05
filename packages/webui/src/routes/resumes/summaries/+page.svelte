@@ -180,9 +180,9 @@
     <EmptyState
       title="No summaries yet"
       description="Create one to get started. Summaries can be linked to resumes or promoted to templates for reuse."
-      action="Create Summary"
-      onaction={startCreate}
-    />
+    >
+      <button class="btn btn-primary" onclick={startCreate}>Create Summary</button>
+    </EmptyState>
   {:else}
     <!-- Templates Section -->
     {#if templates.length > 0}
@@ -380,19 +380,6 @@
   }
 
   .edit-form { display: flex; flex-direction: column; gap: 0.75rem; }
-  .form-field { display: flex; flex-direction: column; gap: 0.25rem; }
-  .field-label { font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-secondary); }
-  .field-input {
-    padding: 0.375rem 0.625rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-sm);
-    font-size: var(--text-sm);
-  }
-  .field-input:focus {
-    outline: none;
-    border-color: var(--color-border-focus);
-    box-shadow: 0 0 0 2px var(--color-primary-subtle);
-  }
 
   .banner {
     border-radius: var(--radius-md);

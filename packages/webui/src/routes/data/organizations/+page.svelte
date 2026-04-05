@@ -465,9 +465,9 @@
       <EmptyState
         title="No organizations found"
         description="Create your first organization."
-        action="New Organization"
-        onaction={startNew}
-      />
+      >
+        <button class="btn btn-primary" onclick={startNew}>New Organization</button>
+      </EmptyState>
     {:else if groupBy !== 'flat' && groupedOrgs}
       {#each groupedOrgs as [groupName, groupOrgs]}
         <div class="group-section">

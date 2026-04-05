@@ -51,7 +51,7 @@ const ANTI_PATTERNS: AntiPattern[] = [
     pattern: /\.btn-primary\s*\{/,
     allowedIn: ['base.css'],
     message: 'Use global .btn-primary class from base.css instead of page-scoped button CSS',
-    expectedViolations: 18,
+    expectedViolations: 17,
   },
   {
     name: 'PageHeader',

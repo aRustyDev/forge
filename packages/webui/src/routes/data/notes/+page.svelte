@@ -186,9 +186,11 @@
       <EmptyState
         title="No notes found"
         description={searchQuery ? 'Try adjusting your search.' : 'Create your first note.'}
-        action={!searchQuery ? 'New Note' : undefined}
-        onaction={!searchQuery ? startNew : undefined}
-      />
+      >
+        {#if !searchQuery}
+          <button class="btn btn-primary" onclick={startNew}>New Note</button>
+        {/if}
+      </EmptyState>
     {:else}
       <ul class="note-list">
         {#each filteredNotes as note (note.id)}

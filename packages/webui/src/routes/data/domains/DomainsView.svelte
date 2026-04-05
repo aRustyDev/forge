@@ -132,22 +132,22 @@
     <div class="create-form">
       <div class="form-row">
         <label>
-          <span class="form-label">Name</span>
+          <span class="field-label">Name</span>
           <input
             type="text"
             bind:value={createName}
             placeholder="e.g. cloud_engineering"
-            class="form-input"
+            class="field-input"
           />
-          <span class="form-hint">Lowercase letters, digits, and underscores only</span>
+          <span class="field-hint">Lowercase letters, digits, and underscores only</span>
         </label>
         <label>
-          <span class="form-label">Description</span>
+          <span class="field-label">Description</span>
           <input
             type="text"
             bind:value={createDescription}
             placeholder="Optional description"
-            class="form-input"
+            class="field-input"
           />
         </label>
         <button
@@ -164,7 +164,7 @@
   {#if loading}
     <LoadingSpinner />
   {:else if domains.length === 0}
-    <EmptyState message="No domains found. Create one to get started." />
+    <EmptyState title="No domains found" description="Create one to get started." />
   {:else}
     <table class="domains-table">
       <thead>
@@ -181,10 +181,10 @@
           {#if editingId === domain.id}
             <tr class="editing-row">
               <td>
-                <input type="text" bind:value={editName} class="form-input compact" />
+                <input type="text" bind:value={editName} class="field-input" />
               </td>
               <td>
-                <input type="text" bind:value={editDescription} class="form-input compact" />
+                <input type="text" bind:value={editDescription} class="field-input" />
               </td>
               <td>{domain.perspective_count}</td>
               <td>{domain.archetype_count}</td>
@@ -258,7 +258,7 @@
   .create-form {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
     padding: 1.25rem;
     margin-bottom: 1.5rem;
   }
@@ -273,39 +273,11 @@
     flex: 1;
   }
 
-  .form-label {
-    display: block;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 0.25rem;
-  }
-
-  .form-hint {
-    display: block;
-    font-size: 0.7rem;
-    color: var(--text-faint);
-    margin-top: 0.15rem;
-  }
-
-  .form-input {
-    width: 100%;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: 6px;
-    font-size: 0.85rem;
-  }
-
-  .form-input.compact {
-    padding: 0.35rem 0.5rem;
-    font-size: 0.8rem;
-  }
-
   .domains-table {
     width: 100%;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
     border-collapse: collapse;
     overflow: hidden;
   }
@@ -354,55 +326,5 @@
 
   .editing-row {
     background: var(--color-info-subtle);
-  }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-
-  .btn-sm {
-    padding: 0.3rem 0.6rem;
-    font-size: 0.75rem;
-  }
-
-  .btn-primary {
-    background: var(--color-primary);
-    color: var(--color-surface);
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    background: var(--color-primary-hover);
-  }
-
-  .btn-ghost {
-    background: transparent;
-    color: var(--text-muted);
-    border: 1px solid var(--color-border-strong);
-  }
-
-  .btn-ghost:hover {
-    background: var(--color-ghost);
-  }
-
-  .btn-danger {
-    background: var(--color-danger-subtle);
-    color: var(--color-danger-text);
-  }
-
-  .btn-danger:hover:not(:disabled) {
-    background: var(--color-danger-subtle);
-  }
-
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 </style>

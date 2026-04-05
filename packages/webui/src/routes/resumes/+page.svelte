@@ -801,9 +801,9 @@
         <EmptyState
           title="No resumes yet"
           description="Create your first resume to start building tailored applications."
-          action="New Resume"
-          onaction={() => { showCreateForm = true; loadTemplates() }}
-        />
+        >
+          <button class="btn btn-primary" onclick={() => { showCreateForm = true; loadTemplates() }}>New Resume</button>
+        </EmptyState>
       {:else}
         <div class="resume-list">
           {#each resumes as resume (resume.id)}

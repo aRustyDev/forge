@@ -718,9 +718,11 @@
         description={activeTab === 'all'
           ? 'Create your first source to get started.'
           : `No ${activeTab} sources found.`}
-        action={activeTab === 'all' ? 'New Source' : undefined}
-        onaction={activeTab === 'all' ? startNew : undefined}
-      />
+      >
+        {#if activeTab === 'all'}
+          <button class="btn btn-primary" onclick={startNew}>New Source</button>
+        {/if}
+      </EmptyState>
     {:else if groupedEducation}
       <!-- Grouped education list -->
       {#each groupedEducation as group (group.key)}

@@ -110,9 +110,9 @@
         <EmptyState
           title="All caught up!"
           description="No bullets or perspectives are waiting for review."
-          action="View Sources"
-          onaction={() => goto('/data/sources')}
-        />
+        >
+          <button class="btn btn-primary" onclick={() => goto('/data/sources')}>View Sources</button>
+        </EmptyState>
       {:else}
         <div class="pending-grid">
           <a href="/data/sources?tab=bullets" class="pending-card">

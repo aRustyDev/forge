@@ -222,7 +222,7 @@
   {#if loading}
     <LoadingSpinner />
   {:else if archetypes.length === 0}
-    <EmptyState message="No archetypes found. Create one to get started." />
+    <EmptyState title="No archetypes found" description="Create one to get started." />
   {:else}
     <table class="archetypes-table">
       <thead>

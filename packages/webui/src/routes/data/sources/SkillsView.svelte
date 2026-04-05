@@ -212,9 +212,11 @@
       <EmptyState
         title="No skills found"
         description={searchQuery ? 'Try adjusting your search.' : 'Create your first skill.'}
-        action={!searchQuery ? 'New Skill' : undefined}
-        onaction={!searchQuery ? startNew : undefined}
-      />
+      >
+        {#if !searchQuery}
+          <button class="btn btn-primary" onclick={startNew}>New Skill</button>
+        {/if}
+      </EmptyState>
     {:else if groupBy === 'by_category' && groupedSkills}
       {#each groupedSkills as [category, categorySkills]}
         <div class="group-section">

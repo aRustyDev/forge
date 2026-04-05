@@ -120,7 +120,7 @@
             <div class="pending-label">Pending Bullets</div>
             <div class="pending-hint">Click to review</div>
           </a>
-          <a href="/data/sources?tab=bullets" class="pending-card">
+          <a href="/data/sources?tab=perspectives" class="pending-card">
             <div class="pending-count">{pendingPerspectives}</div>
             <div class="pending-label">Pending Perspectives</div>
             <div class="pending-hint">Click to review</div>

@@ -63,7 +63,7 @@
       chart.showLoading('default', {
         text: '',
         color: getComputedStyle(chartEl).getPropertyValue('--color-primary').trim() || '#6c63ff',
-        maskColor: 'rgba(255, 255, 255, 0.7)',
+        maskColor: (() => { const s = getComputedStyle(chartEl).getPropertyValue('--color-surface').trim(); return s ? s.replace(')', ', 0.7)').replace('rgb(', 'rgba(') : 'rgba(255,255,255,0.7)'; })(),
       })
     }
 
@@ -115,7 +115,7 @@
       chart.showLoading('default', {
         text: '',
         color: getComputedStyle(chartEl).getPropertyValue('--color-primary').trim() || '#6c63ff',
-        maskColor: 'rgba(255, 255, 255, 0.7)',
+        maskColor: (() => { const s = getComputedStyle(chartEl).getPropertyValue('--color-surface').trim(); return s ? s.replace(')', ', 0.7)').replace('rgb(', 'rgba(') : 'rgba(255,255,255,0.7)'; })(),
       })
     } else {
       chart.hideLoading()

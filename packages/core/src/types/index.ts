@@ -442,6 +442,18 @@ export interface Resume {
   notes: string | null
   header: string | null
   summary_id: string | null
+  /**
+   * TF-IDF tagline generated from linked JDs (Phase 92). Read-only for users;
+   * auto-refreshed on JD link/unlink by the TaglineService. Display precedence
+   * is `tagline_override ?? generated_tagline ?? ''`.
+   */
+  generated_tagline: string | null
+  /**
+   * User-authored tagline override (Phase 92). If set, takes precedence over
+   * `generated_tagline` in all display contexts. Cleared with an explicit
+   * reset to fall back to the generated value.
+   */
+  tagline_override: string | null
   markdown_override: string | null
   markdown_override_updated_at: string | null
   latex_override: string | null
@@ -641,18 +653,17 @@ export interface ArchetypeDomain {
 
 // ── Summary Entities ──────────────────────────────────────────────────
 
-/** A reusable professional summary. */
+/**
+ * A reusable professional summary.
+ *
+ * As of Phase 92 (migration 034), tagline is NO LONGER on summaries.
+ * It lives on `resume.generated_tagline` / `resume.tagline_override` with
+ * automatic regeneration from linked JDs via the TaglineService.
+ */
 export interface Summary {
   id: string
   title: string
   role: string | null
-  /**
-   * @deprecated Tagline lives on summaries for now. Phase 92 (Tagline Engine)
-   * moves tagline to resume-level `generated_tagline` / `tagline_override`
-   * fields with automatic regeneration from linked JDs. Do not add new
-   * tagline-related features on summaries.
-   */
-  tagline: string | null
   description: string | null
   is_template: number  // 0 or 1 (SQLite integer)
   /** Industry FK — added in migration 033 (Phase 91). Nullable. */
@@ -677,8 +688,6 @@ export interface SummaryWithRelations extends Summary {
 export interface CreateSummary {
   title: string
   role?: string
-  /** @deprecated see Summary.tagline */
-  tagline?: string
   description?: string
   is_template?: number
   industry_id?: string | null
@@ -690,8 +699,6 @@ export interface CreateSummary {
 export interface UpdateSummary {
   title?: string
   role?: string | null
-  /** @deprecated see Summary.tagline */
-  tagline?: string | null
   description?: string | null
   is_template?: number
   industry_id?: string | null

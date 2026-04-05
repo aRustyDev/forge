@@ -20,7 +20,6 @@ describe('Summaries API', () => {
     const res = await apiRequest(ctx.app, 'POST', '/summaries', {
       title: 'Security Engineer - Cloud',
       role: 'Senior Security Engineer',
-      tagline: 'Cloud + DevSecOps',
       description: 'Security engineer with 8+ years...',
     })
 
@@ -28,7 +27,6 @@ describe('Summaries API', () => {
     const body = await res.json()
     expect(body.data.title).toBe('Security Engineer - Cloud')
     expect(body.data.role).toBe('Senior Security Engineer')
-    expect(body.data.tagline).toBe('Cloud + DevSecOps')
     expect(body.data.description).toBe('Security engineer with 8+ years...')
     expect(body.data.is_template).toBe(0)
     expect(body.data.id).toHaveLength(36)
@@ -123,13 +121,13 @@ describe('Summaries API', () => {
 
     const res = await apiRequest(ctx.app, 'PATCH', `/summaries/${id}`, {
       title: 'Updated',
-      tagline: 'New tagline',
+      description: 'New description',
     })
 
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.title).toBe('Updated')
-    expect(body.data.tagline).toBe('New tagline')
+    expect(body.data.description).toBe('New description')
   })
 
   test('PATCH /summaries/:id returns 404 for missing id', async () => {
@@ -161,7 +159,7 @@ describe('Summaries API', () => {
     const id = seedSummary(ctx.db, {
       title: 'Original',
       role: 'Engineer',
-      tagline: 'Builds things',
+      description: 'Builds things',
     })
 
     const res = await apiRequest(ctx.app, 'POST', `/summaries/${id}/clone`)
@@ -169,7 +167,7 @@ describe('Summaries API', () => {
     const body = await res.json()
     expect(body.data.title).toBe('Copy of Original')
     expect(body.data.role).toBe('Engineer')
-    expect(body.data.tagline).toBe('Builds things')
+    expect(body.data.description).toBe('Builds things')
     expect(body.data.is_template).toBe(0)
     expect(body.data.id).not.toBe(id)
   })

@@ -24,7 +24,6 @@ import type {
   PresentationItem,
   SummaryItem,
   UserProfile,
-  Summary,
 } from '../types'
 
 /** Truncate text to `len` characters, appending '...' if truncated. */
@@ -42,6 +41,8 @@ interface ResumeRow {
   target_role: string
   header: string | null  // JSON blob
   summary_id: string | null
+  generated_tagline: string | null
+  tagline_override: string | null
 }
 
 interface ResumeSectionRow {
@@ -89,9 +90,13 @@ interface SkillRow {
  * Returns null if the resume does not exist.
  */
 export function compileResumeIR(db: Database, resumeId: string): ResumeDocument | null {
-  // 1. Fetch resume base data
+  // 1. Fetch resume base data (including Phase 92 tagline columns)
   const resume = db
-    .query('SELECT id, name, target_role, header, summary_id FROM resumes WHERE id = ?')
+    .query(
+      `SELECT id, name, target_role, header, summary_id,
+              generated_tagline, tagline_override
+       FROM resumes WHERE id = ?`,
+    )
     .get(resumeId) as ResumeRow | null
 
   if (!resume) return null
@@ -101,16 +106,10 @@ export function compileResumeIR(db: Database, resumeId: string): ResumeDocument 
     .query('SELECT * FROM user_profile LIMIT 1')
     .get() as UserProfile | null
 
-  // 3. Fetch linked summary (if any)
-  let summary: Summary | null = null
-  if (resume.summary_id) {
-    summary = db
-      .query('SELECT * FROM summaries WHERE id = ?')
-      .get(resume.summary_id) as Summary | null
-  }
-
-  // 4. Parse header — contact fields from profile, content fields from resume, tagline from summary
-  const header = parseHeader(resume, profile, summary)
+  // 4. Parse header — contact fields from profile, tagline from resume-level
+  // `tagline_override ?? generated_tagline` (Phase 92). Summary is no longer
+  // consulted for tagline.
+  const header = parseHeader(resume, profile)
 
   // 4. Fetch sections from resume_sections table
   const sectionRows = db
@@ -152,22 +151,23 @@ function buildSectionItems(db: Database, section: ResumeSectionRow): IRSectionIt
 
 // ── Section builders ─────────────────────────────────────────────────
 
-function parseHeader(resume: ResumeRow, profile: UserProfile | null, summary: Summary | null): ResumeHeader {
-  // Content fields from the resume-specific header JSON
+function parseHeader(resume: ResumeRow, profile: UserProfile | null): ResumeHeader {
+  // Tagline resolution order (Phase 92):
+  //   1. resume.tagline_override (user-authored, highest priority)
+  //   2. resume.generated_tagline (TF-IDF extracted from linked JDs)
+  //   3. header JSON tagline (legacy resume-specific header)
+  //   4. resume.target_role (fallback)
   let tagline: string | null = resume.target_role
   if (resume.header) {
     try {
       const parsed = JSON.parse(resume.header)
-      tagline = parsed.tagline ?? tagline
+      if (parsed.tagline) tagline = parsed.tagline
     } catch {
-      // Fall through — tagline defaults to target_role
+      // Fall through
     }
   }
-
-  // Overlay summary fields (tagline from summary takes priority)
-  if (summary && summary.tagline) {
-    tagline = summary.tagline
-  }
+  if (resume.generated_tagline) tagline = resume.generated_tagline
+  if (resume.tagline_override) tagline = resume.tagline_override
 
   // Warn on placeholder profile data
   const name = profile?.name ?? resume.name

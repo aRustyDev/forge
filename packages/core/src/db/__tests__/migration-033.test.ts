@@ -55,13 +55,11 @@ describe('Migration 033: summary structured fields', () => {
     expect(colMap.get('role_type_id')!.notnull).toBe(0)
   })
 
-  test('summaries.tagline column is preserved (Phase 92 owns removal)', () => {
-    db = getDatabase(':memory:')
-    runMigrations(db, MIGRATIONS_DIR)
-
-    const cols = db.query('PRAGMA table_info(summaries)').all() as Array<{ name: string }>
-    expect(cols.map((c) => c.name)).toContain('tagline')
-  })
+  // Phase 92 note: the test that asserted summaries.tagline is preserved was
+  // removed. Migration 034 drops the tagline column (moving it to
+  // resume.generated_tagline / resume.tagline_override), which is the whole
+  // point of Phase 92. See migration-034.test.ts for the column-removal
+  // assertions.
 
   test('summary_skills junction table exists with composite PK', () => {
     db = getDatabase(':memory:')

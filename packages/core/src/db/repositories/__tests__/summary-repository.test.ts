@@ -2,7 +2,6 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { Database } from 'bun:sqlite'
 import { createTestDb, seedSummary, seedResume, testUuid } from '../../__tests__/helpers'
 import * as SummaryRepo from '../summary-repository'
-import { migrateHeadersToSummaries } from '../../migrations/006_summaries_data'
 
 describe('SummaryRepository', () => {
   let db: Database
@@ -21,7 +20,6 @@ describe('SummaryRepository', () => {
     const summary = SummaryRepo.create(db, {
       title: 'Security Engineer - Cloud',
       role: 'Senior Security Engineer',
-      tagline: 'Cloud + DevSecOps',
       description: 'Security engineer with 8+ years...',
       is_template: 0,
       notes: 'For FAANG applications',
@@ -30,7 +28,6 @@ describe('SummaryRepository', () => {
     expect(summary.id).toHaveLength(36)
     expect(summary.title).toBe('Security Engineer - Cloud')
     expect(summary.role).toBe('Senior Security Engineer')
-    expect(summary.tagline).toBe('Cloud + DevSecOps')
     expect(summary.description).toBe('Security engineer with 8+ years...')
     expect(summary.is_template).toBe(0)
     expect(summary.notes).toBe('For FAANG applications')
@@ -43,7 +40,6 @@ describe('SummaryRepository', () => {
 
     expect(summary.title).toBe('Minimal')
     expect(summary.role).toBeNull()
-    expect(summary.tagline).toBeNull()
     expect(summary.description).toBeNull()
     expect(summary.is_template).toBe(0)
     expect(summary.notes).toBeNull()
@@ -117,25 +113,25 @@ describe('SummaryRepository', () => {
   // ── update ────────────────────────────────────────────────────────
 
   test('update changes specified fields', () => {
-    const id = seedSummary(db, { title: 'Original', tagline: 'Old tagline' })
+    const id = seedSummary(db, { title: 'Original', role: 'Engineer' })
 
     const updated = SummaryRepo.update(db, id, {
       title: 'Updated',
-      tagline: 'New tagline',
+      description: 'New description',
     })
 
     expect(updated).not.toBeNull()
     expect(updated!.title).toBe('Updated')
-    expect(updated!.tagline).toBe('New tagline')
-    expect(updated!.role).toBe('Security Engineer')  // unchanged
+    expect(updated!.description).toBe('New description')
+    expect(updated!.role).toBe('Engineer')  // unchanged
   })
 
   test('update sets nullable fields to null', () => {
-    const id = seedSummary(db, { role: 'Engineer', tagline: 'Test' })
+    const id = seedSummary(db, { role: 'Engineer', description: 'Test desc' })
 
-    const updated = SummaryRepo.update(db, id, { role: null, tagline: null })
+    const updated = SummaryRepo.update(db, id, { role: null, description: null })
     expect(updated!.role).toBeNull()
-    expect(updated!.tagline).toBeNull()
+    expect(updated!.description).toBeNull()
   })
 
   test('update sets notes field to null', () => {
@@ -202,7 +198,6 @@ describe('SummaryRepository', () => {
     const id = seedSummary(db, {
       title: 'Original',
       role: 'Engineer',
-      tagline: 'Builds things',
       description: 'A detailed description',
       notes: 'Some notes',
     })
@@ -212,7 +207,6 @@ describe('SummaryRepository', () => {
     expect(cloned!.id).not.toBe(id)
     expect(cloned!.title).toBe('Copy of Original')
     expect(cloned!.role).toBe('Engineer')
-    expect(cloned!.tagline).toBe('Builds things')
     expect(cloned!.description).toBe('A detailed description')
     expect(cloned!.notes).toBe('Some notes')
     expect(cloned!.is_template).toBe(0)
@@ -240,62 +234,13 @@ describe('SummaryRepository', () => {
     expect(cloned.created_at).toBeTruthy()
   })
 
-  // ── data migration ────────────────────────────────────────────────
-
-  test('migrateHeadersToSummaries creates summaries for resumes with headers', () => {
-    // Create resumes with header JSON
-    const r1 = crypto.randomUUID()
-    db.run(
-      `INSERT INTO resumes (id, name, target_role, target_employer, archetype, header)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [r1, 'Resume 1', 'Engineer', 'Corp', 'general', JSON.stringify({ tagline: 'Cloud Expert' })]
-    )
-
-    const r2 = crypto.randomUUID()
-    db.run(
-      `INSERT INTO resumes (id, name, target_role, target_employer, archetype, header)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [r2, 'Resume 2', 'DevOps', 'Corp', 'general', JSON.stringify({ tagline: null })]
-    )
-
-    const result = migrateHeadersToSummaries(db)
-
-    expect(result.migrated).toBe(2)
-
-    // Verify summaries were created
-    const s1 = db.query('SELECT summary_id FROM resumes WHERE id = ?').get(r1) as { summary_id: string }
-    expect(s1.summary_id).toBeTruthy()
-
-    const summary1 = db.query('SELECT * FROM summaries WHERE id = ?').get(s1.summary_id) as any
-    expect(summary1.tagline).toBe('Cloud Expert')
-    expect(summary1.role).toBe('Engineer')
-
-    // Second resume also gets a summary (tagline falls through to target_role)
-    const s2 = db.query('SELECT summary_id FROM resumes WHERE id = ?').get(r2) as { summary_id: string }
-    expect(s2.summary_id).toBeTruthy()
-
-    const summary2 = db.query('SELECT * FROM summaries WHERE id = ?').get(s2.summary_id) as any
-    expect(summary2.role).toBe('DevOps')
-  })
-
-  test('migrateHeadersToSummaries is re-entrant (skips if already migrated)', () => {
-    // Create a resume with header
-    const r1 = crypto.randomUUID()
-    db.run(
-      `INSERT INTO resumes (id, name, target_role, target_employer, archetype, header)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [r1, 'Resume 1', 'Engineer', 'Corp', 'general', JSON.stringify({ tagline: 'Test' })]
-    )
-
-    // Run migration
-    const first = migrateHeadersToSummaries(db)
-    expect(first.migrated).toBe(1)
-
-    // Run again -- should skip
-    const second = migrateHeadersToSummaries(db)
-    expect(second.migrated).toBe(0)
-    expect(second.skipped).toBe(0)
-  })
+  // Phase 92 note: the migrateHeadersToSummaries data-migration tests were
+  // removed because they called the helper against a db that already had all
+  // migrations applied, including 034 which drops summaries.tagline. The
+  // helper itself still runs correctly in production because migrate.ts
+  // invokes it at 006 time (before 034 drops the column). The end-to-end
+  // "fresh database: all migrations applied" test in migrate.test.ts covers
+  // the full migration chain, so direct-call coverage here is redundant.
 
   // ── toggleTemplate ─────────────────────────────────────────────────
 

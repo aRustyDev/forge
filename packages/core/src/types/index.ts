@@ -440,6 +440,8 @@ export interface Resume {
   markdown_override_updated_at: string | null
   latex_override: string | null
   latex_override_updated_at: string | null
+  summary_override: string | null
+  summary_override_updated_at: string | null
   created_at: string
   updated_at: string
 }
@@ -808,6 +810,7 @@ export interface UpdateResume {
   status?: ResumeStatus
   header?: string | null
   summary_id?: string | null
+  summary_override?: string | null
   markdown_override?: string | null
   latex_override?: string | null
 }
@@ -1024,6 +1027,7 @@ export type ResumeWithPerspectives = ResumeWithEntries
 export interface ResumeDocument {
   resume_id: string
   header: ResumeHeader
+  summary: ResumeSummary | null
   sections: IRSection[]
 }
 
@@ -1043,6 +1047,18 @@ export interface ResumeHeader {
    * credentials table via the resume compiler.
    */
   clearance: string | null
+}
+
+/** Summary shown at the top of the resume editor, backed by resumes.summary_id + summary_override. */
+export interface ResumeSummary {
+  /** FK to summaries row. Null when in freeform-only state. */
+  summary_id: string | null
+  /** Summary title for context on the editor card. Null when summary_id is null. */
+  title: string | null
+  /** Resolved text: override takes precedence over summaries.description. */
+  content: string
+  /** True when resumes.summary_override took precedence over the linked template. */
+  is_override: boolean
 }
 
 export interface IRSection {

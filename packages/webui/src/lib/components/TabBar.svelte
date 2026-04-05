@@ -48,7 +48,7 @@
   }
 </script>
 
-<nav class="tab-bar" role="tablist" aria-label="Tabs">
+<div class="tab-bar" role="tablist" aria-label="Tabs">
   {#each tabs as t, i (t.value)}
     <button
       bind:this={tabRefs[i]}
@@ -67,7 +67,7 @@
       {/if}
     </button>
   {/each}
-</nav>
+</div>
 
 <style>
   .tab-bar {

@@ -32,7 +32,7 @@
 
 <div class="filter-bar">
   <select
-    class="filter-select"
+    class="field-select"
     bind:value={filters.organization_id}
     onchange={onchange}
   >
@@ -44,7 +44,7 @@
 
   <input
     type="text"
-    class="filter-input"
+    class="field-input"
     placeholder="Filter by location..."
     bind:value={filters.location}
     oninput={onchange}
@@ -52,7 +52,7 @@
 
   <input
     type="text"
-    class="filter-input"
+    class="field-input"
     placeholder="Search title or org..."
     bind:value={filters.search}
     oninput={onchange}
@@ -62,20 +62,22 @@
 <style>
   .filter-bar {
     display: flex;
-    gap: 8px;
+    gap: var(--space-2, 0.5rem);
     flex-wrap: wrap;
-    padding: 8px 0;
+    align-items: center;
   }
 
-  .filter-select, .filter-input {
-    font-size: 0.875rem;
-    padding: 4px 8px;
+  .filter-bar .field-select,
+  .filter-bar .field-input {
+    font-size: var(--text-sm, 0.8rem);
+    padding: var(--space-1, 0.25rem) var(--space-2, 0.5rem);
     border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: 4px;
-    background: var(--color-surface, white);
+    border-radius: var(--radius-sm, 3px);
+    background: var(--color-surface, #fff);
+    color: var(--text-primary, #1a1a2e);
   }
 
-  .filter-input {
-    min-width: 160px;
+  .filter-bar .field-input {
+    min-width: 150px;
   }
 </style>

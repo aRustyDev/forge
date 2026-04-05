@@ -5,10 +5,13 @@
   } = $props()
 </script>
 
-<div class="view-toggle">
+<div class="view-toggle" role="radiogroup" aria-label="View mode">
   <button
     class="toggle-btn"
     class:active={mode === 'list'}
+    type="button"
+    role="radio"
+    aria-checked={mode === 'list'}
     onclick={() => onchange('list')}
   >
     List
@@ -16,6 +19,9 @@
   <button
     class="toggle-btn"
     class:active={mode === 'board'}
+    type="button"
+    role="radio"
+    aria-checked={mode === 'board'}
     onclick={() => onchange('board')}
   >
     Board

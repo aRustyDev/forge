@@ -85,3 +85,5 @@ v1/scratch.md
 # Beads / Dolt files (added by bd init)
 .beads-credential-key
 packages/webui/test-results/
+packages/webui/.svelte-kit/
+packages/webui/build/

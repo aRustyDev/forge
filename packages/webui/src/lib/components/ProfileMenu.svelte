@@ -156,21 +156,28 @@
     <!-- Account section -->
     <div class="menu-section">
       <span class="section-header">Account</span>
-      <span class="menu-item disabled">Login / Logout <span class="coming-soon">Coming Soon</span></span>
+      <button class="menu-item menu-link" onclick={() => navigateTo('/config/account')}>
+        Login / Logout
+      </button>
     </div>
 
     <!-- Config section -->
     <div class="menu-section">
       <span class="section-header">Config</span>
-      <span class="menu-item disabled">Plugins <span class="coming-soon">Coming Soon</span></span>
-      <span class="menu-item disabled">External APIs <span class="coming-soon">Coming Soon</span></span>
+      <button class="menu-item menu-link" onclick={() => navigateTo('/config/plugins')}>
+        Plugins
+      </button>
+      <button class="menu-item menu-link" onclick={() => navigateTo('/config/integrations')}>
+        Integrations
+      </button>
     </div>
 
     <!-- Settings section -->
     <div class="menu-section">
       <span class="section-header">Settings</span>
-      <span class="menu-item disabled">Data Privacy Viz <span class="coming-soon">Coming Soon</span></span>
-      <span class="menu-item disabled">Privacy Settings <span class="coming-soon">Coming Soon</span></span>
+      <button class="menu-item menu-link" onclick={() => navigateTo('/config/privacy')}>
+        Privacy
+      </button>
     </div>
 
     <!-- Export section -->
@@ -204,9 +211,12 @@
     <!-- About section -->
     <div class="menu-section">
       <span class="section-header">About</span>
-      <span class="menu-item disabled">Privacy Policy <span class="coming-soon">Coming Soon</span></span>
-      <span class="menu-item disabled">About Forge <span class="coming-soon">Coming Soon</span></span>
-      <span class="menu-item disabled">Documentation <span class="coming-soon">Coming Soon</span></span>
+      <button class="menu-item menu-link" onclick={() => navigateTo('/about')}>
+        About Forge
+      </button>
+      <button class="menu-item menu-link" onclick={() => navigateTo('/docs')}>
+        Documentation
+      </button>
     </div>
 
     <!-- Theme toggle -->

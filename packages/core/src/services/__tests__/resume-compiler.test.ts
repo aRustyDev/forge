@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from 'bun:test'
 import type { Database } from 'bun:sqlite'
-import { compileResumeIR, syntheticUUID, formatDateRange, buildOrgDisplayString } from '../resume-compiler'
+import { compileResumeIR, syntheticUUID, formatDateRange, buildOrgDisplayString, formatClearanceLevel, formatPolygraph } from '../resume-compiler'
 import type { EducationItem, ExperienceGroup, ProjectItem, PresentationItem } from '../../types'
 import { createTestDb, seedSource, seedBullet, seedPerspective, seedResume, seedResumeEntry, seedResumeSection, seedOrganization, seedResumeSkill, seedProfile, seedSummary } from '../../db/__tests__/helpers'
 
@@ -395,7 +395,7 @@ describe('compileResumeIR', () => {
     expect(item.kind).toBe('clearance')
     if (item.kind === 'clearance') {
       // Structured data takes precedence over raw content
-      expect(item.content).toBe('top_secret with ci - active')
+      expect(item.content).toBe('TS/SCI with CI Poly')
       expect(item.source_id).toBe(sourceId)
     }
   })
@@ -479,7 +479,7 @@ describe('compileResumeIR', () => {
     expect(clrSection).toBeDefined()
     const item = clrSection!.items[0]
     if (item.kind === 'clearance') {
-      expect(item.content).toBe('top_secret with ci - active')
+      expect(item.content).toBe('TS/SCI with CI Poly')
     }
   })
 
@@ -886,6 +886,56 @@ describe('buildOrgDisplayString', () => {
   test('handles city, state, and arrangement', () => {
     expect(buildOrgDisplayString('Cisco', 'San Jose', 'CA', 'contract'))
       .toBe('Cisco - San Jose, CA (Contract)')
+  })
+})
+
+describe('formatClearanceLevel', () => {
+  test('top_secret renders as TS/SCI (IC default SCI access assumption)', () => {
+    expect(formatClearanceLevel('top_secret')).toBe('TS/SCI')
+  })
+
+  test('secret renders capitalized', () => {
+    expect(formatClearanceLevel('secret')).toBe('Secret')
+  })
+
+  test('confidential renders capitalized', () => {
+    expect(formatClearanceLevel('confidential')).toBe('Confidential')
+  })
+
+  test('public renders as Public Trust', () => {
+    expect(formatClearanceLevel('public')).toBe('Public Trust')
+  })
+
+  test('DOE Q and L clearances render with agency prefix', () => {
+    expect(formatClearanceLevel('q')).toBe('DOE Q')
+    expect(formatClearanceLevel('l')).toBe('DOE L')
+  })
+
+  test('null level returns empty string', () => {
+    expect(formatClearanceLevel(null)).toBe('')
+  })
+
+  test('unknown level returns raw value (forward compatibility)', () => {
+    expect(formatClearanceLevel('future_level')).toBe('future_level')
+  })
+})
+
+describe('formatPolygraph', () => {
+  test('ci renders as CI Poly', () => {
+    expect(formatPolygraph('ci')).toBe('CI Poly')
+  })
+
+  test('full_scope renders as Full-Scope Poly', () => {
+    expect(formatPolygraph('full_scope')).toBe('Full-Scope Poly')
+  })
+
+  test('none and null both return null so the "with X" clause is omitted', () => {
+    expect(formatPolygraph('none')).toBeNull()
+    expect(formatPolygraph(null)).toBeNull()
+  })
+
+  test('unknown polygraph returns raw value (forward compatibility)', () => {
+    expect(formatPolygraph('future_poly')).toBe('future_poly')
   })
 })
 

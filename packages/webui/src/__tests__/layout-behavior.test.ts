@@ -58,8 +58,12 @@ const APP_PAGES = [
   'opportunities/job-descriptions/+page.svelte',
 ]
 
-const FLOW_PAGES = [
+// DualMode pages use PageWrapper in board view but not list view
+const DUAL_MODE_PAGES = [
   'resumes/+page.svelte',
+]
+
+const FLOW_PAGES = [
   'resumes/summaries/+page.svelte',
   'resumes/templates/+page.svelte',
   'data/bullets/+page.svelte',
@@ -96,6 +100,15 @@ describe('Page Type Classification', () => {
     test(`FlowPage: ${page} does NOT use PageWrapper`, () => {
       const content = readFile(join(ROUTES_DIR, page))
       expect(content).not.toContain('<PageWrapper')
+    })
+  }
+
+  for (const page of DUAL_MODE_PAGES) {
+    test(`DualMode: ${page} uses PageWrapper in board view`, () => {
+      const content = readFile(join(ROUTES_DIR, page))
+      // Has PageWrapper for board mode but also has non-PageWrapper content for list mode
+      expect(content).toContain('PageWrapper')
+      expect(content).toContain('GenericKanban')
     })
   }
 

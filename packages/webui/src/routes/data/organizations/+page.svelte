@@ -434,7 +434,7 @@
 </script>
 
 <PageWrapper>
-  <SplitPanel listWidth={340}>
+  <SplitPanel>
     {#snippet list()}
       <ListPanelHeader title="All Organizations" onNew={startNew} />
 

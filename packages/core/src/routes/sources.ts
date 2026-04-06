@@ -89,6 +89,7 @@ export function sourceRoutes(services: Services, db: Database) {
       ...(body.education ?? {}),
       ...(body.role ?? {}),
       ...(body.project ?? {}),
+      ...(body.presentation ?? {}),
       ...clearanceFlat,
     }
     const result = services.sources.updateSource(c.req.param('id'), input)

@@ -30,6 +30,7 @@
     onRenameSection,
     onMoveSection,
     onRemoveEntry,
+    onRemoveCertification,
     onUpdateSummary,
   }: {
     ir: ResumeDocument

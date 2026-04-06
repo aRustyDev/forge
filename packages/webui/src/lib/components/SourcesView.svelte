@@ -53,7 +53,7 @@
   let formTotalCompNotes = $state('')
 
   // Education extension fields
-  let formEducationType = $state('certificate')
+  let formEducationType = $state('degree')
   let formEduOrgId = $state<string | null>(null)
   let formField = $state('')
   let formIsInProgress = $state(false)
@@ -88,7 +88,6 @@
   // Education sub-type fields
   let formDegreeLevel = $state<string>('bachelors')
   let formDegreeType = $state('')
-  let formCertificateSubtype = $state<string>('vendor')
   let formGpa = $state('')
   let formLocation = $state('')
   let formEduDescription = $state('')
@@ -113,11 +112,10 @@
   let formAccessPrograms = $state<ClearanceAccessProgram[]>([])
 
   // Education grouping
-  type GroupMode = 'flat' | 'by_type' | 'by_cert' | 'by_issuer'
+  type GroupMode = 'flat' | 'by_type' | 'by_issuer'
   const GROUP_OPTIONS: { value: GroupMode; label: string }[] = [
     { value: 'flat', label: 'Flat' },
     { value: 'by_type', label: 'By Type' },
-    { value: 'by_cert', label: 'By Cert Type' },
     { value: 'by_issuer', label: 'By Issuer' },
   ]
   let eduGroupBy = $state<GroupMode>('by_type')
@@ -129,16 +127,8 @@
 
   const EDU_TYPE_LABELS: Record<string, string> = {
     degree: 'Degrees',
-    certificate: 'Certificates',
     course: 'Courses',
     self_taught: 'Self-Taught',
-  }
-
-  const CERT_SUBTYPE_LABELS: Record<string, string> = {
-    professional: 'Professional',
-    vendor: 'Vendor',
-    completion: 'Completion',
-    unknown: 'Other',
   }
 
   let filteredSources = $derived(
@@ -160,14 +150,6 @@
       if (eduGroupBy === 'by_type') {
         key = s.education?.education_type ?? 'unknown'
         label = EDU_TYPE_LABELS[key] ?? key
-      } else if (eduGroupBy === 'by_cert') {
-        if (s.education?.education_type !== 'certificate') {
-          key = '_non_cert'
-          label = 'Non-Certificates'
-        } else {
-          key = s.education?.certificate_subtype ?? 'unknown'
-          label = CERT_SUBTYPE_LABELS[key] ?? key
-        }
       } else {
         // by_issuer — group by organization
         const orgId = s.education?.organization_id
@@ -189,7 +171,7 @@
     // Sort groups: for by_type use a fixed order, otherwise alphabetical
     const entries = [...groups.entries()]
     if (eduGroupBy === 'by_type') {
-      const order = ['degree', 'certificate', 'course', 'self_taught']
+      const order = ['degree', 'course', 'self_taught']
       entries.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))
     } else {
       entries.sort((a, b) => a[1].label.localeCompare(b[1].label))
@@ -281,9 +263,6 @@
       formDegreeType = ''
       formGpa = ''
     }
-    if (newType !== 'certificate') {
-      formCertificateSubtype = 'vendor'
-    }
     if (newType !== 'degree' && newType !== 'course') {
       formLocation = ''
     }
@@ -328,7 +307,7 @@
     formWorkArrangement = ''
     formBaseSalary = null
     formTotalCompNotes = ''
-    formEducationType = 'certificate'
+    formEducationType = 'degree'
     formEduOrgId = null
     formField = ''
     formIsInProgress = false
@@ -338,7 +317,6 @@
     formUrl = ''
     formDegreeLevel = ''
     formDegreeType = ''
-    formCertificateSubtype = 'vendor'
     formGpa = ''
     formLocation = ''
     formEduDescription = ''
@@ -378,7 +356,6 @@
       formUrl = source.education.url ?? ''
       formDegreeLevel = source.education.degree_level ?? ''
       formDegreeType = source.education.degree_type ?? ''
-      formCertificateSubtype = source.education.certificate_subtype ?? 'vendor'
       formGpa = source.education.gpa ?? ''
       formLocation = source.education.location ?? ''
       formEduDescription = source.education.edu_description ?? ''
@@ -418,7 +395,7 @@
     formWorkArrangement = ''
     formBaseSalary = null
     formTotalCompNotes = ''
-    formEducationType = 'certificate'
+    formEducationType = 'degree'
     formEduOrgId = null
     formField = ''
     formIsInProgress = false
@@ -428,7 +405,6 @@
     formUrl = ''
     formDegreeLevel = ''
     formDegreeType = ''
-    formCertificateSubtype = 'vendor'
     formGpa = ''
     formLocation = ''
     formEduDescription = ''
@@ -499,7 +475,6 @@
         url: formUrl || undefined,
         degree_level: formDegreeLevel || undefined,
         degree_type: formDegreeType || undefined,
-        certificate_subtype: formCertificateSubtype || undefined,
         gpa: formGpa || undefined,
         location: formLocation || undefined,
         edu_description: formEduDescription || undefined,
@@ -636,18 +611,6 @@
     if (formEducationType === 'degree') {
       return organizations.filter(o => matchesOrFallsBack(o, ['university', 'school']))
     }
-    if (formEducationType === 'certificate') {
-      if (formCertificateSubtype === 'vendor') {
-        return organizations.filter(o => matchesOrFallsBack(o, ['vendor']))
-      }
-      if (formCertificateSubtype === 'professional') {
-        return organizations.filter(o => matchesOrFallsBack(o, ['nonprofit', 'government', 'company']))
-      }
-      if (formCertificateSubtype === 'completion') {
-        return organizations.filter(o => matchesOrFallsBack(o, ['platform', 'company', 'university']))
-      }
-      return organizations
-    }
     if (formEducationType === 'course') {
       return organizations.filter(o => matchesOrFallsBack(o, ['university', 'platform', 'conference', 'company']))
     }
@@ -668,11 +631,6 @@
     } else if (formEducationType === 'course') {
       newOrgType = 'education'
       newOrgTags = ['platform']
-    } else if (formEducationType === 'certificate') {
-      newOrgType = 'company'
-      if (formCertificateSubtype === 'vendor') newOrgTags = ['company', 'vendor']
-      else if (formCertificateSubtype === 'professional') newOrgTags = ['company']
-      else newOrgTags = ['company', 'platform']
     } else {
       newOrgType = 'company'
       newOrgTags = ['company']
@@ -989,7 +947,6 @@
             <label for="edu-type">Education Type</label>
             <select id="edu-type" value={formEducationType} onchange={(e) => handleEducationTypeChange((e.target as HTMLSelectElement).value)}>
               <option value="degree">Degree</option>
-              <option value="certificate">Certificate</option>
               <option value="course">Course</option>
               <option value="self_taught">Self-Taught</option>
             </select>
@@ -1071,46 +1028,6 @@
               <label for="edu-description">Description</label>
               <textarea id="edu-description" bind:value={formEduDescription} rows="3"
                         placeholder="Additional notes about this degree..."></textarea>
-            </div>
-
-          {:else if formEducationType === 'certificate'}
-            <!-- Certificate fields -->
-            <div class="form-group">
-              <label for="edu-cert-subtype">Certificate Type <span class="required">*</span></label>
-              <select id="edu-cert-subtype" bind:value={formCertificateSubtype}>
-                <option value="professional">Professional (CISSP, PE, PMP)</option>
-                <option value="vendor">Vendor (AWS, Azure, CompTIA)</option>
-                <option value="completion">Completion (Udemy, bootcamp)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="edu-org">Issuing Body</label>
-              <div class="org-select-row">
-                <OrgCombobox
-                  id="edu-org"
-                  organizations={eduFilteredOrgs}
-                  bind:value={formEduOrgId}
-                  placeholder="Search issuers..."
-                  oncreate={openOrgModal}
-                />
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="edu-credential">Credential ID</label>
-              <input id="edu-credential" type="text" bind:value={formCredentialId} />
-            </div>
-            <div class="form-group">
-              <label for="edu-url">URL</label>
-              <input id="edu-url" type="url" bind:value={formUrl} />
-            </div>
-            <div class="form-group">
-              <label for="edu-expiration">Expiration Date</label>
-              <input id="edu-expiration" type="date" bind:value={formExpirationDate} />
-            </div>
-            <div class="form-group">
-              <label for="edu-description">Description</label>
-              <textarea id="edu-description" bind:value={formEduDescription} rows="3"
-                        placeholder="Additional notes about this certificate..."></textarea>
             </div>
 
           {:else if formEducationType === 'course'}

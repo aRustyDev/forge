@@ -123,9 +123,22 @@
     items = []
 
     if (contentType === 'bullet') {
-      const result = await forge.bullets.list({ limit: 500 })
-      if (result.ok) items = result.data
-      else addToast({ message: friendlyError(result.error, 'Failed to load bullets'), type: 'error' })
+      const [bulletRes, perspRes] = await Promise.all([
+        forge.bullets.list({ limit: 500 }),
+        forge.perspectives.list({ limit: 2000 }),
+      ])
+      if (bulletRes.ok) items = bulletRes.data
+      else addToast({ message: friendlyError(bulletRes.error, 'Failed to load bullets'), type: 'error' })
+
+      // Group perspectives by bullet_id for the accordion
+      if (perspRes.ok) {
+        const map: Record<string, Perspective[]> = {}
+        for (const p of perspRes.data) {
+          if (!map[p.bullet_id]) map[p.bullet_id] = []
+          map[p.bullet_id].push(p)
+        }
+        perspectivesByBullet = map
+      }
     } else if (contentType === 'perspective') {
       const result = await forge.perspectives.list({ limit: 500 })
       if (result.ok) items = result.data
@@ -212,6 +225,25 @@
         addToast({ message: `Reopen failed: ${res.error.message}`, type: 'error' })
       }
     }
+  }
+
+  // ── Perspective accordion (bullets tab, list view only) ──────
+
+  /** Map of bullet_id → perspectives[] for the accordion. */
+  let perspectivesByBullet = $state<Record<string, Perspective[]>>({})
+  /** Set of bullet IDs whose accordion is currently expanded. */
+  let expandedBullets = $state<Set<string>>(new Set())
+
+  function toggleAccordion(bulletId: string, e: MouseEvent) {
+    e.stopPropagation()
+    const next = new Set(expandedBullets)
+    if (next.has(bulletId)) next.delete(bulletId)
+    else next.add(bulletId)
+    expandedBullets = next
+  }
+
+  function perspectiveCount(bulletId: string): number {
+    return perspectivesByBullet[bulletId]?.length ?? 0
   }
 
   // ── Manual bullet creation ────────────────────────────────────
@@ -413,6 +445,40 @@
                 {/each}
               </div>
             {/if}
+
+            <!-- Perspective accordion -->
+            {#if perspectiveCount(item.id) > 0}
+              <button
+                class="accordion-toggle"
+                onclick={(e) => toggleAccordion(item.id, e)}
+              >
+                <span class="accordion-chevron" class:expanded={expandedBullets.has(item.id)}>&#9656;</span>
+                <span class="accordion-label">
+                  {perspectiveCount(item.id)} perspective{perspectiveCount(item.id) !== 1 ? 's' : ''}
+                </span>
+              </button>
+              {#if expandedBullets.has(item.id)}
+                <div class="accordion-content">
+                  {#each perspectivesByBullet[item.id] ?? [] as persp (persp.id)}
+                    <div class="accordion-perspective">
+                      <p class="persp-content">{truncate(persp.content, 160)}</p>
+                      <div class="persp-meta">
+                        {#if persp.target_archetype}
+                          <span class="meta-tag archetype">{persp.target_archetype}</span>
+                        {/if}
+                        {#if persp.domain}
+                          <span class="meta-tag domain">{persp.domain}</span>
+                        {/if}
+                        <span class="meta-tag framing">{persp.framing}</span>
+                        <StatusBadge status={persp.status} />
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            {:else}
+              <span class="accordion-empty">No perspectives derived yet</span>
+            {/if}
           {/if}
 
           <!-- Perspective-specific metadata -->
@@ -432,19 +498,8 @@
             <p class="rejection-reason">Reason: {item.rejection_reason}</p>
           {/if}
 
-          <!-- Inline actions -->
-          <div class="item-actions">
-            {#if item.status === 'in_review'}
-              <button class="btn btn-approve" onclick={(e) => { e.stopPropagation(); approveItem(item.id) }}>Approve</button>
-              <button class="btn btn-reject" onclick={(e) => { e.stopPropagation(); openReject(item.id) }}>Reject</button>
-            {/if}
-            {#if item.status === 'rejected'}
-              <button class="btn btn-reopen" onclick={(e) => { e.stopPropagation(); reopenItem(item.id) }}>Reopen</button>
-            {/if}
-            {#if contentType === 'bullet'}
-              <button class="btn btn-danger-ghost btn-xs" onclick={(e) => { e.stopPropagation(); deleteBullet(item.id) }}>Delete</button>
-            {/if}
-          </div>
+          <!-- Status actions live on the kanban board + BulletDetailModal.
+               Delete lives in the modal. Cards are for scan + click to open. -->
         </div>
       {/each}
     </div>
@@ -706,12 +761,71 @@
     margin-bottom: 0.35rem;
   }
 
-  .item-actions {
+  /* Perspective accordion */
+  .accordion-toggle {
     display: flex;
-    gap: 0.5rem;
+    align-items: center;
+    gap: 0.35rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: var(--text-sm);
+    color: var(--color-primary);
+    font-weight: var(--font-medium);
+    font-family: inherit;
+    padding: 0.25rem 0;
+    margin-top: 0.35rem;
+  }
+
+  .accordion-toggle:hover {
+    text-decoration: underline;
+  }
+
+  .accordion-chevron {
+    display: inline-block;
+    font-size: var(--text-xs);
+    transition: transform 0.15s ease;
+  }
+
+  .accordion-chevron.expanded {
+    transform: rotate(90deg);
+  }
+
+  .accordion-empty {
+    font-size: var(--text-xs);
+    color: var(--text-faint);
+    font-style: italic;
+    display: block;
+    margin-top: 0.35rem;
+  }
+
+  .accordion-content {
     margin-top: 0.5rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--color-ghost);
+    padding-left: 0.75rem;
+    border-left: 2px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .accordion-perspective {
+    padding: 0.4rem 0.6rem;
+    background: var(--color-surface-sunken);
+    border-radius: var(--radius-sm);
+  }
+
+  .persp-content {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    line-height: 1.4;
+    margin: 0 0 0.25rem;
+  }
+
+  .persp-meta {
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+    align-items: center;
   }
 
   /* Modal */

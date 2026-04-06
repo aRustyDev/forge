@@ -391,7 +391,14 @@
                   {#if src.is_primary}
                     <span class="primary-star" title="Primary source">&#9733;</span>
                   {/if}
-                  <span class="source-title">{src.title}</span>
+                  <a
+                    class="source-link"
+                    href="/experience/{src.source_type === 'general' ? 'general' : src.source_type + 's'}?id={src.id}"
+                    onclick={(e) => { onclose(); }}
+                  >
+                    {src.title}
+                  </a>
+                  <span class="source-type-badge">{src.source_type}</span>
                 </div>
               {/each}
             </div>
@@ -762,8 +769,27 @@
     font-size: 0.9rem;
   }
 
-  .source-title {
+  .source-link {
     flex: 1;
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .source-link:hover {
+    text-decoration: underline;
+  }
+
+  .source-type-badge {
+    font-size: 0.65rem;
+    padding: 0.1em 0.35em;
+    background: var(--color-tag-bg);
+    color: var(--color-tag-text);
+    border-radius: 3px;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
   }
 
   .empty-text {

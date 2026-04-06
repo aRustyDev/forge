@@ -94,6 +94,7 @@
 
   // Project extension fields
   let formIsPersonal = $state(false)
+  let formOpenSource = $state(false)
   let formProjectUrl = $state('')
 
   // Presentation extension fields
@@ -321,6 +322,7 @@
     formLocation = ''
     formEduDescription = ''
     formIsPersonal = false
+    formOpenSource = false
     formProjectUrl = ''
     formVenue = ''
     formPresentationType = 'conference_talk'
@@ -362,6 +364,7 @@
     } else if (source.source_type === 'project' && source.project) {
       formOrgId = source.project.organization_id ?? null
       formIsPersonal = !!source.project.is_personal
+      formOpenSource = !!(source.project as any).open_source
       formProjectUrl = source.project.url ?? ''
       formStartDate = source.project.start_date ?? ''
       formEndDate = source.project.end_date ?? ''
@@ -409,6 +412,7 @@
     formLocation = ''
     formEduDescription = ''
     formIsPersonal = false
+    formOpenSource = false
     formProjectUrl = ''
     formVenue = ''
     formPresentationType = 'conference_talk'
@@ -483,6 +487,7 @@
       basePayload.project = {
         organization_id: formOrgId,
         is_personal: formIsPersonal,
+        open_source: formOpenSource,
         url: formProjectUrl || undefined,
         start_date: formStartDate || undefined,
         end_date: formEndDate || undefined,
@@ -764,6 +769,9 @@
       {/if}
       {#if source.source_type === 'project' && source.project?.is_personal}
         <span class="personal-badge">Personal</span>
+      {/if}
+      {#if source.source_type === 'project' && (source.project as any)?.open_source}
+        <span class="personal-badge" style="background: var(--color-success-subtle); color: var(--color-success-text);">Open Source</span>
       {/if}
       {#if source.source_type === 'role' && source.role?.organization_id}
         <span class="card-org">{getOrgName(source.role.organization_id)}</span>
@@ -1094,9 +1102,12 @@
 
         <!-- Project-specific fields -->
         {#if formSourceType === 'project'}
-          <div class="form-group">
+          <div class="form-group" style="display: flex; gap: 1.5rem;">
             <label>
               <input type="checkbox" bind:checked={formIsPersonal} /> Personal project
+            </label>
+            <label>
+              <input type="checkbox" bind:checked={formOpenSource} /> Open source
             </label>
           </div>
           {#if !formIsPersonal}

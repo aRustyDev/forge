@@ -563,21 +563,31 @@
   }
 
   /**
-   * Filter orgs to those the user has worked at (for role/project dropdowns).
+   * All organizations for role/project dropdowns, sorted with "worked at"
+   * orgs first.
    *
-   * Graceful degradation: when NO orgs are linked yet (chicken-and-egg
-   * problem on fresh or V1-migrated data where all source_roles have
-   * organization_id = NULL), fall back to showing ALL organizations so
-   * the user can make their first linkage. Once at least one org is
-   * linked, the filter narrows to the "worked at" set per the original
-   * feedback intent.
+   * The original design filtered to ONLY orgs the user had worked at. That
+   * created a chicken-and-egg problem: you couldn't link an org you hadn't
+   * already linked. And once one org was linked, only that one showed up.
+   *
+   * Fix: show ALL orgs always, but sort "worked at" orgs to the top so the
+   * user's most common picks are first. New orgs are always reachable by
+   * scrolling. This matches the eduFilteredOrgs approach (show everything,
+   * prioritize relevant ones).
    */
   let roleFilteredOrgs = $derived.by(() => {
-    const workedAt = organizations.filter(o => sources.some(s =>
-      (s.source_type === 'role' && s.role?.organization_id === o.id) ||
-      (s.source_type === 'project' && s.project?.organization_id === o.id)
-    ))
-    return workedAt.length > 0 ? workedAt : organizations
+    const workedAtIds = new Set(
+      sources
+        .filter(s => s.source_type === 'role' || s.source_type === 'project')
+        .map(s => s.role?.organization_id ?? s.project?.organization_id)
+        .filter((id): id is string => id !== null && id !== undefined)
+    )
+    return [...organizations].sort((a, b) => {
+      const aWorked = workedAtIds.has(a.id) ? 0 : 1
+      const bWorked = workedAtIds.has(b.id) ? 0 : 1
+      if (aWorked !== bWorked) return aWorked - bWorked
+      return a.name.localeCompare(b.name)
+    })
   })
 
   /**

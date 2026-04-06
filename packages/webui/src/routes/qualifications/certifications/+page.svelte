@@ -2,8 +2,7 @@
   Certifications page — split-panel CRUD with skill tagging.
 
   Phase 87 T87.3. Lists certifications with their linked skills, provides
-  a detail form with skill picker for keyword linking, and an optional
-  education source dropdown.
+  a detail form with skill picker for keyword linking.
 
   Follows ui-shared-components.md rules:
   - SplitPanel, ListPanelHeader, EmptyPanel, ListSearchInput from $lib/components
@@ -13,11 +12,10 @@
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
   import { LoadingSpinner, SplitPanel, ListPanelHeader, EmptyPanel, ListSearchInput } from '$lib/components'
-  import type { CertificationWithSkills, Skill, Source } from '@forge/sdk'
+  import type { CertificationWithSkills, Skill } from '@forge/sdk'
 
   let certifications = $state<CertificationWithSkills[]>([])
   let allSkills = $state<Skill[]>([])
-  let educationSources = $state<Source[]>([])
   let selectedId = $state<string | null>(null)
   let searchQuery = $state('')
   let loading = $state(true)
@@ -31,7 +29,6 @@
   let formExpiryDate = $state('')
   let formCredentialId = $state('')
   let formCredentialUrl = $state('')
-  let formEducationSourceId = $state<string | null>(null)
 
   // Skill picker
   let skillSearch = $state('')
@@ -81,21 +78,18 @@
       formExpiryDate = selectedCert.expiry_date ?? ''
       formCredentialId = selectedCert.credential_id ?? ''
       formCredentialUrl = selectedCert.credential_url ?? ''
-      formEducationSourceId = selectedCert.education_source_id
     }
   })
 
   async function loadAll() {
     loading = true
-    const [certsRes, skillsRes, sourcesRes] = await Promise.all([
+    const [certsRes, skillsRes] = await Promise.all([
       forge.certifications.list(),
       forge.skills.list({ limit: 500 }),
-      forge.sources.list({ source_type: 'education', limit: 200 }),
     ])
     if (certsRes.ok) certifications = certsRes.data
     else addToast({ message: friendlyError(certsRes.error, 'Failed to load certifications'), type: 'error' })
     if (skillsRes.ok) allSkills = skillsRes.data
-    if (sourcesRes.ok) educationSources = sourcesRes.data
     loading = false
   }
 
@@ -108,7 +102,6 @@
     formExpiryDate = ''
     formCredentialId = ''
     formCredentialUrl = ''
-    formEducationSourceId = null
   }
 
   function selectCert(id: string) {
@@ -133,7 +126,6 @@
         expiry_date: formExpiryDate || undefined,
         credential_id: formCredentialId || undefined,
         credential_url: formCredentialUrl || undefined,
-        education_source_id: formEducationSourceId ?? undefined,
       })
       if (res.ok) {
         // Reload to get the WithSkills variant
@@ -152,7 +144,6 @@
         expiry_date: formExpiryDate || null,
         credential_id: formCredentialId || null,
         credential_url: formCredentialUrl || null,
-        education_source_id: formEducationSourceId,
       })
       if (res.ok) {
         await loadAll()
@@ -302,16 +293,6 @@
             <label for="cert-cred-url">Verification URL</label>
             <input id="cert-cred-url" type="text" bind:value={formCredentialUrl} disabled={!editing} class="form-input"
                    placeholder="e.g. https://verify.example.com/123" />
-          </div>
-
-          <div class="form-group">
-            <label for="cert-edu-source">Linked Education Source</label>
-            <select id="cert-edu-source" bind:value={formEducationSourceId} disabled={!editing} class="form-input">
-              <option value={null}>-- None --</option>
-              {#each educationSources as src (src.id)}
-                <option value={src.id}>{src.title}</option>
-              {/each}
-            </select>
           </div>
 
           <!-- Skills section (only in view/non-new-edit mode) -->

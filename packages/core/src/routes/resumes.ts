@@ -140,6 +140,27 @@ export function resumeRoutes(services: Services, db: Database) {
     return c.json({ data: null })
   })
 
+  // ── Resume Certifications (per-resume cert selection) ─────────────────
+
+  app.post('/resumes/:id/certifications', async (c) => {
+    const body = await c.req.json<{ certification_id: string; section_id: string; position?: number }>()
+    const result = services.resumes.addCertification(c.req.param('id'), body)
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.json({ data: result.data }, 201)
+  })
+
+  app.delete('/resumes/:id/certifications/:rcId', (c) => {
+    const result = services.resumes.removeCertification(c.req.param('id'), c.req.param('rcId'))
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.body(null, 204)
+  })
+
+  app.get('/resumes/:id/certifications', (c) => {
+    const result = services.resumes.listCertificationsForResume(c.req.param('id'))
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.json({ data: result.data })
+  })
+
   // -- Save as Template ---------------------------------------------------
 
   app.post('/resumes/:id/save-as-template', async (c) => {

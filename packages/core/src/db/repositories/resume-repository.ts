@@ -18,6 +18,8 @@ import type {
   AddResumeEntry,
   ResumeSectionEntity,
   ResumeSkill,
+  ResumeCertification,
+  AddResumeCertification,
 } from '../../types'
 
 // ── Row types ────────────────────────────────────────────────────────
@@ -559,5 +561,41 @@ export const ResumeRepository = {
       }
     })
     txn()
+  },
+
+  // ── Certifications CRUD ────────────────────────────────────────────
+
+  addCertification(db: Database, resumeId: string, input: AddResumeCertification): ResumeCertification {
+    const id = crypto.randomUUID()
+    const pos = input.position ?? (db
+      .query(
+        `SELECT COALESCE(MAX(position), -1) + 1 AS next_pos
+         FROM resume_certifications
+         WHERE section_id = ?`,
+      )
+      .get(input.section_id) as { next_pos: number }).next_pos
+
+    const row = db
+      .query(
+        `INSERT INTO resume_certifications (id, resume_id, certification_id, section_id, position)
+         VALUES (?, ?, ?, ?, ?)
+         RETURNING *`,
+      )
+      .get(id, resumeId, input.certification_id, input.section_id, pos) as ResumeCertification
+    return row
+  },
+
+  removeCertification(db: Database, resumeId: string, rcId: string): boolean {
+    const result = db.run(
+      'DELETE FROM resume_certifications WHERE id = ? AND resume_id = ?',
+      [rcId, resumeId],
+    )
+    return result.changes > 0
+  },
+
+  listCertificationsForSection(db: Database, sectionId: string): ResumeCertification[] {
+    return db
+      .query('SELECT * FROM resume_certifications WHERE section_id = ? ORDER BY position')
+      .all(sectionId) as ResumeCertification[]
   },
 }

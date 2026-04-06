@@ -17,6 +17,8 @@ import type {
   AddResumeEntry,
   ResumeSectionEntity,
   ResumeSkill,
+  ResumeCertification,
+  AddResumeCertification,
   GapAnalysis,
   Gap,
   Result,
@@ -397,6 +399,45 @@ export class ResumeService {
     }
     ResumeRepository.reorderSkills(this.db, sectionId, skills)
     return { ok: true, data: undefined }
+  }
+
+  // ── Certifications management ───────────────────────────────────────
+
+  addCertification(resumeId: string, input: AddResumeCertification): Result<ResumeCertification> {
+    const section = ResumeRepository.getSection(this.db, input.section_id)
+    if (!section || section.resume_id !== resumeId) {
+      return { ok: false, error: { code: 'NOT_FOUND', message: 'Section not found' } }
+    }
+    if (section.entry_type !== 'certifications') {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'Certifications can only be added to certifications-type sections' } }
+    }
+    try {
+      const rc = ResumeRepository.addCertification(this.db, resumeId, input)
+      return { ok: true, data: rc }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      if (message.includes('UNIQUE constraint')) {
+        return { ok: false, error: { code: 'CONFLICT', message: 'Certification already in this resume' } }
+      }
+      throw err
+    }
+  }
+
+  removeCertification(resumeId: string, rcId: string): Result<void> {
+    const removed = ResumeRepository.removeCertification(this.db, resumeId, rcId)
+    if (!removed) return { ok: false, error: { code: 'NOT_FOUND', message: 'Resume certification not found' } }
+    return { ok: true, data: undefined }
+  }
+
+  listCertificationsForResume(resumeId: string): Result<ResumeCertification[]> {
+    // Get all certification-type sections for this resume, then collect entries
+    const sections = ResumeRepository.listSections(this.db, resumeId)
+    const certSections = sections.filter(s => s.entry_type === 'certifications')
+    const all: ResumeCertification[] = []
+    for (const section of certSections) {
+      all.push(...ResumeRepository.listCertificationsForSection(this.db, section.id))
+    }
+    return { ok: true, data: all }
   }
 
   // ── IR & Override Methods ──────────────────────────────────────────

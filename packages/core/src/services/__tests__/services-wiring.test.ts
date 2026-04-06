@@ -75,13 +75,13 @@ describe('Services wiring (Phase 85 T85.7)', () => {
   })
 
   test('services.certifications can create and retrieve a certification', () => {
-    const create = services.certifications.create({ name: 'Test Cert' })
+    const create = services.certifications.create({ short_name: 'Test', long_name: 'Test Cert' })
     expect(create.ok).toBe(true)
     if (!create.ok) return
 
     const get = services.certifications.get(create.data.id)
     expect(get.ok).toBe(true)
-    if (get.ok) expect(get.data.name).toBe('Test Cert')
+    if (get.ok) expect(get.data.short_name).toBe('Test')
   })
 
   test('all Phase 85 services are independent instances per createServices call', () => {

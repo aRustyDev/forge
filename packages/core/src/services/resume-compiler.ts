@@ -896,17 +896,18 @@ function buildCertificationItems(db: Database, _sectionId: string): Certificatio
 
   type CertRow = {
     id: string
-    name: string
-    issuer: string | null
+    short_name: string
+    issuer_name: string | null
     date_earned: string | null
     credential_id: string | null
   }
 
   const rows = db
     .query(
-      `SELECT id, name, issuer, date_earned, credential_id
-       FROM certifications
-       ORDER BY issuer ASC, name ASC`,
+      `SELECT c.id, c.short_name, o.name AS issuer_name, c.date_earned, c.credential_id
+       FROM certifications c
+       LEFT JOIN organizations o ON o.id = c.issuer_id
+       ORDER BY issuer_name ASC, c.short_name ASC`,
     )
     .all() as CertRow[]
 
@@ -916,11 +917,11 @@ function buildCertificationItems(db: Database, _sectionId: string): Certificatio
   const catMap = new Map<string, Array<{ name: string; entry_id: string | null; source_id: string | null }>>()
 
   for (const row of rows) {
-    const label = row.issuer ?? 'Other'
+    const label = row.issuer_name ?? 'Other'
     if (!catMap.has(label)) catMap.set(label, [])
 
     // Build display name: "Name (year)" or "Name" if no date
-    let displayName = row.name
+    let displayName = row.short_name
     if (row.date_earned) {
       const year = row.date_earned.slice(0, 4)
       displayName += ` (${year})`

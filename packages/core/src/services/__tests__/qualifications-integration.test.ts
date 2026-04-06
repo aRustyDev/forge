@@ -143,9 +143,14 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
 
   describe('certification → IR compiler round-trip', () => {
     test('certification appears in compiled resume certifications section', () => {
+      // Seed an org for issuer_id
+      const isc2OrgId = crypto.randomUUID()
+      db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'ISC2', 'company')`, [isc2OrgId])
+
       const createResult = certificationService.create({
-        name: 'CISSP',
-        issuer: 'ISC2',
+        short_name: 'CISSP',
+        long_name: 'Certified Information Systems Security Professional',
+        issuer_id: isc2OrgId,
         date_earned: '2024-06-01',
         credential_id: 'CISSP-123',
       })
@@ -161,7 +166,7 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
 
       const group = certSection!.items[0] as CertificationGroup
       expect(group.kind).toBe('certification_group')
-      // Grouped by issuer
+      // Grouped by issuer org name
       expect(group.categories[0].label).toBe('ISC2')
       // Name includes year and credential ID
       expect(group.categories[0].certs[0].name).toContain('CISSP')
@@ -170,7 +175,7 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
     })
 
     test('certification without issuer groups under "Other"', () => {
-      certificationService.create({ name: 'Self Badge' })
+      certificationService.create({ short_name: 'Self Badge', long_name: 'Self-Study Badge' })
 
       const resumeId = seedResume(db)
       seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
@@ -191,9 +196,16 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
     })
 
     test('multiple certs from different issuers produce multiple categories', () => {
-      certificationService.create({ name: 'CISSP', issuer: 'ISC2' })
-      certificationService.create({ name: 'AWS SA Pro', issuer: 'Amazon Web Services' })
-      certificationService.create({ name: 'PMP', issuer: 'PMI' })
+      const isc2Id = crypto.randomUUID()
+      const awsId = crypto.randomUUID()
+      const pmiId = crypto.randomUUID()
+      db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'ISC2', 'company')`, [isc2Id])
+      db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'Amazon Web Services', 'company')`, [awsId])
+      db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'PMI', 'company')`, [pmiId])
+
+      certificationService.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional', issuer_id: isc2Id })
+      certificationService.create({ short_name: 'AWS SA Pro', long_name: 'AWS Solutions Architect Professional', issuer_id: awsId })
+      certificationService.create({ short_name: 'PMP', long_name: 'Project Management Professional', issuer_id: pmiId })
 
       const resumeId = seedResume(db)
       seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
@@ -241,9 +253,13 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
     })
 
     test('certification with skills: skills survive the list → IR pipeline', () => {
+      const isc2OrgId = crypto.randomUUID()
+      db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'ISC2', 'company')`, [isc2OrgId])
+
       const certResult = certificationService.create({
-        name: 'CISSP',
-        issuer: 'ISC2',
+        short_name: 'CISSP',
+        long_name: 'Certified Information Systems Security Professional',
+        issuer_id: isc2OrgId,
       })
       expect(certResult.ok).toBe(true)
       if (!certResult.ok) return

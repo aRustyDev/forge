@@ -400,10 +400,12 @@ describe('compileResumeIR', () => {
     // resume_entries needed. Every certification renders automatically.
     const resumeId = seedResume(db)
     const certId = crypto.randomUUID()
+    const isc2OrgId = crypto.randomUUID()
+    db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'ISC2', 'company')`, [isc2OrgId])
     db.run(
-      `INSERT INTO certifications (id, name, issuer, date_earned, credential_id)
-       VALUES (?, 'CISSP', 'ISC2', '2024-06-01', 'CISSP-123456')`,
-      [certId],
+      `INSERT INTO certifications (id, short_name, long_name, issuer_id, date_earned, credential_id)
+       VALUES (?, 'CISSP', 'Certified Information Systems Security Professional', ?, '2024-06-01', 'CISSP-123456')`,
+      [certId, isc2OrgId],
     )
 
     seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
@@ -515,16 +517,18 @@ describe('compileResumeIR', () => {
 
   test('certification section groups by issuer and handles missing issuer', () => {
     const resumeId = seedResume(db)
-    // Cert with issuer
+    // Cert with issuer org
+    const awsOrgId = crypto.randomUUID()
+    db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'Amazon Web Services', 'company')`, [awsOrgId])
     db.run(
-      `INSERT INTO certifications (id, name, issuer, date_earned)
-       VALUES (?, 'AWS SA Pro', 'Amazon Web Services', '2024-08-15')`,
-      [crypto.randomUUID()],
+      `INSERT INTO certifications (id, short_name, long_name, issuer_id, date_earned)
+       VALUES (?, 'AWS SA Pro', 'AWS Solutions Architect Professional', ?, '2024-08-15')`,
+      [crypto.randomUUID(), awsOrgId],
     )
     // Cert without issuer
     db.run(
-      `INSERT INTO certifications (id, name, issuer)
-       VALUES (?, 'Self-Study Badge', NULL)`,
+      `INSERT INTO certifications (id, short_name, long_name)
+       VALUES (?, 'Self-Study Badge', 'Self-Study Badge')`,
       [crypto.randomUUID()],
     )
 
@@ -554,10 +558,12 @@ describe('compileResumeIR', () => {
 
   test('certification without date or credential_id renders name only', () => {
     const resumeId = seedResume(db)
+    const pmiOrgId = crypto.randomUUID()
+    db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'PMI', 'company')`, [pmiOrgId])
     db.run(
-      `INSERT INTO certifications (id, name, issuer)
-       VALUES (?, 'PMP', 'PMI')`,
-      [crypto.randomUUID()],
+      `INSERT INTO certifications (id, short_name, long_name, issuer_id)
+       VALUES (?, 'PMP', 'Project Management Professional', ?)`,
+      [crypto.randomUUID(), pmiOrgId],
     )
 
     seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)

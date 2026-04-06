@@ -1,15 +1,16 @@
 /**
- * Certification route acceptance tests (Phase 86 T86.2).
+ * Certification route acceptance tests (Phase 86 T86.2, updated for migration 041).
  *
  * Acceptance criteria from the phase plan:
  *   [x] All 7 routes implemented
  *   [x] Skill add/remove returns updated certification with skills
  *   [x] Proper cascade behavior (deleting cert removes skill links)
+ *   [x] New fields: short_name, long_name, cert_id, issuer_id, credly_url, in_progress
  */
 
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { createTestApp, apiRequest, type TestContext } from './helpers'
-import { seedSource, seedSkill, testUuid } from '../../db/__tests__/helpers'
+import { seedSkill, testUuid } from '../../db/__tests__/helpers'
 
 describe('Certification routes', () => {
   let ctx: TestContext
@@ -29,70 +30,59 @@ describe('Certification routes', () => {
   describe('POST /certifications', () => {
     test('201 + data envelope for minimal valid cert', async () => {
       const res = await apiRequest(ctx.app, 'POST', '/certifications', {
-        name: 'CISSP',
+        short_name: 'CISSP',
+        long_name: 'Certified Information Systems Security Professional',
       })
       expect(res.status).toBe(201)
       const body = await res.json()
       expect(body.data.id).toHaveLength(36)
-      expect(body.data.name).toBe('CISSP')
+      expect(body.data.short_name).toBe('CISSP')
+      expect(body.data.long_name).toBe('Certified Information Systems Security Professional')
     })
 
     test('201 with all optional fields', async () => {
+      const orgId = crypto.randomUUID()
+      ctx.db.run('INSERT INTO organizations (id, name, org_type) VALUES (?, ?, ?)', [orgId, 'AWS', 'company'])
+
       const res = await apiRequest(ctx.app, 'POST', '/certifications', {
-        name: 'AWS SA Pro',
-        issuer: 'Amazon Web Services',
+        short_name: 'AWS SA Pro',
+        long_name: 'AWS Solutions Architect Professional',
+        cert_id: 'SAA-C03',
+        issuer_id: orgId,
         date_earned: '2024-01-15',
         expiry_date: '2027-01-15',
         credential_id: 'AWS-123456',
         credential_url: 'https://aws.amazon.com/verify/123456',
+        credly_url: 'https://credly.com/badges/abc',
+        in_progress: false,
       })
       expect(res.status).toBe(201)
       const body = await res.json()
-      expect(body.data.issuer).toBe('Amazon Web Services')
+      expect(body.data.issuer_id).toBe(orgId)
       expect(body.data.credential_id).toBe('AWS-123456')
+      expect(body.data.credly_url).toBe('https://credly.com/badges/abc')
+      expect(body.data.in_progress).toBe(false)
     })
 
-    test('400 for empty name', async () => {
-      const res = await apiRequest(ctx.app, 'POST', '/certifications', { name: '' })
+    test('400 for empty short_name', async () => {
+      const res = await apiRequest(ctx.app, 'POST', '/certifications', { short_name: '', long_name: 'Something' })
       expect(res.status).toBe(400)
       const body = await res.json()
       expect(body.error.code).toBe('VALIDATION_ERROR')
-      expect(body.error.message).toContain('name')
+      expect(body.error.message).toContain('short_name')
     })
 
-    test('400 for whitespace-only name', async () => {
-      const res = await apiRequest(ctx.app, 'POST', '/certifications', { name: '   ' })
-      expect(res.status).toBe(400)
-    })
-
-    test('400 for education_source_id pointing to a non-education source', async () => {
-      const roleId = seedSource(ctx.db, { title: 'Engineer', sourceType: 'role' })
-      const res = await apiRequest(ctx.app, 'POST', '/certifications', {
-        name: 'CISSP',
-        education_source_id: roleId,
-      })
+    test('400 for empty long_name', async () => {
+      const res = await apiRequest(ctx.app, 'POST', '/certifications', { short_name: 'X', long_name: '' })
       expect(res.status).toBe(400)
       const body = await res.json()
-      expect(body.error.message).toContain('education')
+      expect(body.error.code).toBe('VALIDATION_ERROR')
+      expect(body.error.message).toContain('long_name')
     })
 
-    test('404 for unknown education_source_id', async () => {
-      const res = await apiRequest(ctx.app, 'POST', '/certifications', {
-        name: 'CISSP',
-        education_source_id: testUuid(),
-      })
-      expect(res.status).toBe(404)
-    })
-
-    test('201 with valid education_source_id', async () => {
-      const sourceId = seedSource(ctx.db, { title: 'CISSP Bootcamp', sourceType: 'education' })
-      const res = await apiRequest(ctx.app, 'POST', '/certifications', {
-        name: 'CISSP',
-        education_source_id: sourceId,
-      })
-      expect(res.status).toBe(201)
-      const body = await res.json()
-      expect(body.data.education_source_id).toBe(sourceId)
+    test('400 for whitespace-only short_name', async () => {
+      const res = await apiRequest(ctx.app, 'POST', '/certifications', { short_name: '   ', long_name: 'Something' })
+      expect(res.status).toBe(400)
     })
   })
 
@@ -109,12 +99,18 @@ describe('Certification routes', () => {
     })
 
     test('returns all certifications with hydrated skills array', async () => {
-      const cisspRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'CISSP' })
+      const cisspRes = await apiRequest(ctx.app, 'POST', '/certifications', {
+        short_name: 'CISSP',
+        long_name: 'Certified Information Systems Security Professional',
+      })
       const cissp = (await cisspRes.json()).data
-      const pmpRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'PMP' })
+      const pmpRes = await apiRequest(ctx.app, 'POST', '/certifications', {
+        short_name: 'PMP',
+        long_name: 'Project Management Professional',
+      })
       const pmp = (await pmpRes.json()).data
 
-      // Link skills directly in the DB (skill endpoints tested separately)
+      // Link skills
       const secSkill = seedSkill(ctx.db, { name: 'Security' })
       const pmSkill = seedSkill(ctx.db, { name: 'Project Management' })
       await apiRequest(ctx.app, 'POST', `/certifications/${cissp.id}/skills`, { skill_id: secSkill })
@@ -128,7 +124,7 @@ describe('Certification routes', () => {
       for (const cert of body.data) {
         expect(cert.skills).toBeInstanceOf(Array)
       }
-      const byName = Object.fromEntries(body.data.map((c: any) => [c.name, c]))
+      const byName = Object.fromEntries(body.data.map((c: any) => [c.short_name, c]))
       expect(byName['CISSP'].skills[0].name).toBe('Security')
       expect(byName['PMP'].skills[0].name).toBe('Project Management')
     })
@@ -140,7 +136,10 @@ describe('Certification routes', () => {
 
   describe('GET /certifications/:id', () => {
     test('200 + WithSkills for existing cert', async () => {
-      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'CISSP' })
+      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', {
+        short_name: 'CISSP',
+        long_name: 'Certified Information Systems Security Professional',
+      })
       const created = (await createRes.json()).data
 
       const res = await apiRequest(ctx.app, 'GET', `/certifications/${created.id}`)
@@ -162,43 +161,41 @@ describe('Certification routes', () => {
 
   describe('PATCH /certifications/:id', () => {
     test('200 + updated data', async () => {
-      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'Old' })
+      const orgId = crypto.randomUUID()
+      ctx.db.run('INSERT INTO organizations (id, name, org_type) VALUES (?, ?, ?)', [orgId, 'Acme', 'company'])
+
+      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', {
+        short_name: 'Old',
+        long_name: 'Old Long Name',
+      })
       const created = (await createRes.json()).data
 
       const res = await apiRequest(ctx.app, 'PATCH', `/certifications/${created.id}`, {
-        name: 'New',
-        issuer: 'Acme',
+        short_name: 'New',
+        issuer_id: orgId,
       })
       expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body.data.name).toBe('New')
-      expect(body.data.issuer).toBe('Acme')
+      expect(body.data.short_name).toBe('New')
+      expect(body.data.issuer_id).toBe(orgId)
     })
 
-    test('400 for empty name on update', async () => {
-      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'Keep' })
-      const created = (await createRes.json()).data
-
-      const res = await apiRequest(ctx.app, 'PATCH', `/certifications/${created.id}`, {
-        name: '   ',
+    test('400 for empty short_name on update', async () => {
+      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', {
+        short_name: 'Keep',
+        long_name: 'Keep Long',
       })
-      expect(res.status).toBe(400)
-    })
-
-    test('400 for education_source_id pointing to non-education', async () => {
-      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'Cert' })
       const created = (await createRes.json()).data
-      const roleId = seedSource(ctx.db, { title: 'R', sourceType: 'role' })
 
       const res = await apiRequest(ctx.app, 'PATCH', `/certifications/${created.id}`, {
-        education_source_id: roleId,
+        short_name: '   ',
       })
       expect(res.status).toBe(400)
     })
 
     test('404 for unknown id', async () => {
       const res = await apiRequest(ctx.app, 'PATCH', `/certifications/${testUuid()}`, {
-        name: 'x',
+        short_name: 'x',
       })
       expect(res.status).toBe(404)
     })
@@ -210,7 +207,10 @@ describe('Certification routes', () => {
 
   describe('DELETE /certifications/:id', () => {
     test('204 for existing cert', async () => {
-      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'Temp' })
+      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', {
+        short_name: 'Temp',
+        long_name: 'Temporary',
+      })
       const created = (await createRes.json()).data
 
       const res = await apiRequest(ctx.app, 'DELETE', `/certifications/${created.id}`)
@@ -226,7 +226,10 @@ describe('Certification routes', () => {
     })
 
     test('cascade: deleting a cert removes its skill junction rows', async () => {
-      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'CISSP' })
+      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', {
+        short_name: 'CISSP',
+        long_name: 'Certified Information Systems Security Professional',
+      })
       const created = (await createRes.json()).data
       const skillId = seedSkill(ctx.db, { name: 'Security' })
       await apiRequest(ctx.app, 'POST', `/certifications/${created.id}/skills`, { skill_id: skillId })
@@ -252,7 +255,10 @@ describe('Certification routes', () => {
 
   describe('POST /certifications/:id/skills', () => {
     test('200 + updated cert (with skills array) on valid link', async () => {
-      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'CISSP' })
+      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', {
+        short_name: 'CISSP',
+        long_name: 'Certified Information Systems Security Professional',
+      })
       const created = (await createRes.json()).data
       const skillId = seedSkill(ctx.db, { name: 'Security' })
 
@@ -267,7 +273,10 @@ describe('Certification routes', () => {
     })
 
     test('idempotent — second add returns same state', async () => {
-      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'CISSP' })
+      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', {
+        short_name: 'CISSP',
+        long_name: 'Certified Information Systems Security Professional',
+      })
       const created = (await createRes.json()).data
       const skillId = seedSkill(ctx.db, { name: 'Security' })
 
@@ -280,7 +289,10 @@ describe('Certification routes', () => {
     })
 
     test('400 when skill_id is missing from body', async () => {
-      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'CISSP' })
+      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', {
+        short_name: 'CISSP',
+        long_name: 'Certified Information Systems Security Professional',
+      })
       const created = (await createRes.json()).data
 
       const res = await apiRequest(ctx.app, 'POST', `/certifications/${created.id}/skills`, {})
@@ -298,7 +310,10 @@ describe('Certification routes', () => {
     })
 
     test('404 for unknown skill id', async () => {
-      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'CISSP' })
+      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', {
+        short_name: 'CISSP',
+        long_name: 'Certified Information Systems Security Professional',
+      })
       const created = (await createRes.json()).data
 
       const res = await apiRequest(ctx.app, 'POST', `/certifications/${created.id}/skills`, {
@@ -314,7 +329,10 @@ describe('Certification routes', () => {
 
   describe('DELETE /certifications/:id/skills/:skillId', () => {
     test('204 on successful unlink', async () => {
-      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'CISSP' })
+      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', {
+        short_name: 'CISSP',
+        long_name: 'Certified Information Systems Security Professional',
+      })
       const created = (await createRes.json()).data
       const skillId = seedSkill(ctx.db, { name: 'Security' })
       await apiRequest(ctx.app, 'POST', `/certifications/${created.id}/skills`, { skill_id: skillId })
@@ -329,7 +347,10 @@ describe('Certification routes', () => {
     })
 
     test('idempotent — 204 when link does not exist', async () => {
-      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', { name: 'CISSP' })
+      const createRes = await apiRequest(ctx.app, 'POST', '/certifications', {
+        short_name: 'CISSP',
+        long_name: 'Certified Information Systems Security Professional',
+      })
       const created = (await createRes.json()).data
       const skillId = seedSkill(ctx.db, { name: 'Security' })
 

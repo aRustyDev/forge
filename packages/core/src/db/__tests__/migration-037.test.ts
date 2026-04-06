@@ -119,9 +119,9 @@ describe('Migration 037: qualifications (credentials + certifications)', () => {
       }>
       const names = cols.map((c) => c.name).sort()
       for (const required of [
-        'id', 'name', 'issuer', 'date_earned', 'expiry_date',
-        'credential_id', 'credential_url', 'education_source_id',
-        'created_at', 'updated_at',
+        'id', 'short_name', 'long_name', 'cert_id', 'issuer_id',
+        'date_earned', 'expiry_date', 'credential_id', 'credential_url',
+        'credly_url', 'in_progress', 'created_at', 'updated_at',
       ]) {
         expect(names).toContain(required)
       }
@@ -152,7 +152,7 @@ describe('Migration 037: qualifications (credentials + certifications)', () => {
 
       expect(names).toContain('idx_credentials_type')
       expect(names).toContain('idx_credentials_org')
-      expect(names).toContain('idx_certifications_source')
+      expect(names).toContain('idx_certifications_issuer')
       expect(names).toContain('idx_certification_skills_skill')
     })
   })
@@ -571,7 +571,7 @@ describe('Migration 037: qualifications (credentials + certifications)', () => {
       const certId = crypto.randomUUID()
       const skillId = crypto.randomUUID()
       db.run(
-        "INSERT INTO certifications (id, name) VALUES (?, 'CISSP')",
+        "INSERT INTO certifications (id, short_name, long_name) VALUES (?, 'CISSP', 'Certified Information Systems Security Professional')",
         [certId],
       )
       db.run("INSERT INTO skills (id, name, category) VALUES (?, 'Security', 'other')", [skillId])
@@ -604,7 +604,7 @@ describe('Migration 037: qualifications (credentials + certifications)', () => {
       runMigrations(db, MIGRATIONS_DIR)
 
       const certId = crypto.randomUUID()
-      db.run("INSERT INTO certifications (id, name) VALUES (?, 'PMP')", [certId])
+      db.run("INSERT INTO certifications (id, short_name, long_name) VALUES (?, 'PMP', 'Project Management Professional')", [certId])
 
       expect(() => {
         db.run(
@@ -620,7 +620,7 @@ describe('Migration 037: qualifications (credentials + certifications)', () => {
 
       const certId = crypto.randomUUID()
       const skillId = crypto.randomUUID()
-      db.run("INSERT INTO certifications (id, name) VALUES (?, 'PMP')", [certId])
+      db.run("INSERT INTO certifications (id, short_name, long_name) VALUES (?, 'PMP', 'Project Management Professional')", [certId])
       db.run("INSERT INTO skills (id, name, category) VALUES (?, 'PM', 'methodology')", [skillId])
       db.run(
         'INSERT INTO certification_skills (certification_id, skill_id) VALUES (?, ?)',
@@ -641,7 +641,7 @@ describe('Migration 037: qualifications (credentials + certifications)', () => {
 
       const certId = crypto.randomUUID()
       const skillId = crypto.randomUUID()
-      db.run("INSERT INTO certifications (id, name) VALUES (?, 'CISSP')", [certId])
+      db.run("INSERT INTO certifications (id, short_name, long_name) VALUES (?, 'CISSP', 'Certified Information Systems Security Professional')", [certId])
       db.run("INSERT INTO skills (id, name, category) VALUES (?, 'Sec', 'methodology')", [skillId])
       db.run(
         'INSERT INTO certification_skills (certification_id, skill_id) VALUES (?, ?)',
@@ -662,7 +662,7 @@ describe('Migration 037: qualifications (credentials + certifications)', () => {
 
       const certId = crypto.randomUUID()
       const skillId = crypto.randomUUID()
-      db.run("INSERT INTO certifications (id, name) VALUES (?, 'CISSP')", [certId])
+      db.run("INSERT INTO certifications (id, short_name, long_name) VALUES (?, 'CISSP', 'Certified Information Systems Security Professional')", [certId])
       db.run("INSERT INTO skills (id, name, category) VALUES (?, 'Sec', 'methodology')", [skillId])
       db.run(
         'INSERT INTO certification_skills (certification_id, skill_id) VALUES (?, ?)',
@@ -743,28 +743,28 @@ describe('Migration 037: qualifications (credentials + certifications)', () => {
       expect(cred.organization_id).toBeNull()
     })
 
-    test('certifications.education_source_id FK SET NULL on source delete', () => {
+    test('certifications.issuer_id FK SET NULL on org delete', () => {
       db = getDatabase(':memory:')
       runMigrations(db, MIGRATIONS_DIR)
 
-      const sourceId = crypto.randomUUID()
+      const orgId = crypto.randomUUID()
       db.run(
-        "INSERT INTO sources (id, title, description, source_type) VALUES (?, 'Course', 'd', 'education')",
-        [sourceId],
+        "INSERT INTO organizations (id, name, org_type) VALUES (?, 'ISC2', 'company')",
+        [orgId],
       )
 
       const certId = crypto.randomUUID()
       db.run(
-        "INSERT INTO certifications (id, name, education_source_id) VALUES (?, 'AWS SA Pro', ?)",
-        [certId, sourceId],
+        "INSERT INTO certifications (id, short_name, long_name, issuer_id) VALUES (?, 'CISSP', 'Certified Information Systems Security Professional', ?)",
+        [certId, orgId],
       )
 
-      db.run('DELETE FROM sources WHERE id = ?', [sourceId])
+      db.run('DELETE FROM organizations WHERE id = ?', [orgId])
 
       const cert = db
-        .query('SELECT education_source_id FROM certifications WHERE id = ?')
-        .get(certId) as { education_source_id: string | null }
-      expect(cert.education_source_id).toBeNull()
+        .query('SELECT issuer_id FROM certifications WHERE id = ?')
+        .get(certId) as { issuer_id: string | null }
+      expect(cert.issuer_id).toBeNull()
     })
   })
 

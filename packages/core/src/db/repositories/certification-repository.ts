@@ -27,13 +27,16 @@ import type {
 
 interface CertificationRow {
   id: string
-  name: string
-  issuer: string | null
+  short_name: string
+  long_name: string
+  cert_id: string | null
+  issuer_id: string | null
   date_earned: string | null
   expiry_date: string | null
   credential_id: string | null
   credential_url: string | null
-  education_source_id: string | null
+  credly_url: string | null
+  in_progress: number  // SQLite INTEGER 0|1
   created_at: string
   updated_at: string
 }
@@ -41,13 +44,16 @@ interface CertificationRow {
 function rowToCertification(row: CertificationRow): Certification {
   return {
     id: row.id,
-    name: row.name,
-    issuer: row.issuer,
+    short_name: row.short_name,
+    long_name: row.long_name,
+    cert_id: row.cert_id,
+    issuer_id: row.issuer_id,
     date_earned: row.date_earned,
     expiry_date: row.expiry_date,
     credential_id: row.credential_id,
     credential_url: row.credential_url,
-    education_source_id: row.education_source_id,
+    credly_url: row.credly_url,
+    in_progress: !!row.in_progress,
     created_at: row.created_at,
     updated_at: row.updated_at,
   }
@@ -63,19 +69,23 @@ export function create(db: Database, input: CreateCertification): Certification 
   const row = db
     .query(
       `INSERT INTO certifications
-         (id, name, issuer, date_earned, expiry_date, credential_id, credential_url, education_source_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         (id, short_name, long_name, cert_id, issuer_id, date_earned, expiry_date,
+          credential_id, credential_url, credly_url, in_progress)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`,
     )
     .get(
       id,
-      input.name,
-      input.issuer ?? null,
+      input.short_name,
+      input.long_name,
+      input.cert_id ?? null,
+      input.issuer_id ?? null,
       input.date_earned ?? null,
       input.expiry_date ?? null,
       input.credential_id ?? null,
       input.credential_url ?? null,
-      input.education_source_id ?? null,
+      input.credly_url ?? null,
+      input.in_progress ? 1 : 0,
     ) as CertificationRow
 
   return rowToCertification(row)
@@ -89,10 +99,10 @@ export function findById(db: Database, id: string): Certification | null {
   return row ? rowToCertification(row) : null
 }
 
-/** List all certifications ordered by name. */
+/** List all certifications ordered by short_name. */
 export function findAll(db: Database): Certification[] {
   const rows = db
-    .query('SELECT * FROM certifications ORDER BY name ASC')
+    .query('SELECT * FROM certifications ORDER BY short_name ASC')
     .all() as CertificationRow[]
   return rows.map(rowToCertification)
 }
@@ -112,16 +122,16 @@ export function update(
   const sets: string[] = []
   const params: unknown[] = []
 
-  if (input.name !== undefined) { sets.push('name = ?'); params.push(input.name) }
-  if (input.issuer !== undefined) { sets.push('issuer = ?'); params.push(input.issuer) }
+  if (input.short_name !== undefined) { sets.push('short_name = ?'); params.push(input.short_name) }
+  if (input.long_name !== undefined) { sets.push('long_name = ?'); params.push(input.long_name) }
+  if (input.cert_id !== undefined) { sets.push('cert_id = ?'); params.push(input.cert_id) }
+  if (input.issuer_id !== undefined) { sets.push('issuer_id = ?'); params.push(input.issuer_id) }
   if (input.date_earned !== undefined) { sets.push('date_earned = ?'); params.push(input.date_earned) }
   if (input.expiry_date !== undefined) { sets.push('expiry_date = ?'); params.push(input.expiry_date) }
   if (input.credential_id !== undefined) { sets.push('credential_id = ?'); params.push(input.credential_id) }
   if (input.credential_url !== undefined) { sets.push('credential_url = ?'); params.push(input.credential_url) }
-  if (input.education_source_id !== undefined) {
-    sets.push('education_source_id = ?')
-    params.push(input.education_source_id)
-  }
+  if (input.credly_url !== undefined) { sets.push('credly_url = ?'); params.push(input.credly_url) }
+  if (input.in_progress !== undefined) { sets.push('in_progress = ?'); params.push(input.in_progress ? 1 : 0) }
 
   // Always refresh updated_at
   sets.push("updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')")

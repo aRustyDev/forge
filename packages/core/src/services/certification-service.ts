@@ -3,10 +3,14 @@
  * CertificationRepository.
  *
  * Introduced by Phase 85 T85.5 as part of the Qualifications track.
+ * Updated by migration 041 (cert schema rework):
+ *   - `name` → `short_name` + `long_name` (both required on create)
+ *   - `issuer` (text) → `issuer_id` (org FK)
+ *   - `education_source_id` dropped
+ *   - Added `cert_id`, `credly_url`, `in_progress`
+ *
  * Responsibilities:
- *   - Validate required `name` field (non-empty)
- *   - Validate `education_source_id` references a source with
- *     source_type='education' (not a role/project/general)
+ *   - Validate required `short_name`/`long_name` fields (non-empty)
  *   - Validate `skill_id` on addSkill references an existing skill
  *   - Map repository results into the standard Result<T> envelope
  */
@@ -25,40 +29,18 @@ import * as CertificationRepo from '../db/repositories/certification-repository'
 export class CertificationService {
   constructor(private db: Database) {}
 
-  /**
-   * Verify that a source ID exists AND has `source_type = 'education'`.
-   * Returns an error message if invalid, null if ok.
-   */
-  private validateEducationSource(sourceId: string): string | null {
-    const source = this.db
-      .query('SELECT source_type FROM sources WHERE id = ?')
-      .get(sourceId) as { source_type: string } | null
-
-    if (!source) {
-      return `Source ${sourceId} not found`
-    }
-    if (source.source_type !== 'education') {
-      return `Source ${sourceId} has type '${source.source_type}', expected 'education' for a certification link`
-    }
-    return null
-  }
-
   create(input: CreateCertification): Result<Certification> {
-    if (!input.name || input.name.trim().length === 0) {
-      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'name is required' } }
+    if (!input.short_name || input.short_name.trim().length === 0) {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'short_name is required' } }
     }
-
-    if (input.education_source_id) {
-      const err = this.validateEducationSource(input.education_source_id)
-      if (err) {
-        const code = err.includes('not found') ? 'NOT_FOUND' : 'VALIDATION_ERROR'
-        return { ok: false, error: { code, message: err } }
-      }
+    if (!input.long_name || input.long_name.trim().length === 0) {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'long_name is required' } }
     }
 
     const cert = CertificationRepo.create(this.db, {
       ...input,
-      name: input.name.trim(),
+      short_name: input.short_name.trim(),
+      long_name: input.long_name.trim(),
     })
     return { ok: true, data: cert }
   }
@@ -88,21 +70,17 @@ export class CertificationService {
   }
 
   update(id: string, input: UpdateCertification): Result<Certification> {
-    if (input.name !== undefined && input.name.trim().length === 0) {
-      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'name must not be empty' } }
+    if (input.short_name !== undefined && input.short_name.trim().length === 0) {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'short_name must not be empty' } }
     }
-
-    if (input.education_source_id) {
-      const err = this.validateEducationSource(input.education_source_id)
-      if (err) {
-        const code = err.includes('not found') ? 'NOT_FOUND' : 'VALIDATION_ERROR'
-        return { ok: false, error: { code, message: err } }
-      }
+    if (input.long_name !== undefined && input.long_name.trim().length === 0) {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'long_name must not be empty' } }
     }
 
     const updated = CertificationRepo.update(this.db, id, {
       ...input,
-      ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+      ...(input.short_name !== undefined ? { short_name: input.short_name.trim() } : {}),
+      ...(input.long_name !== undefined ? { long_name: input.long_name.trim() } : {}),
     })
     if (!updated) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Certification ${id} not found` } }

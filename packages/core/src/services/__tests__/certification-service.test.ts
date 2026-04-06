@@ -1,15 +1,15 @@
 /**
- * CertificationService tests (Phase 85 T85.5).
+ * CertificationService tests (Phase 85 T85.5, updated for migration 041).
  *
  * Acceptance criteria from the phase plan:
- *   [x] Education source type validated (rejects non-education sources)
  *   [x] Skill FK validated
- *   [x] Name required validation
+ *   [x] short_name + long_name required validation
+ *   [x] education_source_id validation removed (column dropped)
  */
 
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { Database } from 'bun:sqlite'
-import { createTestDb, seedSource, seedSkill, testUuid } from '../../db/__tests__/helpers'
+import { createTestDb, seedSkill, testUuid } from '../../db/__tests__/helpers'
 import { CertificationService } from '../certification-service'
 
 describe('CertificationService', () => {
@@ -26,117 +26,70 @@ describe('CertificationService', () => {
   })
 
   // ────────────────────────────────────────────────────────────────
-  // Criterion: Name required validation
+  // Criterion: short_name + long_name required validation
   // ────────────────────────────────────────────────────────────────
 
-  describe('name validation', () => {
-    test('accepts non-empty name', () => {
-      const result = service.create({ name: 'CISSP' })
+  describe('short_name / long_name validation', () => {
+    test('accepts non-empty short_name + long_name', () => {
+      const result = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(result.ok).toBe(true)
     })
 
-    test('rejects empty name', () => {
-      const result = service.create({ name: '' })
+    test('rejects empty short_name', () => {
+      const result = service.create({ short_name: '', long_name: 'Something' })
       expect(result.ok).toBe(false)
       if (!result.ok) {
         expect(result.error.code).toBe('VALIDATION_ERROR')
-        expect(result.error.message).toContain('name')
+        expect(result.error.message).toContain('short_name')
       }
     })
 
-    test('rejects whitespace-only name', () => {
-      const result = service.create({ name: '   ' })
+    test('rejects whitespace-only short_name', () => {
+      const result = service.create({ short_name: '   ', long_name: 'Something' })
       expect(result.ok).toBe(false)
     })
 
-    test('trims name on create', () => {
-      const result = service.create({ name: '  PMP  ' })
-      expect(result.ok).toBe(true)
-      if (result.ok) expect(result.data.name).toBe('PMP')
-    })
-
-    test('update rejects empty name', () => {
-      const created = service.create({ name: 'CISSP' })
-      expect(created.ok).toBe(true)
-      if (!created.ok) return
-
-      const result = service.update(created.data.id, { name: '' })
-      expect(result.ok).toBe(false)
-    })
-  })
-
-  // ────────────────────────────────────────────────────────────────
-  // Criterion: Education source type validated (rejects non-education)
-  // ────────────────────────────────────────────────────────────────
-
-  describe('education_source_id validation', () => {
-    test('accepts education-type source', () => {
-      const sourceId = seedSource(db, { title: 'CISSP Course', sourceType: 'education' })
-      const result = service.create({
-        name: 'CISSP',
-        education_source_id: sourceId,
-      })
-      expect(result.ok).toBe(true)
-      if (result.ok) expect(result.data.education_source_id).toBe(sourceId)
-    })
-
-    test('rejects role-type source', () => {
-      const sourceId = seedSource(db, { title: 'Engineer Role', sourceType: 'role' })
-      const result = service.create({
-        name: 'CISSP',
-        education_source_id: sourceId,
-      })
+    test('rejects empty long_name', () => {
+      const result = service.create({ short_name: 'CISSP', long_name: '' })
       expect(result.ok).toBe(false)
       if (!result.ok) {
         expect(result.error.code).toBe('VALIDATION_ERROR')
-        expect(result.error.message).toContain('education')
+        expect(result.error.message).toContain('long_name')
       }
     })
 
-    test('rejects project-type source', () => {
-      const sourceId = seedSource(db, { title: 'Side Project', sourceType: 'project' })
-      const result = service.create({
-        name: 'CISSP',
-        education_source_id: sourceId,
-      })
+    test('rejects whitespace-only long_name', () => {
+      const result = service.create({ short_name: 'CISSP', long_name: '   ' })
       expect(result.ok).toBe(false)
     })
 
-    test('rejects general-type source', () => {
-      const sourceId = seedSource(db, { title: 'Misc', sourceType: 'general' })
-      const result = service.create({
-        name: 'CISSP',
-        education_source_id: sourceId,
-      })
-      expect(result.ok).toBe(false)
-    })
-
-    test('rejects unknown source id with NOT_FOUND', () => {
-      const result = service.create({
-        name: 'CISSP',
-        education_source_id: testUuid(),
-      })
-      expect(result.ok).toBe(false)
-      if (!result.ok) {
-        expect(result.error.code).toBe('NOT_FOUND')
-        expect(result.error.message).toContain('Source')
-      }
-    })
-
-    test('accepts missing education_source_id (optional)', () => {
-      const result = service.create({ name: 'Unlinked cert' })
+    test('trims short_name on create', () => {
+      const result = service.create({ short_name: '  PMP  ', long_name: 'Project Management Professional' })
       expect(result.ok).toBe(true)
+      if (result.ok) expect(result.data.short_name).toBe('PMP')
     })
 
-    test('update validates education_source_id when changed', () => {
-      const created = service.create({ name: 'CISSP' })
+    test('trims long_name on create', () => {
+      const result = service.create({ short_name: 'PMP', long_name: '  Project Management Professional  ' })
+      expect(result.ok).toBe(true)
+      if (result.ok) expect(result.data.long_name).toBe('Project Management Professional')
+    })
+
+    test('update rejects empty short_name', () => {
+      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
-      const roleId = seedSource(db, { title: 'Role', sourceType: 'role' })
-      const result = service.update(created.data.id, {
-        education_source_id: roleId,
-      })
+      const result = service.update(created.data.id, { short_name: '' })
+      expect(result.ok).toBe(false)
+    })
+
+    test('update rejects empty long_name', () => {
+      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+      expect(created.ok).toBe(true)
+      if (!created.ok) return
+
+      const result = service.update(created.data.id, { long_name: '' })
       expect(result.ok).toBe(false)
     })
   })
@@ -147,7 +100,7 @@ describe('CertificationService', () => {
 
   describe('addSkill validation', () => {
     test('accepts valid certification + skill pair', () => {
-      const created = service.create({ name: 'CISSP' })
+      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
@@ -167,7 +120,7 @@ describe('CertificationService', () => {
     })
 
     test('rejects unknown skill id', () => {
-      const created = service.create({ name: 'CISSP' })
+      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
@@ -180,7 +133,7 @@ describe('CertificationService', () => {
     })
 
     test('idempotent — second addSkill for same pair is ok', () => {
-      const created = service.create({ name: 'CISSP' })
+      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
@@ -196,7 +149,7 @@ describe('CertificationService', () => {
 
   describe('removeSkill', () => {
     test('removes a linked skill', () => {
-      const created = service.create({ name: 'CISSP' })
+      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
@@ -218,7 +171,7 @@ describe('CertificationService', () => {
     })
 
     test('idempotent — removing nonexistent link is ok', () => {
-      const created = service.create({ name: 'PMP' })
+      const created = service.create({ short_name: 'PMP', long_name: 'Project Management Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
@@ -230,7 +183,7 @@ describe('CertificationService', () => {
 
   describe('getSkills()', () => {
     test('returns linked skills', () => {
-      const created = service.create({ name: 'CISSP' })
+      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
@@ -260,7 +213,7 @@ describe('CertificationService', () => {
 
   describe('get() and getWithSkills()', () => {
     test('get returns ok for existing cert', () => {
-      const created = service.create({ name: 'CISSP' })
+      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       if (!created.ok) return
 
       const result = service.get(created.data.id)
@@ -273,7 +226,7 @@ describe('CertificationService', () => {
     })
 
     test('getWithSkills returns hydrated cert', () => {
-      const created = service.create({ name: 'CISSP' })
+      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       if (!created.ok) return
 
       const skillId = seedSkill(db, { name: 'Security' })
@@ -295,9 +248,9 @@ describe('CertificationService', () => {
 
   describe('list() and listWithSkills()', () => {
     test('list returns all certs', () => {
-      service.create({ name: 'CISSP' })
-      service.create({ name: 'PMP' })
-      service.create({ name: 'AWS SA Pro' })
+      service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+      service.create({ short_name: 'PMP', long_name: 'Project Management Professional' })
+      service.create({ short_name: 'AWS SA Pro', long_name: 'AWS Solutions Architect Professional' })
 
       const result = service.list()
       expect(result.ok).toBe(true)
@@ -305,8 +258,8 @@ describe('CertificationService', () => {
     })
 
     test('listWithSkills hydrates skills arrays', () => {
-      const cissp = service.create({ name: 'CISSP' })
-      const pmp = service.create({ name: 'PMP' })
+      const cissp = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+      const pmp = service.create({ short_name: 'PMP', long_name: 'Project Management Professional' })
       expect(cissp.ok && pmp.ok).toBe(true)
       if (!(cissp.ok && pmp.ok)) return
 
@@ -318,7 +271,7 @@ describe('CertificationService', () => {
       const result = service.listWithSkills()
       expect(result.ok).toBe(true)
       if (result.ok) {
-        const byName = Object.fromEntries(result.data.map((c) => [c.name, c]))
+        const byName = Object.fromEntries(result.data.map((c) => [c.short_name, c]))
         expect(byName['CISSP'].skills[0].name).toBe('Security')
         expect(byName['PMP'].skills[0].name).toBe('PM')
       }
@@ -326,34 +279,46 @@ describe('CertificationService', () => {
   })
 
   describe('update()', () => {
-    test('updates issuer', () => {
-      const created = service.create({ name: 'CISSP' })
+    test('updates issuer_id', () => {
+      const orgId = crypto.randomUUID()
+      db.run('INSERT INTO organizations (id, name, org_type) VALUES (?, ?, ?)', [orgId, 'ISC2', 'company'])
+
+      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       if (!created.ok) return
 
-      const result = service.update(created.data.id, { issuer: 'ISC2' })
+      const result = service.update(created.data.id, { issuer_id: orgId })
       expect(result.ok).toBe(true)
-      if (result.ok) expect(result.data.issuer).toBe('ISC2')
+      if (result.ok) expect(result.data.issuer_id).toBe(orgId)
     })
 
     test('returns NOT_FOUND for unknown id', () => {
-      const result = service.update(testUuid(), { name: 'Nope' })
+      const result = service.update(testUuid(), { short_name: 'Nope' })
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error.code).toBe('NOT_FOUND')
     })
 
-    test('trims name on update', () => {
-      const created = service.create({ name: 'Old' })
+    test('trims short_name on update', () => {
+      const created = service.create({ short_name: 'Old', long_name: 'Old Long' })
       if (!created.ok) return
 
-      const result = service.update(created.data.id, { name: '  New  ' })
+      const result = service.update(created.data.id, { short_name: '  New  ' })
       expect(result.ok).toBe(true)
-      if (result.ok) expect(result.data.name).toBe('New')
+      if (result.ok) expect(result.data.short_name).toBe('New')
+    })
+
+    test('trims long_name on update', () => {
+      const created = service.create({ short_name: 'X', long_name: 'Old Long' })
+      if (!created.ok) return
+
+      const result = service.update(created.data.id, { long_name: '  New Long  ' })
+      expect(result.ok).toBe(true)
+      if (result.ok) expect(result.data.long_name).toBe('New Long')
     })
   })
 
   describe('delete()', () => {
     test('deletes existing', () => {
-      const created = service.create({ name: 'Temp' })
+      const created = service.create({ short_name: 'Temp', long_name: 'Temporary' })
       if (!created.ok) return
 
       expect(service.delete(created.data.id).ok).toBe(true)
@@ -366,7 +331,7 @@ describe('CertificationService', () => {
     })
 
     test('cascade removes skill links on delete', () => {
-      const created = service.create({ name: 'Temp' })
+      const created = service.create({ short_name: 'Temp', long_name: 'Temporary' })
       if (!created.ok) return
 
       const skillId = seedSkill(db, { name: 'Sec' })

@@ -107,6 +107,9 @@ function renderSection(section: IRSection): string[] {
         if (item.kind === 'project') {
           const dateSuffix = item.date ? ` | ${escapeMarkdown(item.date)}` : ''
           lines.push(`### ${escapeMarkdown(item.name)}${dateSuffix}`)
+          if (item.bullets.length === 0 && item.description) {
+            lines.push(`- ${escapeMarkdown(item.description)}`)
+          }
           for (const bullet of item.bullets) {
             lines.push(`- ${escapeMarkdown(bullet.content)}`)
           }
@@ -138,6 +141,9 @@ function renderSection(section: IRSection): string[] {
         if (item.kind === 'presentation') {
           const venueDate = [item.venue, item.date].filter(Boolean).join(', ')
           lines.push(`### ${escapeMarkdown(item.title)}${venueDate ? ` | ${escapeMarkdown(venueDate)}` : ''}`)
+          if (item.bullets.length === 0 && item.description) {
+            lines.push(`- ${escapeMarkdown(item.description)}`)
+          }
           for (const bullet of item.bullets) {
             lines.push(`- ${escapeMarkdown(bullet.content)}`)
           }

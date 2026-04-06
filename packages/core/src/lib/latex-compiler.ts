@@ -129,6 +129,7 @@ function escapeItem(item: IRSectionItem): IRSectionItem {
       return {
         ...item,
         name: escapeLatex(item.name),
+        description: item.description ? escapeLatex(item.description) : null,
         date: item.date ? escapeLatex(item.date) : null,
         bullets: item.bullets.map(b => ({
           ...b,
@@ -155,6 +156,7 @@ function escapeItem(item: IRSectionItem): IRSectionItem {
       return {
         ...item,
         title: escapeLatex(item.title),
+        description: item.description ? escapeLatex(item.description) : null,
         venue: escapeLatex(item.venue),
         date: item.date ? escapeLatex(item.date) : null,
         bullets: item.bullets.map(b => ({

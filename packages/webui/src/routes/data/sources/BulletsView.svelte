@@ -214,6 +214,49 @@
     }
   }
 
+  // ── Manual bullet creation ────────────────────────────────────
+
+  let showCreateForm = $state(false)
+  let createContent = $state('')
+  let createDomain = $state('')
+  let creating = $state(false)
+
+  function openCreateForm() {
+    showCreateForm = true
+    createContent = ''
+    createDomain = ''
+  }
+
+  async function createBullet() {
+    if (!createContent.trim()) {
+      addToast({ message: 'Content is required', type: 'error' })
+      return
+    }
+    creating = true
+    const res = await forge.bullets.create({
+      content: createContent.trim(),
+      domain: createDomain.trim() || undefined,
+    } as any)
+    if (res.ok) {
+      items = [res.data, ...items]
+      showCreateForm = false
+      addToast({ message: 'Bullet created (draft)', type: 'success' })
+    } else {
+      addToast({ message: friendlyError(res.error, 'Failed to create bullet'), type: 'error' })
+    }
+    creating = false
+  }
+
+  async function deleteBullet(id: string) {
+    const res = await forge.bullets.delete(id)
+    if (res.ok) {
+      items = items.filter(i => i.id !== id)
+      addToast({ message: 'Bullet deleted', type: 'success' })
+    } else {
+      addToast({ message: friendlyError(res.error, 'Failed to delete'), type: 'error' })
+    }
+  }
+
   function truncate(text: string, max: number = 200): string {
     if (text.length <= max) return text
     return text.slice(0, max) + '...'
@@ -223,9 +266,45 @@
 <div class="bullets-page">
   <PageHeader title="Content Atoms" subtitle="Unified view of bullets and perspectives">
     {#snippet actions()}
+      {#if contentType === 'bullet'}
+        <button class="btn btn-primary" onclick={openCreateForm}>+ New Bullet</button>
+      {/if}
       <ViewToggle mode={viewMode} onchange={handleViewChange} />
     {/snippet}
   </PageHeader>
+
+  <!-- Inline create form -->
+  {#if showCreateForm}
+    <div class="create-form">
+      <h4>New Bullet (Manual)</h4>
+      <div class="create-form-field">
+        <label for="create-content">Content <span style="color: var(--color-danger);">*</span></label>
+        <textarea
+          id="create-content"
+          bind:value={createContent}
+          rows="3"
+          placeholder="Describe an accomplishment, responsibility, or context..."
+          class="create-textarea"
+        ></textarea>
+      </div>
+      <div class="create-form-field">
+        <label for="create-domain">Domain (optional)</label>
+        <input
+          id="create-domain"
+          type="text"
+          bind:value={createDomain}
+          placeholder="e.g., security, infrastructure, ai_ml"
+          class="create-input"
+        />
+      </div>
+      <div class="create-actions">
+        <button class="btn btn-primary btn-sm" onclick={createBullet} disabled={creating}>
+          {creating ? 'Creating...' : 'Create Draft'}
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick={() => showCreateForm = false}>Cancel</button>
+      </div>
+    </div>
+  {/if}
 
   <!-- Controls -->
   <div class="controls">
@@ -362,6 +441,9 @@
             {#if item.status === 'rejected'}
               <button class="btn btn-reopen" onclick={(e) => { e.stopPropagation(); reopenItem(item.id) }}>Reopen</button>
             {/if}
+            {#if contentType === 'bullet'}
+              <button class="btn btn-danger-ghost btn-xs" onclick={(e) => { e.stopPropagation(); deleteBullet(item.id) }}>Delete</button>
+            {/if}
           </div>
         </div>
       {/each}
@@ -410,6 +492,63 @@
 <style>
   .bullets-page {
     max-width: 1000px;
+  }
+
+  .create-form {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    background: var(--color-surface);
+  }
+
+  .create-form h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+    margin: 0 0 0.75rem;
+  }
+
+  .create-form-field {
+    margin-bottom: 0.75rem;
+  }
+
+  .create-form-field label {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--text-secondary);
+    margin-bottom: 0.3rem;
+  }
+
+  .create-textarea,
+  .create-input {
+    width: 100%;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    background: var(--color-surface);
+    font-family: inherit;
+  }
+
+  .create-textarea:focus,
+  .create-input:focus {
+    outline: none;
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 2px var(--color-primary-subtle);
+  }
+
+  .create-textarea {
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.5;
+  }
+
+  .create-actions {
+    display: flex;
+    gap: 0.5rem;
   }
 
   .controls {

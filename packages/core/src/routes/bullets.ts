@@ -10,6 +10,13 @@ import { mapStatusCode } from './server'
 export function bulletRoutes(services: Services, db: Database) {
   const app = new Hono()
 
+  app.post('/bullets', async (c) => {
+    const body = await c.req.json()
+    const result = services.bullets.createBullet(body)
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.json({ data: result.data }, 201)
+  })
+
   app.get('/bullets', (c) => {
     const offset = Math.max(0, parseInt(c.req.query('offset') ?? '0', 10) || 0)
     const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') ?? '50', 10) || 50))

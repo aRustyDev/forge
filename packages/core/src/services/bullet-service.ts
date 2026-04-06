@@ -10,7 +10,7 @@
 import type { Database } from 'bun:sqlite'
 import type { Result, PaginatedResult } from '../types'
 import { BulletRepository } from '../db/repositories/bullet-repository'
-import type { Bullet, BulletStatus, BulletFilter, UpdateBulletInput } from '../db/repositories/bullet-repository'
+import type { Bullet, BulletStatus, BulletFilter, CreateBulletInput, UpdateBulletInput } from '../db/repositories/bullet-repository'
 
 /** Valid status transitions for bullets. */
 const VALID_TRANSITIONS: Record<string, BulletStatus[]> = {
@@ -23,6 +23,34 @@ const VALID_TRANSITIONS: Record<string, BulletStatus[]> = {
 
 export class BulletService {
   constructor(private db: Database) {}
+
+  /**
+   * Create a bullet manually (without AI derivation). Defaults to 'draft'
+   * status so the user can review before submitting.
+   */
+  createBullet(input: {
+    content: string
+    source_content_snapshot?: string
+    metrics?: string | null
+    domain?: string | null
+    technologies?: string[]
+    source_ids?: Array<{ id: string; is_primary?: boolean }>
+  }): Result<Bullet> {
+    if (!input.content || input.content.trim().length === 0) {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'Content must not be empty' } }
+    }
+
+    const bullet = BulletRepository.create(this.db, {
+      content: input.content.trim(),
+      source_content_snapshot: input.source_content_snapshot ?? input.content.trim(),
+      technologies: input.technologies ?? [],
+      metrics: input.metrics ?? null,
+      domain: input.domain ?? null,
+      status: 'draft',
+      source_ids: input.source_ids,
+    })
+    return { ok: true, data: bullet }
+  }
 
   getBullet(id: string): Result<Bullet> {
     const bullet = BulletRepository.get(this.db, id)

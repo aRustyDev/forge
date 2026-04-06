@@ -32,6 +32,18 @@ export class BulletsResource {
     private requestList: RequestListFn,
   ) {}
 
+  /** Create a bullet manually (no AI derivation). Starts as 'draft' status. */
+  create(input: {
+    content: string
+    source_content_snapshot?: string
+    metrics?: string | null
+    domain?: string | null
+    technologies?: string[]
+    source_ids?: Array<{ id: string; is_primary?: boolean }>
+  }): Promise<Result<Bullet>> {
+    return this.request<Bullet>('POST', '/api/bullets', input)
+  }
+
   list(
     filter?: BulletFilter & PaginationParams,
   ): Promise<PaginatedResult<Bullet>> {

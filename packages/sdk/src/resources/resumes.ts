@@ -1,4 +1,5 @@
 import type {
+  AddResumeCertification,
   AddResumeEntry,
   CreateResume,
   ForgeError,
@@ -8,6 +9,7 @@ import type {
   PaginationParams,
   RequestFn,
   RequestListFn,
+  ResumeCertification,
   ResumeDocument,
   ResumeEntry,
   ResumeSectionEntity,
@@ -289,6 +291,36 @@ export class ResumesResource {
       'POST',
       `/api/resumes/${resumeId}/save-as-template`,
       input,
+    )
+  }
+
+  // ── Certifications (per-resume cert selection) ─────────────────────
+
+  /** Add a certification to a resume. */
+  addCertification(
+    resumeId: string,
+    input: AddResumeCertification,
+  ): Promise<Result<ResumeCertification>> {
+    return this.request<ResumeCertification>(
+      'POST',
+      `/api/resumes/${resumeId}/certifications`,
+      input,
+    )
+  }
+
+  /** Remove a certification from a resume. */
+  removeCertification(resumeId: string, rcId: string): Promise<Result<void>> {
+    return this.request<void>(
+      'DELETE',
+      `/api/resumes/${resumeId}/certifications/${rcId}`,
+    )
+  }
+
+  /** List all certifications pinned to a resume. */
+  listCertifications(resumeId: string): Promise<Result<ResumeCertification[]>> {
+    return this.request<ResumeCertification[]>(
+      'GET',
+      `/api/resumes/${resumeId}/certifications`,
     )
   }
 

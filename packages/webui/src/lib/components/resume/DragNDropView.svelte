@@ -184,6 +184,22 @@
             }
           }
         }
+      } else if (section.type === 'projects') {
+        for (const item of section.items) {
+          if (item.kind === 'project') {
+            const proj = item as ProjectItem
+            const key = proj.source_id ?? proj.entry_id ?? `proj-${proj.name}`
+            newBullets[key] = bulletsWithId(proj.bullets)
+          }
+        }
+      } else if (section.type === 'presentations') {
+        for (const item of section.items) {
+          if (item.kind === 'presentation') {
+            const pres = item as PresentationItem
+            const key = pres.source_id ?? pres.entry_id ?? `pres-${pres.title}`
+            newBullets[key] = bulletsWithId(pres.bullets)
+          }
+        }
       }
     }
     dndBullets = newBullets
@@ -441,6 +457,7 @@
         {#each section.items as item}
           {#if item.kind === 'project'}
             {@const proj = item as ProjectItem}
+            {@const projKey = proj.source_id ?? proj.entry_id ?? `proj-${proj.name}`}
             <div class="project-item">
               <div class="project-header">
                 <span class="project-name">{proj.name}</span>
@@ -457,19 +474,78 @@
                   {/if}
                 </span>
               </div>
-              {#if proj.description}
+              {#if (dndBullets[projKey]?.length ?? 0) === 0 && proj.description}
                 <p class="project-description">{proj.description}</p>
               {/if}
-              {#each proj.bullets as bullet (bullet.entry_id)}
-                <div
-                  class="bullet-item"
-                  class:cloned={bullet.is_cloned}
-                  onmouseenter={(e) => showTooltip(bullet, e)}
-                  onmouseleave={scheduleHideTooltip}
+              <div
+                class="bullet-list"
+                use:dndzone={{ items: dndBullets[projKey] ?? [], flipDurationMs: 200 }}
+                onconsider={(e) => handleDndConsider(section.id, projKey, e)}
+                onfinalize={(e) => handleDndFinalize(section.id, projKey, e)}
+              >
+                {#each dndBullets[projKey] ?? [] as bullet (bullet.id)}
+                  <div
+                    class="bullet-item"
+                    class:cloned={bullet.is_cloned}
+                    role="listitem"
+                    onmouseenter={(e) => showTooltip(bullet, e)}
+                    onmouseleave={scheduleHideTooltip}
+                  >
+                    {#if editingEntryId === bullet.entry_id}
+                      <textarea
+                        class="bullet-edit-textarea"
+                        bind:value={editContent}
+                        rows={3}
+                      ></textarea>
+                      <div class="bullet-edit-actions">
+                        <button class="btn btn-sm btn-primary"
+                                onclick={() => saveEdit(bullet.entry_id!)}
+                                disabled={editSaving}>
+                          {editSaving ? 'Saving...' : 'Save'}
+                        </button>
+                        <button class="btn btn-sm btn-ghost"
+                                onclick={() => editingEntryId = null}>
+                          Cancel
+                        </button>
+                      </div>
+                    {:else}
+                      <span class="drag-handle">&#x2630;</span>
+                      <span class="bullet-content">{bullet.content}</span>
+                      <div class="bullet-actions">
+                        {#if bullet.is_cloned}
+                          <span class="clone-badge">Edited</span>
+                          <button class="btn btn-xs btn-ghost"
+                                  onclick={() => resetClone(bullet.entry_id!)}
+                                  title="Reset to reference">
+                            Reset
+                          </button>
+                        {/if}
+                        <button class="btn btn-xs btn-ghost"
+                                onclick={() => startEdit(bullet)}>
+                          Edit
+                        </button>
+                        {#if onRemoveEntry && bullet.entry_id}
+                          <button class="btn btn-xs btn-ghost entry-remove-btn"
+                                  onclick={() => onRemoveEntry?.(bullet.entry_id!)}
+                                  title="Remove this bullet"
+                                  aria-label="Remove bullet">
+                            &times;
+                          </button>
+                        {/if}
+                      </div>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+              {#if onAddEntry && proj.source_id}
+                <button
+                  class="btn btn-xs btn-add-role"
+                  onclick={() => onAddEntry(section.id, section.type, proj.source_id ?? undefined, proj.name)}
+                  title="Add a bullet from {proj.name}"
                 >
-                  <span class="bullet-content">{bullet.content}</span>
-                </div>
-              {/each}
+                  + Add from this project
+                </button>
+              {/if}
             </div>
           {/if}
         {/each}
@@ -486,6 +562,7 @@
         {#each section.items as item}
           {#if item.kind === 'presentation'}
             {@const pres = item as PresentationItem}
+            {@const presKey = pres.source_id ?? pres.entry_id ?? `pres-${pres.title}`}
             <div class="project-item">
               <div class="project-header">
                 <span class="project-name">{pres.title}</span>
@@ -505,19 +582,78 @@
               {#if pres.venue}
                 <span class="edu-degree">{pres.venue}{#if pres.presentation_type} · {pres.presentation_type.replace(/_/g, ' ')}{/if}</span>
               {/if}
-              {#if pres.description}
+              {#if (dndBullets[presKey]?.length ?? 0) === 0 && pres.description}
                 <p class="project-description">{pres.description}</p>
               {/if}
-              {#each pres.bullets as bullet (bullet.entry_id)}
-                <div
-                  class="bullet-item"
-                  class:cloned={bullet.is_cloned}
-                  onmouseenter={(e) => showTooltip(bullet, e)}
-                  onmouseleave={scheduleHideTooltip}
+              <div
+                class="bullet-list"
+                use:dndzone={{ items: dndBullets[presKey] ?? [], flipDurationMs: 200 }}
+                onconsider={(e) => handleDndConsider(section.id, presKey, e)}
+                onfinalize={(e) => handleDndFinalize(section.id, presKey, e)}
+              >
+                {#each dndBullets[presKey] ?? [] as bullet (bullet.id)}
+                  <div
+                    class="bullet-item"
+                    class:cloned={bullet.is_cloned}
+                    role="listitem"
+                    onmouseenter={(e) => showTooltip(bullet, e)}
+                    onmouseleave={scheduleHideTooltip}
+                  >
+                    {#if editingEntryId === bullet.entry_id}
+                      <textarea
+                        class="bullet-edit-textarea"
+                        bind:value={editContent}
+                        rows={3}
+                      ></textarea>
+                      <div class="bullet-edit-actions">
+                        <button class="btn btn-sm btn-primary"
+                                onclick={() => saveEdit(bullet.entry_id!)}
+                                disabled={editSaving}>
+                          {editSaving ? 'Saving...' : 'Save'}
+                        </button>
+                        <button class="btn btn-sm btn-ghost"
+                                onclick={() => editingEntryId = null}>
+                          Cancel
+                        </button>
+                      </div>
+                    {:else}
+                      <span class="drag-handle">&#x2630;</span>
+                      <span class="bullet-content">{bullet.content}</span>
+                      <div class="bullet-actions">
+                        {#if bullet.is_cloned}
+                          <span class="clone-badge">Edited</span>
+                          <button class="btn btn-xs btn-ghost"
+                                  onclick={() => resetClone(bullet.entry_id!)}
+                                  title="Reset to reference">
+                            Reset
+                          </button>
+                        {/if}
+                        <button class="btn btn-xs btn-ghost"
+                                onclick={() => startEdit(bullet)}>
+                          Edit
+                        </button>
+                        {#if onRemoveEntry && bullet.entry_id}
+                          <button class="btn btn-xs btn-ghost entry-remove-btn"
+                                  onclick={() => onRemoveEntry?.(bullet.entry_id!)}
+                                  title="Remove this bullet"
+                                  aria-label="Remove bullet">
+                            &times;
+                          </button>
+                        {/if}
+                      </div>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+              {#if onAddEntry && pres.source_id}
+                <button
+                  class="btn btn-xs btn-add-role"
+                  onclick={() => onAddEntry(section.id, section.type, pres.source_id ?? undefined, pres.title)}
+                  title="Add a bullet from {pres.title}"
                 >
-                  <span class="bullet-content">{bullet.content}</span>
-                </div>
-              {/each}
+                  + Add from this presentation
+                </button>
+              {/if}
             </div>
           {/if}
         {/each}

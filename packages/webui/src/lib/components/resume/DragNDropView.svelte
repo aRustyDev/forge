@@ -339,6 +339,14 @@
                                     onclick={() => startEdit(bullet)}>
                               Edit
                             </button>
+                            {#if onRemoveEntry && bullet.entry_id}
+                              <button class="btn btn-xs btn-ghost entry-remove-btn"
+                                      onclick={() => onRemoveEntry?.(bullet.entry_id!)}
+                                      title="Remove this bullet"
+                                      aria-label="Remove bullet">
+                                &times;
+                              </button>
+                            {/if}
                           </div>
                         {/if}
                       </div>

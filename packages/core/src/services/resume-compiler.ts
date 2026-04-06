@@ -354,7 +354,12 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
       LEFT JOIN sources s ON s.id = COALESCE(re.source_id, bs.source_id)
       LEFT JOIN source_roles sr ON sr.source_id = s.id
       LEFT JOIN organizations o ON o.id = sr.organization_id
-      LEFT JOIN org_campuses oc ON oc.organization_id = o.id AND oc.is_headquarters = 1
+      LEFT JOIN org_campuses oc ON oc.id = (
+        SELECT id FROM org_campuses
+        WHERE organization_id = o.id
+        ORDER BY is_headquarters DESC, id ASC
+        LIMIT 1
+      )
       WHERE re.section_id = ?
       ORDER BY sr.is_current DESC, sr.start_date DESC, re.position ASC`
     )

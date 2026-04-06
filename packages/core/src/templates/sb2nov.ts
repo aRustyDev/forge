@@ -318,11 +318,8 @@ function renderProjectsSection(section: IRSection): string {
     lines.push(`    \\resumeProjectHeading`)
     lines.push(`      {\\textbf{${item.name}}}{${item.date ?? ''}}`)
 
-    if (item.bullets.length > 0 || item.description) {
+    if (item.bullets.length > 0) {
       lines.push('      \\resumeItemListStart')
-      if (item.bullets.length === 0 && item.description) {
-        lines.push(`        \\resumeItem{${item.description}}`)
-      }
       for (const bullet of item.bullets) {
         lines.push(`        \\resumeItem{${bullet.content}}`)
       }
@@ -377,11 +374,8 @@ function renderPresentationsSection(section: IRSection): string {
     lines.push(`    \\resumeProjectHeading`)
     lines.push(`      {${titlePart}${venuePart}}{}`)
 
-    if (item.bullets.length > 0 || item.description) {
+    if (item.bullets.length > 0) {
       lines.push('      \\resumeItemListStart')
-      if (item.bullets.length === 0 && item.description) {
-        lines.push(`        \\resumeItem{${item.description}}`)
-      }
       for (const bullet of item.bullets) {
         lines.push(`        \\resumeItem{${bullet.content}}`)
       }

@@ -663,21 +663,13 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
     projectMap.get(key)!.push(row)
   }
 
-  return Array.from(projectMap.entries()).map(([name, entries]) => ({
-    kind: 'project' as const,
-    name: name.startsWith('untitled:') ? 'Untitled Project' : name,
-    description: entries[0].source_description,
-    date: entries[0].end_date ? new Date(entries[0].end_date).getFullYear().toString() : null,
-    entry_id: entries[0].entry_id,
-    source_id: entries[0].source_id,
-    bullets: entries.map(e => {
+  return Array.from(projectMap.entries()).map(([name, entries]) => {
+    const realBullets = entries.map(e => {
       const hasChain =
         e.perspective_id !== null &&
         e.bullet_id !== null &&
         e.source_id !== null &&
         e.source_title !== null
-      // Don't fall back to source_description — it's already rendered as
-      // the project-level description. Falling through duplicates text.
       const content = e.entry_content ?? e.perspective_content ?? e.bullet_content ?? ''
       return {
         content,
@@ -694,8 +686,25 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
           : undefined,
         is_cloned: e.entry_content !== null,
       }
-    }).filter(b => b.content !== ''),
-  }))
+    }).filter(b => b.content !== '')
+
+    // When no real bullets exist, split description paragraphs into
+    // individual bullet items so they render as separate lines in the
+    // DnD editor and PDF output.
+    const bullets = realBullets.length > 0
+      ? realBullets
+      : splitDescriptionIntoBullets(entries[0].source_description, entries[0].entry_id)
+
+    return {
+      kind: 'project' as const,
+      name: name.startsWith('untitled:') ? 'Untitled Project' : name,
+      description: realBullets.length > 0 ? null : entries[0].source_description,
+      date: entries[0].end_date ? new Date(entries[0].end_date).getFullYear().toString() : null,
+      entry_id: entries[0].entry_id,
+      source_id: entries[0].source_id,
+      bullets,
+    }
+  })
 }
 
 /**
@@ -851,24 +860,13 @@ function buildPresentationItems(db: Database, sectionId: string): PresentationIt
     presMap.get(key)!.push(row)
   }
 
-  return Array.from(presMap.entries()).map(([title, entries]) => ({
-    kind: 'presentation' as const,
-    title: title.startsWith('untitled:') ? 'Untitled Presentation' : title,
-    description: entries[0].source_description ?? null,
-    venue: entries[0].venue ?? null,
-    presentation_type: entries[0].presentation_type ?? null,
-    url: entries[0].presentation_url ?? null,
-    coauthors: entries[0].coauthors ?? null,
-    date: entries[0].end_date ? new Date(entries[0].end_date).getFullYear().toString() : null,
-    entry_id: entries[0].entry_id,
-    source_id: entries[0].source_id,
-    bullets: entries.map(e => {
+  return Array.from(presMap.entries()).map(([title, entries]) => {
+    const realBullets = entries.map(e => {
       const hasChain =
         e.perspective_id !== null &&
         e.bullet_id !== null &&
         e.source_id !== null &&
         e.source_title !== null
-      // Same fix as buildProjectItems — don't echo source_description.
       const content = e.entry_content ?? e.perspective_content ?? e.bullet_content ?? ''
       return {
         content,
@@ -885,8 +883,26 @@ function buildPresentationItems(db: Database, sectionId: string): PresentationIt
           : undefined,
         is_cloned: e.entry_content !== null,
       }
-    }).filter(b => b.content !== ''),
-  }))
+    }).filter(b => b.content !== '')
+
+    const bullets = realBullets.length > 0
+      ? realBullets
+      : splitDescriptionIntoBullets(entries[0].source_description, entries[0].entry_id)
+
+    return {
+      kind: 'presentation' as const,
+      title: title.startsWith('untitled:') ? 'Untitled Presentation' : title,
+      description: realBullets.length > 0 ? null : (entries[0].source_description ?? null),
+      venue: entries[0].venue ?? null,
+      presentation_type: entries[0].presentation_type ?? null,
+      url: entries[0].presentation_url ?? null,
+      coauthors: entries[0].coauthors ?? null,
+      date: entries[0].end_date ? new Date(entries[0].end_date).getFullYear().toString() : null,
+      entry_id: entries[0].entry_id,
+      source_id: entries[0].source_id,
+      bullets,
+    }
+  })
 }
 
 function buildCertificationItems(db: Database, sectionId: string): CertificationGroup[] {
@@ -938,6 +954,33 @@ function buildCertificationItems(db: Database, sectionId: string): Certification
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Split a source description into individual bullet items.
+ *
+ * Paragraphs are delimited by blank lines (`\n\n`). Each paragraph
+ * becomes a separate bullet so projects and presentations render as
+ * individual lines in both the DnD editor and PDF/LaTeX output.
+ *
+ * Bullets get synthetic entry_ids (deterministic from the parent
+ * entry_id + index) so the DnD view can key them stably.
+ */
+function splitDescriptionIntoBullets(
+  description: string | null,
+  parentEntryId: string | null,
+): ExperienceBullet[] {
+  if (!description) return []
+  return description
+    .split(/\n\n+/)
+    .map(p => p.trim())
+    .filter(p => p.length > 0)
+    .map((content, i) => ({
+      content,
+      entry_id: parentEntryId ? syntheticUUID(parentEntryId, `desc-${i}`) : null,
+      source_chain: undefined,
+      is_cloned: false,
+    }))
+}
 
 /**
  * Generate a deterministic synthetic UUID from a namespace and key.

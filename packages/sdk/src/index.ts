@@ -144,6 +144,8 @@ export type {
   CreateCertification,
   UpdateCertification,
   CertificationWithSkills,
+  ResumeCertification,
+  AddResumeCertification,
 } from './types'
 
 // Domain/Archetype input + rich response types

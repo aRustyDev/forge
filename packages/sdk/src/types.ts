@@ -278,45 +278,78 @@ export interface UpdateCredential {
   expiry_date?: string | null
 }
 
-/** A certification entity. */
+/**
+ * A certification entity — an earned credential that validates skills
+ * (PMP, CISSP, AWS SA Pro, etc.).
+ *
+ * As of migration 041 the `name` and `issuer` (text) columns are replaced
+ * by `short_name` + `long_name` and `issuer_id` (FK to organizations).
+ * `education_source_id` is dropped.
+ */
 export interface Certification {
   id: string
-  name: string
-  issuer: string | null
+  short_name: string
+  long_name: string
+  cert_id: string | null
+  issuer_id: string | null
   date_earned: string | null
   expiry_date: string | null
   credential_id: string | null
   credential_url: string | null
-  education_source_id: string | null
+  credly_url: string | null
+  in_progress: boolean
   created_at: string
   updated_at: string
 }
 
-/** Input for creating a certification. */
+/** Input for creating a certification. `short_name` and `long_name` required. */
 export interface CreateCertification {
-  name: string
-  issuer?: string
+  short_name: string
+  long_name: string
+  cert_id?: string
+  issuer_id?: string
   date_earned?: string
   expiry_date?: string
   credential_id?: string
   credential_url?: string
-  education_source_id?: string
+  credly_url?: string
+  in_progress?: boolean
 }
 
-/** Input for updating a certification. */
+/** Input for partially updating a certification. All fields optional with null-clearing. */
 export interface UpdateCertification {
-  name?: string
-  issuer?: string | null
+  short_name?: string
+  long_name?: string
+  cert_id?: string | null
+  issuer_id?: string | null
   date_earned?: string | null
   expiry_date?: string | null
   credential_id?: string | null
   credential_url?: string | null
-  education_source_id?: string | null
+  credly_url?: string | null
+  in_progress?: boolean
 }
 
 /** A certification with its linked skills populated. */
 export interface CertificationWithSkills extends Certification {
   skills: Skill[]
+}
+
+/** A certification pinned to a resume (per-resume cert selection). */
+export interface ResumeCertification {
+  id: string
+  resume_id: string
+  certification_id: string
+  section_id: string
+  position: number
+  created_at: string
+}
+
+/** Input for adding a certification to a resume. */
+export interface AddResumeCertification {
+  certification_id: string
+  section_id: string
+  position?: number
 }
 
 // ---------------------------------------------------------------------------

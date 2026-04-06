@@ -105,6 +105,87 @@ describe('compileResumeIR', () => {
     }
   })
 
+  test('experience groups unlinked roles under "⚠ Unlinked Sources" label', () => {
+    const resumeId = seedResume(db)
+    // Create two role sources WITHOUT organization_id
+    const src1 = seedSource(db, { title: 'Cloud Engineer', sourceType: 'role' })
+    db.run(
+      `INSERT INTO source_roles (source_id, start_date, is_current, work_arrangement)
+       VALUES (?, ?, ?, ?)`,
+      [src1, '2024-01-01', 1, 'remote']
+    )
+    const src2 = seedSource(db, { title: 'DevOps Lead', sourceType: 'role' })
+    db.run(
+      `INSERT INTO source_roles (source_id, start_date, is_current, work_arrangement)
+       VALUES (?, ?, ?, ?)`,
+      [src2, '2023-01-01', 0, 'onsite']
+    )
+
+    const b1 = seedBullet(db, [{ id: src1, isPrimary: true }], { content: 'Cloud work' })
+    const p1 = seedPerspective(db, b1, { content: 'Architected cloud platform' })
+    const b2 = seedBullet(db, [{ id: src2, isPrimary: true }], { content: 'DevOps work' })
+    const p2 = seedPerspective(db, b2, { content: 'Led DevOps transformation' })
+
+    const secId = seedResumeSection(db, resumeId, 'Experience', 'experience', 0)
+    seedResumeEntry(db, secId, { perspectiveId: p1, position: 0 })
+    seedResumeEntry(db, secId, { perspectiveId: p2, position: 1 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const expSection = result.sections.find(s => s.type === 'experience')!
+
+    // Both unlinked roles collapse into one group (not per-source)
+    expect(expSection.items).toHaveLength(1)
+    const group = expSection.items[0] as ExperienceGroup
+    expect(group.kind).toBe('experience_group')
+
+    // Group label should be the actionable "⚠ Unlinked Sources", not "Other (Remote)"
+    expect(group.organization).toBe('⚠ Unlinked Sources')
+    expect(group.organization).not.toContain('Other')
+    expect(group.organization).not.toContain('Remote')
+
+    // Both roles still appear as subheadings within the group
+    expect(group.subheadings).toHaveLength(2)
+    const titles = group.subheadings.map(s => s.title).sort()
+    expect(titles).toEqual(['Cloud Engineer', 'DevOps Lead'])
+  })
+
+  test('experience groups unlinked roles separately from linked orgs', () => {
+    const resumeId = seedResume(db)
+    const orgId = seedOrganization(db, { name: 'Raytheon' })
+
+    // Linked role (has organization_id)
+    const linkedSrc = seedSource(db, { title: 'Security Analyst', sourceType: 'role' })
+    db.run(
+      `INSERT INTO source_roles (source_id, organization_id, start_date, is_current)
+       VALUES (?, ?, ?, ?)`,
+      [linkedSrc, orgId, '2023-01-01', 0]
+    )
+    // Unlinked role (no organization_id)
+    const unlinkedSrc = seedSource(db, { title: 'Freelance Consultant', sourceType: 'role' })
+    db.run(
+      `INSERT INTO source_roles (source_id, start_date, is_current, work_arrangement)
+       VALUES (?, ?, ?, ?)`,
+      [unlinkedSrc, '2024-01-01', 1, 'remote']
+    )
+
+    const b1 = seedBullet(db, [{ id: linkedSrc, isPrimary: true }])
+    const p1 = seedPerspective(db, b1)
+    const b2 = seedBullet(db, [{ id: unlinkedSrc, isPrimary: true }])
+    const p2 = seedPerspective(db, b2)
+
+    const secId = seedResumeSection(db, resumeId, 'Experience', 'experience', 0)
+    seedResumeEntry(db, secId, { perspectiveId: p1, position: 0 })
+    seedResumeEntry(db, secId, { perspectiveId: p2, position: 1 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const expSection = result.sections.find(s => s.type === 'experience')!
+
+    // Should produce 2 groups: Raytheon + Unlinked
+    expect(expSection.items).toHaveLength(2)
+    const orgNames = expSection.items.map(i => (i as ExperienceGroup).organization).sort()
+    expect(orgNames).toEqual(['Raytheon', '⚠ Unlinked Sources'])
+  })
+
   test('experience uses entry_content when cloned', () => {
     const resumeId = seedResume(db)
     const orgId = seedOrganization(db, { name: 'ACME' })
@@ -1217,7 +1298,7 @@ describe('compileResumeIR — Phase 44 data quality', () => {
     expect(expSection.items).toHaveLength(2)
   })
 
-  test('experience falls back to "Other" when no org', () => {
+  test('experience falls back to "⚠ Unlinked Sources" when no org (Layer 3 defense)', () => {
     const resumeId = seedResume(db)
     const sourceId = seedSource(db, { title: 'Freelance', sourceType: 'role' })
     // No source_roles entry (no org)
@@ -1230,7 +1311,8 @@ describe('compileResumeIR — Phase 44 data quality', () => {
     const result = compileResumeIR(db, resumeId)!
     const expSection = result.sections.find(s => s.type === 'experience')!
     const group = expSection.items[0] as ExperienceGroup
-    expect(group.organization).toBe('Other')
+    // Layer 3: "Other" replaced with actionable label
+    expect(group.organization).toBe('⚠ Unlinked Sources')
   })
 
   // ── T44.4: Education location from campus ──────────────────────

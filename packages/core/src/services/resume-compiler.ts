@@ -314,14 +314,30 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
   for (const [orgKey, roleMap] of orgMap) {
     const subheadings: ExperienceSubheading[] = []
 
-    // Use first entry in the group to build the display string
+    // Use first entry in the group to build the display string.
+    // Defense-in-depth: when all roles in this group are unlinked
+    // (no organization_id and no org_name), use a distinct label that
+    // makes the data problem visible instead of silently degrading to
+    // "Other (Remote)". The user can fix this by linking their sources
+    // to organizations on the /data/sources page.
     const firstEntry = roleMap.values().next().value![0]
-    const orgDisplayName = buildOrgDisplayString(
-      firstEntry.org_name,
-      firstEntry.org_city,
-      firstEntry.org_state,
-      firstEntry.work_arrangement,
-    )
+    const isUnlinked = orgKey === 'Other' && !firstEntry.organization_id && !firstEntry.org_name
+    const orgDisplayName = isUnlinked
+      ? '⚠ Unlinked Sources'
+      : buildOrgDisplayString(
+          firstEntry.org_name,
+          firstEntry.org_city,
+          firstEntry.org_state,
+          firstEntry.work_arrangement,
+        )
+
+    if (isUnlinked) {
+      const roleNames = Array.from(roleMap.keys()).join(', ')
+      console.warn(
+        `[resume-compiler] Experience group has ${roleMap.size} role(s) without organization_id: ${roleNames}. ` +
+        `Link them in /data/sources for proper resume grouping.`
+      )
+    }
 
     for (const [roleTitle, entries] of roleMap) {
       const first = entries[0]

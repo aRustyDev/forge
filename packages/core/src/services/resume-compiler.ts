@@ -122,16 +122,37 @@ export function compileResumeIR(db: Database, resumeId: string): ResumeDocument 
     .all(resumeId) as ResumeSectionRow[]
 
   // 5. Build IR sections from DB sections
-  const sections: IRSection[] = sectionRows.map(section => {
-    const items = buildSectionItems(db, section)
-    return {
-      id: section.id,  // real UUID from DB, not synthetic
-      type: section.entry_type as IRSectionType,
-      title: section.title,
-      display_order: section.position,
-      items,
-    }
-  })
+  const sections: IRSection[] = sectionRows
+    // Filter out user-created 'summary' sections — the summary is
+    // rendered from `ir.summary` via a synthetic section below.
+    .filter(s => s.entry_type !== 'summary')
+    .map(section => {
+      const items = buildSectionItems(db, section)
+      return {
+        id: section.id,  // real UUID from DB, not synthetic
+        type: section.entry_type as IRSectionType,
+        title: section.title,
+        display_order: section.position,
+        items,
+      }
+    })
+
+  // 6. Inject a synthetic summary section from ir.summary so
+  //    PDF/LaTeX/Markdown renderers always pick it up. Placed at
+  //    display_order -1 so it sorts before all user sections.
+  if (summary) {
+    sections.unshift({
+      id: syntheticUUID(resumeId, 'summary'),
+      type: 'summary',
+      title: 'Summary',
+      display_order: -1,
+      items: [{
+        kind: 'summary',
+        content: summary.content,
+        entry_id: null,
+      }],
+    })
+  }
 
   return { resume_id: resumeId, header, summary, sections }
 }

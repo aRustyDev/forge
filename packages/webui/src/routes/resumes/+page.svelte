@@ -36,9 +36,8 @@
     }
   }
   loadArchetypes()
-  const SECTIONS = ['summary', 'experience', 'skills', 'education', 'projects', 'certifications', 'clearance', 'presentations', 'awards', 'custom']
+  const SECTIONS = ['experience', 'skills', 'education', 'projects', 'certifications', 'clearance', 'presentations', 'awards', 'custom']
   const SECTION_LABELS: Record<string, string> = {
-    summary: 'Summary',
     experience: 'Experience',
     skills: 'Skills',
     education: 'Education',

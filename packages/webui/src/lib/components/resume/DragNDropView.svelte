@@ -246,8 +246,13 @@
     return bullets.map((b, i) => ({ ...b, id: b.entry_id ?? `bullet-${i}` }))
   }
 
-  // Sorted sections
-  let sortedSections = $derived([...ir.sections].sort((a, b) => a.display_order - b.display_order))
+  // Sorted sections — filter out the synthetic summary section (rendered
+  // by ResumeSummaryCard above, not as a regular section).
+  let sortedSections = $derived(
+    [...ir.sections]
+      .filter(s => s.type !== 'summary')
+      .sort((a, b) => a.display_order - b.display_order)
+  )
 </script>
 
 <div class="dnd-view">

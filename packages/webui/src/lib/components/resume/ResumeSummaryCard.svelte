@@ -181,8 +181,8 @@
           Reset to template
         </button>
       {/if}
-      {#if summary.is_override && !summary.summary_id}
-        <!-- State 4: freeform-only → offer promote -->
+      {#if summary.is_override}
+        <!-- Override active → offer promote to save as reusable template -->
         <button type="button" class="btn btn-xs btn-ghost" onclick={openPromoteDialog}>
           Promote to Template…
         </button>

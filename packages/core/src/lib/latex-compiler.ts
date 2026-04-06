@@ -52,6 +52,7 @@ function escapeIR(doc: ResumeDocument): ResumeDocument {
   return {
     resume_id: doc.resume_id,
     header: escapeHeader(doc.header),
+    summary: doc.summary,
     sections: doc.sections.map(escapeSection),
   }
 }

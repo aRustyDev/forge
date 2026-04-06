@@ -394,36 +394,41 @@ describe('compileResumeIR', () => {
     expect(item.source_id).toBe(sourceId)
   })
 
-  test('certification section renders from certifications table (Phase 88)', () => {
-    // After migration 037 + Phase 88, certifications are standalone entities.
-    // The compiler pulls directly from the certifications table — no
-    // resume_entries needed. Every certification renders automatically.
+  test('certification section reads from resume_certifications junction', () => {
+    // After cert-rework: certifications are per-resume via the
+    // resume_certifications junction table. The compiler must only render
+    // certs that are explicitly pinned to this resume section.
     const resumeId = seedResume(db)
     const certId = crypto.randomUUID()
     const isc2OrgId = crypto.randomUUID()
     db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'ISC2', 'company')`, [isc2OrgId])
     db.run(
-      `INSERT INTO certifications (id, short_name, long_name, issuer_id, date_earned, credential_id)
-       VALUES (?, 'CISSP', 'Certified Information Systems Security Professional', ?, '2024-06-01', 'CISSP-123456')`,
+      `INSERT INTO certifications (id, short_name, long_name, issuer_id, date_earned, in_progress)
+       VALUES (?, 'CISSP', 'Certified Information Systems Security Professional', ?, '2024-06-01', 0)`,
       [certId, isc2OrgId],
     )
 
-    seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+    const secId = seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+    const rcId = crypto.randomUUID()
+    db.run(
+      `INSERT INTO resume_certifications (id, resume_id, certification_id, section_id, position)
+       VALUES (?, ?, ?, ?, ?)`,
+      [rcId, resumeId, certId, secId, 0],
+    )
 
     const result = compileResumeIR(db, resumeId)!
     const certSection = result.sections.find(s => s.type === 'certifications')
     expect(certSection).toBeDefined()
-    expect(certSection!.items.length).toBeGreaterThanOrEqual(1)
+    expect(certSection!.items).toHaveLength(1)
 
     const group = certSection!.items[0]
     expect(group.kind).toBe('certification_group')
     if (group.kind === 'certification_group') {
       // Grouped by issuer
       expect(group.categories[0].label).toBe('ISC2')
-      // Name formatted as "CISSP (2024) — ID: CISSP-123456"
-      expect(group.categories[0].certs[0].name).toContain('CISSP')
-      expect(group.categories[0].certs[0].name).toContain('2024')
-      expect(group.categories[0].certs[0].name).toContain('CISSP-123456')
+      // Name is just short_name (no year/credential decoration at compile time)
+      expect(group.categories[0].certs[0].name).toBe('CISSP')
+      expect(group.categories[0].certs[0].entry_id).toBe(rcId)
       expect(group.categories[0].certs[0].source_id).toBeNull()
     }
   })
@@ -520,19 +525,30 @@ describe('compileResumeIR', () => {
     // Cert with issuer org
     const awsOrgId = crypto.randomUUID()
     db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'Amazon Web Services', 'company')`, [awsOrgId])
+    const awsCertId = crypto.randomUUID()
     db.run(
-      `INSERT INTO certifications (id, short_name, long_name, issuer_id, date_earned)
-       VALUES (?, 'AWS SA Pro', 'AWS Solutions Architect Professional', ?, '2024-08-15')`,
-      [crypto.randomUUID(), awsOrgId],
+      `INSERT INTO certifications (id, short_name, long_name, issuer_id, date_earned, in_progress)
+       VALUES (?, 'AWS SA Pro', 'AWS Solutions Architect Professional', ?, '2024-08-15', 0)`,
+      [awsCertId, awsOrgId],
     )
     // Cert without issuer
+    const noIssuerCertId = crypto.randomUUID()
     db.run(
-      `INSERT INTO certifications (id, short_name, long_name)
-       VALUES (?, 'Self-Study Badge', 'Self-Study Badge')`,
-      [crypto.randomUUID()],
+      `INSERT INTO certifications (id, short_name, long_name, in_progress)
+       VALUES (?, 'Self-Study Badge', 'Self-Study Badge', 0)`,
+      [noIssuerCertId],
     )
 
-    seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+    const secId = seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+    // Pin both certs to this resume section
+    db.run(
+      `INSERT INTO resume_certifications (id, resume_id, certification_id, section_id, position) VALUES (?, ?, ?, ?, ?)`,
+      [crypto.randomUUID(), resumeId, awsCertId, secId, 0],
+    )
+    db.run(
+      `INSERT INTO resume_certifications (id, resume_id, certification_id, section_id, position) VALUES (?, ?, ?, ?, ?)`,
+      [crypto.randomUUID(), resumeId, noIssuerCertId, secId, 1],
+    )
 
     const result = compileResumeIR(db, resumeId)!
     const certSection = result.sections.find(s => s.type === 'certifications')
@@ -546,8 +562,14 @@ describe('compileResumeIR', () => {
     }
   })
 
-  test('certification section returns empty items when no certs exist', () => {
+  test('certification section returns empty items when no junction rows exist', () => {
+    // Section exists but no resume_certifications rows — should produce 0 items.
     const resumeId = seedResume(db)
+    // Cert exists globally but NOT pinned to this resume
+    db.run(
+      `INSERT INTO certifications (id, short_name, long_name, in_progress) VALUES (?, 'Security+', 'CompTIA Security+', 0)`,
+      [crypto.randomUUID()],
+    )
     seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
 
     const result = compileResumeIR(db, resumeId)!
@@ -556,24 +578,39 @@ describe('compileResumeIR', () => {
     expect(certSection!.items).toHaveLength(0)
   })
 
-  test('certification without date or credential_id renders name only', () => {
-    const resumeId = seedResume(db)
+  test('certification junction — only pinned certs appear (isolation)', () => {
+    // Two resumes; cert is pinned only to resume1. resume2 must see 0 items.
+    const resume1Id = seedResume(db)
+    const resume2Id = seedResume(db)
+    const certId = crypto.randomUUID()
     const pmiOrgId = crypto.randomUUID()
     db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'PMI', 'company')`, [pmiOrgId])
     db.run(
-      `INSERT INTO certifications (id, short_name, long_name, issuer_id)
-       VALUES (?, 'PMP', 'Project Management Professional', ?)`,
-      [crypto.randomUUID(), pmiOrgId],
+      `INSERT INTO certifications (id, short_name, long_name, issuer_id, in_progress)
+       VALUES (?, 'PMP', 'Project Management Professional', ?, 0)`,
+      [certId, pmiOrgId],
     )
 
-    seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+    const sec1Id = seedResumeSection(db, resume1Id, 'Certifications', 'certifications', 0)
+    seedResumeSection(db, resume2Id, 'Certifications', 'certifications', 0)
 
-    const result = compileResumeIR(db, resumeId)!
-    const certSection = result.sections.find(s => s.type === 'certifications')
-    const group = certSection!.items[0]
-    if (group.kind === 'certification_group') {
-      expect(group.categories[0].certs[0].name).toBe('PMP')
+    // Pin only to resume1
+    db.run(
+      `INSERT INTO resume_certifications (id, resume_id, certification_id, section_id, position) VALUES (?, ?, ?, ?, ?)`,
+      [crypto.randomUUID(), resume1Id, certId, sec1Id, 0],
+    )
+
+    const r1 = compileResumeIR(db, resume1Id)!
+    const r2 = compileResumeIR(db, resume2Id)!
+
+    const cert1 = r1.sections.find(s => s.type === 'certifications')!
+    const cert2 = r2.sections.find(s => s.type === 'certifications')!
+
+    expect(cert1.items).toHaveLength(1)
+    if (cert1.items[0].kind === 'certification_group') {
+      expect(cert1.items[0].categories[0].certs[0].name).toBe('PMP')
     }
+    expect(cert2.items).toHaveLength(0)
   })
 
   test('clearance section renders credentials (Phase 84)', () => {

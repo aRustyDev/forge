@@ -884,32 +884,28 @@ function buildPresentationItems(db: Database, sectionId: string): PresentationIt
   }))
 }
 
-function buildCertificationItems(db: Database, _sectionId: string): CertificationGroup[] {
-  // As of Phase 88 (Qualifications track), certifications live in their own
-  // entity table — not in sources. Similar to buildClearanceItems, every
-  // certification renders automatically into any resume that contains a
-  // certifications section. No resume_entries row is needed per cert.
-  //
-  // Certifications are grouped by issuer (with a fallback label of "Other").
-  // Each cert renders as: `<name> — <issuer> (<year>)`, optionally with
-  // a credential ID sub-line.
-
-  type CertRow = {
-    id: string
-    short_name: string
-    issuer_name: string | null
-    date_earned: string | null
-    credential_id: string | null
-  }
+function buildCertificationItems(db: Database, sectionId: string): CertificationGroup[] {
+  // As of the cert-rework (resume_certifications junction), certifications
+  // are per-resume: only certs explicitly pinned to this resume section
+  // via resume_certifications appear here. Grouped by issuer org.
 
   const rows = db
     .query(
-      `SELECT c.id, c.short_name, o.name AS issuer_name, c.date_earned, c.credential_id
-       FROM certifications c
+      `SELECT rc.id AS entry_id, c.short_name, c.cert_id,
+              o.name AS issuer_name, c.date_earned
+       FROM resume_certifications rc
+       JOIN certifications c ON c.id = rc.certification_id
        LEFT JOIN organizations o ON o.id = c.issuer_id
-       ORDER BY issuer_name ASC, c.short_name ASC`,
+       WHERE rc.section_id = ?
+       ORDER BY rc.position ASC`,
     )
-    .all() as CertRow[]
+    .all(sectionId) as Array<{
+      entry_id: string
+      short_name: string
+      cert_id: string | null
+      issuer_name: string | null
+      date_earned: string | null
+    }>
 
   if (rows.length === 0) return []
 
@@ -920,20 +916,10 @@ function buildCertificationItems(db: Database, _sectionId: string): Certificatio
     const label = row.issuer_name ?? 'Other'
     if (!catMap.has(label)) catMap.set(label, [])
 
-    // Build display name: "Name (year)" or "Name" if no date
-    let displayName = row.short_name
-    if (row.date_earned) {
-      const year = row.date_earned.slice(0, 4)
-      displayName += ` (${year})`
-    }
-    if (row.credential_id) {
-      displayName += ` — ID: ${row.credential_id}`
-    }
-
     catMap.get(label)!.push({
-      name: displayName,
-      entry_id: row.id, // certification id for traceability
-      source_id: null, // certifications are not sources
+      name: row.short_name,
+      entry_id: row.entry_id,
+      source_id: null,
     })
   }
 

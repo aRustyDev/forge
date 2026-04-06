@@ -1,0 +1,13 @@
+Perspective
+- Approve: Button
+- Reject: Button
+- Content: TextBox
+- Domain: Select
+- Skills: List<Text>
+- Technologies: List<Text>
+- Sources: StructuredObject
+- Notes: TextBox
+- Perspectives: List<StructuredObject>
+- Derive Perspectives: Button
+- Save: Button
+- Delete: Button

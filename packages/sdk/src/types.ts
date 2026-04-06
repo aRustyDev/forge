@@ -984,9 +984,9 @@ export interface ResumeHeader {
   github: string | null
   website: string | null
   /**
-   * @deprecated Migration 037 (Phase 84) moved clearance to the credentials
-   * entity. This field is always null on the compiled IR header. Clearance
-   * resume sections render from the credentials table directly.
+   * One-liner clearance string for the resume header. Populated from the
+   * user's highest-level active clearance credential. Format: "Active
+   * TS/SCI Clearance with CI Poly". Null when no active clearance exists.
    */
   clearance: string | null
 }

@@ -1,0 +1,18 @@
+Organization
+- Name: Text
+- Type: Select
+- Industry: Text
+- Tags: Multi-Radio
+- Size: Text (Number)
+- Status: Select
+- Worked: Radio
+- Website: Text
+- LinkedIn URL: Text
+- Glassdoor URL: Text
+- Glassdoor Rating: Number
+- Reputation Notes: TextBox
+- Notes: TextBox
+- Campuses / Locations: List<StructuredObject>
+- Aliases: List<Text>
+- Save: Button
+- Delete: Button

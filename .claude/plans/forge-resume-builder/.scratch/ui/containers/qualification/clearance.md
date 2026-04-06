@@ -1,0 +1,15 @@
+Clearance
+- Title: Text
+- Description: TextBox
+- Level: Select
+- Status: Select
+- Polygraph: Select
+- Type: Select
+- Access Programs: Multi-Radio
+- CE/CV: Bool
+- Sponsor: Select<StructuredObject>
+- Notes: TextBox
+- Skills: List<Text>
+- Derive Bullets: Button
+- Save: Button
+- Delete: Button

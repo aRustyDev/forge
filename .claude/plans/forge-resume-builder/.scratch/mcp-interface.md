@@ -1,0 +1,62 @@
+# === MCP Interface ===
+
+- Summary
+- Resume
+- Bullet
+- Perspective
+- Domains
+- Archetype
+- Organization
+- Roles
+- Projects
+- Education
+- Clearance
+- Job Descriptions
+- Logs
+- Export
+- Resume Templates
+- Profile
+- Plugins/APIs
+  - Crawlers/Spiders
+    - Indeed
+    - LinkedIn
+    - Greenhouse
+    - Lever
+    - Meetups
+    - Monster
+    - Workday
+    - Apollo
+  - [glassdoor](https://www.glassdoor.com/blog/category/research/) # No API, must Scrape
+  - [levels.fyi](https://www.levels.fyi/api-access/?from=footer)
+  - [jobspy](https://www.jobspy.tech/)
+    - https://github.com/speedyapply/JobSpy
+    - https://github.com/alpharomercoma/ts-jobspy
+    - https://pypi.org/project/jobspy/
+      - https://github.com/josiahcarlson/jobs/
+    - https://apify.com/aakash19/jobspy/api/cli
+  - [Sessionize](https://sessionize.com/playbook/api)
+  - [SeeCFP](https://airtable.com/appl4CwxGoKNDk2ek/shrBMFY4CSpSRGmAs/tblAfvlQwnxHzUPTc) # AirTable
+  - GitHub Contributions
+  - [Overleaf](https://www.overleaf.com/latex/templates)
+  - RSS
+  - Payment
+    - Stripe
+  - Auth
+    - Cloudflare
+  - Browser Rendering/Automation
+    - hyperbrowser
+    - cloudflare browser rendering
+  - Token Embeddings
+    - Ollama
+    - OpenAI
+    - Anthropic
+    - Azure OpenAI
+    - Google AI
+  - Storage Plugin
+    - SQLite
+    - DuckPGQ
+    - Cloudflare D1
+    - Cloudflare Vectors
+- notes
+- publications
+- talks

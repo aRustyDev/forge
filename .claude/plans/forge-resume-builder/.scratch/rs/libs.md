@@ -1,0 +1,18 @@
+
+- figment
+- otel
+- sql/datastore
+- os-info
+- notifications
+- biometrics
+- geolocation
+- global-shortcut
+- deep-linking
+- logging
+- clipboard
+- opener (open files and URLs in a specified app)
+- mcp
+- secret management engine
+- single instance of app
+- stripe
+- pinecone

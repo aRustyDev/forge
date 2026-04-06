@@ -112,7 +112,7 @@ export function compileResumeIR(db: Database, resumeId: string): ResumeDocument 
   // 4. Parse header — contact fields from profile, tagline from resume-level
   // `tagline_override ?? generated_tagline` (Phase 92). Summary is no longer
   // consulted for tagline.
-  const header = parseHeader(resume, profile)
+  const header = parseHeader(db, resume, profile)
   const summary = buildSummary(db, resume)
 
   // 4. Fetch sections from resume_sections table
@@ -190,7 +190,69 @@ function buildSectionItems(db: Database, section: ResumeSectionRow): IRSectionIt
 
 // ── Section builders ─────────────────────────────────────────────────
 
-function parseHeader(resume: ResumeRow, profile: UserProfile | null): ResumeHeader {
+/**
+ * Clearance level ordering: highest first. Used to pick the "most
+ * impressive" active clearance for the resume header one-liner.
+ */
+const CLEARANCE_LEVEL_ORDER: Record<string, number> = {
+  top_secret: 6,
+  q: 5,
+  secret: 4,
+  l: 3,
+  confidential: 2,
+  public: 1,
+}
+
+/**
+ * Build a one-liner clearance string from the user's highest active
+ * clearance credential for the resume header.
+ *
+ * Format: `Active {level} Clearance[ with {polygraph}]`
+ * Returns null if no active clearance credentials exist.
+ */
+function buildHeaderClearanceLine(db: Database): string | null {
+  type ClearanceRow = {
+    details: string
+  }
+
+  const rows = db
+    .query(
+      `SELECT details FROM credentials
+       WHERE credential_type = 'clearance' AND status = 'active'`,
+    )
+    .all() as ClearanceRow[]
+
+  if (rows.length === 0) return null
+
+  // Parse all active clearance details and pick the highest level
+  let bestLevel = ''
+  let bestOrder = -1
+  let bestPolygraph: string | null = null
+
+  for (const row of rows) {
+    try {
+      const d = JSON.parse(row.details) as { level?: string; polygraph?: string | null }
+      const order = CLEARANCE_LEVEL_ORDER[d.level ?? ''] ?? 0
+      if (order > bestOrder) {
+        bestOrder = order
+        bestLevel = d.level ?? ''
+        bestPolygraph = d.polygraph ?? null
+      }
+    } catch {
+      // Skip malformed details
+    }
+  }
+
+  if (!bestLevel) return null
+
+  let line = `Active ${formatClearanceLevel(bestLevel)} Clearance`
+  const polyLabel = formatPolygraph(bestPolygraph)
+  if (polyLabel) line += ` with ${polyLabel}`
+
+  return line
+}
+
+function parseHeader(db: Database, resume: ResumeRow, profile: UserProfile | null): ResumeHeader {
   // Tagline resolution order (Phase 92):
   //   1. resume.tagline_override (user-authored, highest priority)
   //   2. resume.generated_tagline (TF-IDF extracted from linked JDs)
@@ -221,10 +283,12 @@ function parseHeader(resume: ResumeRow, profile: UserProfile | null): ResumeHead
     console.warn('[resume-compiler] user_profile has no contact fields populated. Header will have no contact info.')
   }
 
+  // Clearance one-liner: boolean gate — if the user has an active clearance
+  // credential, show the highest-level one as a header line between tagline
+  // and contact info. Format: "Active TS/SCI Clearance with CI Poly".
+  const clearance = buildHeaderClearanceLine(db)
+
   // Contact fields from profile (single source of truth).
-  // `clearance` on the IR header is always null since migration 037 moved
-  // clearance to the credentials entity. The clearance IR section is now
-  // populated from credentials via buildClearanceItems().
   return {
     name,
     tagline,
@@ -234,7 +298,7 @@ function parseHeader(resume: ResumeRow, profile: UserProfile | null): ResumeHead
     linkedin: profile?.linkedin ?? null,
     github: profile?.github ?? null,
     website: profile?.website ?? null,
-    clearance: null,
+    clearance,
   }
 }
 

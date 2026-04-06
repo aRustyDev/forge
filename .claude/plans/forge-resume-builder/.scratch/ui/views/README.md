@@ -1,0 +1,244 @@
+## Views
+- Kanban Board
+- Split Panel
+- List (ie 'Flow Page' like http://localhost:5173/resumes/summaries)
+- Table
+- EdgeNodeGraph (ex: Chain View)
+
+
+
+## Structured Types
+
+- Country
+    - CountryName
+    - CountryCode
+    - ISOCode
+- PhoneNumber
+    - CountryCode
+    - AreaCode
+    - Prefix
+    - LineNumber
+- Clearance
+    - Level
+    - AccessPrograms: Vec<Enum>
+    - Sponsor: Organization (WHERE .canSponsor == true)
+    - Polygraph: Enum
+    - ContinuousEval <bool>
+    - Dates (Investigation, Reinvestigation, etc): <DateTime>
+- Log {Events,API,UI/UX,Prompts}
+    - LogTimestamp: Timestamp
+    - LogSeverity: Enum
+    - LogMessage: String
+    - ServiceName: Enum
+    - ContextMap
+        TraceId: TraceIdString
+        UserId: UserIdString
+        StackTrace
+        ResourceMetadata
+        EnvironmentMetadata
+- Resume
+    - Header
+    - ContactInfo
+    - ResumeSummary
+    - WorkHistory
+        - Roles: Vec<Role>
+            - Bullets: Vec<Bullet>
+    - Skills: Vec<Skill>
+    - Projects: Vec<Project>
+    - Education
+    - Clearance
+    - Awards: Vec<Award>
+    - Publications: Vec<Publication>
+- CurriculumVitae (CV)
+- Bullet {Core,Perspective,Published}
+    - ActionVerb
+    - QuantifiableResults
+    - Task
+    - Method
+    - Context
+- URL {GitHub,LinkedIn,Portfolio,Blog}
+    - Scheme
+    - Host
+        Domain
+        - TLD
+        - Subdomain
+    - Port
+    - Path
+    - Query
+        - Parameters
+            - Key
+            - Value
+    - Fragment
+- ResumeSummary
+    - Description
+    - Title
+    - Role
+    - Contact Info
+- CoverLetter
+    - Header
+    - Salutation
+    - Paragraphs
+        - Introduction
+        - WhyCompany
+        - Body
+        - Close
+- ContactInfo
+    - PersonName
+        - CommonName
+        - FamilyName
+        - MiddleName
+    - PhoneNumber
+    - Organization
+    - Address
+    - Location
+    - Email
+- PrivacyConfig
+- Image
+- BrandConfig
+    - Icons
+    - Logo
+    - ColorPalette
+        - Foreground
+            - HEX
+            - RGB
+            - CMYK
+            - PMS
+        - Background
+            - HEX
+            - RGB
+            - CMYK
+            - PMS
+        - Primary
+            - HEX
+            - RGB
+            - CMYK
+            - PMS
+        - Secondary
+            - HEX
+            - RGB
+            - CMYK
+            - PMS
+        - Tertiary
+            - HEX
+            - RGB
+            - CMYK
+            - PMS
+        - Accents
+            - HEX
+            - RGB
+            - CMYK
+            - PMS
+        - Neutrals
+            - HEX
+            - RGB
+            - CMYK
+            - PMS
+        - Tints
+            - HEX
+            - RGB
+            - CMYK
+            - PMS
+        - Shades
+            - HEX
+            - RGB
+            - CMYK
+            - PMS
+        - StateColors
+            - ActiveState
+                - HEX
+                - RGB
+                - CMYK
+                - PMS
+            - FocusState
+                - HEX
+                - RGB
+                - CMYK
+                - PMS
+            - NegativeState
+                - HEX
+                - RGB
+                - CMYK
+                - PMS
+            - PositiveState
+                - HEX
+                - RGB
+                - CMYK
+                - PMS
+            - NoticeState
+                - HEX
+                - RGB
+                - CMYK
+                - PMS
+            - WarningState
+                - HEX
+                - RGB
+                - CMYK
+                - PMS
+            - ErrorState
+                - HEX
+                - RGB
+                - CMYK
+                - PMS
+            - SuccessState
+                - HEX
+                - RGB
+                - CMYK
+                - PMS
+            - NoticeState
+                - HEX
+                - RGB
+                - CMYK
+                - PMS
+        - Opacities
+        - Temperature
+        - Saturation
+        - Brightness
+        - Harmony (Analogous,Complementary,Triadic,Monochromatic,Split Complementary,Tetradic)
+    - Typography
+        - headings
+        - link
+        - body
+        - title
+    - Imagery
+    - CompanyName
+    - Tagline
+    - BrandVoice
+- ForgeConfig
+- Organization
+    - Campus
+        - Address
+- Edu {Course,Degree,Certificate}
+- Skill
+- Domain
+- Archetype
+- Note
+- JobDescription
+- ResumeTemplate
+- Publication
+- Talk
+- UserProfile
+    - Height/PhysicsalCharacteristics
+- DateRange
+- Language
+- License
+- Hobby
+- Honor
+- Grant
+- Scholarship
+- Experience
+    - kind: teaching,relevant,research
+- Residence
+- Exhibition
+- Fellowship
+- Volunteer
+- Awards
+- Reference
+- Membership
+- Modals
+    - Chain View
+    - Note
+- Gantt
+- Kanban
+    - Column
+    - Board
+    - Card

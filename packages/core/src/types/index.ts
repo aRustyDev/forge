@@ -1041,10 +1041,10 @@ export interface ResumeHeader {
   github: string | null
   website: string | null
   /**
-   * @deprecated As of migration 037 (Phase 84), clearance is a credential,
-   * not a profile field. Kept as `null` on the IR header for backward
-   * compatibility; the clearance section IR items render from the
-   * credentials table via the resume compiler.
+   * One-liner clearance string for the resume header, rendered between
+   * tagline and contact info. Populated from the user's highest-level
+   * active clearance credential. Format: "Active TS/SCI Clearance with
+   * CI Poly". Null when no active clearance credential exists.
    */
   clearance: string | null
 }

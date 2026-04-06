@@ -52,8 +52,103 @@ describe('compileResumeIR', () => {
     expect(result.header.tagline).toBe('Security Engineer')  // from resume header JSON
     expect(result.header.location).toBe('Reston, VA')    // from profile
     expect(result.header.email).toBe('adam@example.com') // from profile
-    // clearance moved to credentials entity (migration 037); the header
-    // always returns null for clearance — the section renders from credentials.
+    // No clearance credentials seeded → null
+    expect(result.header.clearance).toBeNull()
+  })
+
+  // ── Header clearance one-liner ─────────────────────────────────
+
+  test('header clearance shows one-liner when active clearance credential exists', () => {
+    const resumeId = seedResume(db)
+    db.run(
+      `INSERT INTO credentials (id, credential_type, label, status, details)
+       VALUES (?, 'clearance', 'TS/SCI', 'active', ?)`,
+      [crypto.randomUUID(), JSON.stringify({
+        level: 'top_secret',
+        polygraph: 'ci',
+        clearance_type: 'personnel',
+        access_programs: ['sci'],
+      })],
+    )
+
+    const result = compileResumeIR(db, resumeId)!
+    expect(result.header.clearance).toBe('Active TS/SCI Clearance with CI Poly')
+  })
+
+  test('header clearance is null when no active clearance credentials exist', () => {
+    const resumeId = seedResume(db)
+    // Only an inactive credential — should not appear in header
+    db.run(
+      `INSERT INTO credentials (id, credential_type, label, status, details)
+       VALUES (?, 'clearance', 'Old Secret', 'inactive', ?)`,
+      [crypto.randomUUID(), JSON.stringify({
+        level: 'secret',
+        polygraph: null,
+        clearance_type: 'personnel',
+        access_programs: [],
+      })],
+    )
+
+    const result = compileResumeIR(db, resumeId)!
+    expect(result.header.clearance).toBeNull()
+  })
+
+  test('header clearance picks the highest-level among multiple active clearances', () => {
+    const resumeId = seedResume(db)
+    // Secret clearance
+    db.run(
+      `INSERT INTO credentials (id, credential_type, label, status, details)
+       VALUES (?, 'clearance', 'Secret', 'active', ?)`,
+      [crypto.randomUUID(), JSON.stringify({
+        level: 'secret',
+        polygraph: null,
+        clearance_type: 'personnel',
+        access_programs: [],
+      })],
+    )
+    // Top Secret — should win
+    db.run(
+      `INSERT INTO credentials (id, credential_type, label, status, details)
+       VALUES (?, 'clearance', 'TS/SCI', 'active', ?)`,
+      [crypto.randomUUID(), JSON.stringify({
+        level: 'top_secret',
+        polygraph: 'full_scope',
+        clearance_type: 'personnel',
+        access_programs: ['sci'],
+      })],
+    )
+
+    const result = compileResumeIR(db, resumeId)!
+    expect(result.header.clearance).toBe('Active TS/SCI Clearance with Full-Scope Poly')
+  })
+
+  test('header clearance omits polygraph when none/null', () => {
+    const resumeId = seedResume(db)
+    db.run(
+      `INSERT INTO credentials (id, credential_type, label, status, details)
+       VALUES (?, 'clearance', 'Secret', 'active', ?)`,
+      [crypto.randomUUID(), JSON.stringify({
+        level: 'secret',
+        polygraph: null,
+        clearance_type: 'personnel',
+        access_programs: [],
+      })],
+    )
+
+    const result = compileResumeIR(db, resumeId)!
+    expect(result.header.clearance).toBe('Active Secret Clearance')
+    expect(result.header.clearance).not.toContain('with')
+  })
+
+  test('header clearance ignores non-clearance credentials', () => {
+    const resumeId = seedResume(db)
+    db.run(
+      `INSERT INTO credentials (id, credential_type, label, status, details)
+       VALUES (?, 'drivers_license', 'VA CDL', 'active', ?)`,
+      [crypto.randomUUID(), JSON.stringify({ class: 'A', state: 'VA', endorsements: [] })],
+    )
+
+    const result = compileResumeIR(db, resumeId)!
     expect(result.header.clearance).toBeNull()
   })
 

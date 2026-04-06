@@ -1,0 +1,15 @@
+Source:Education
+- Title: Text
+- Description: TextBox
+- Type: Select
+- DegreeLevel: Select
+- DegreeType: Select
+- Institution: StructuredObject
+- Field: Text
+- GPA: Number
+- StartDate: Date
+- EndDate: Date
+- InProgress: Bool
+- Description: TextBox
+- Notes: TextBox
+- Skills: List<Text>

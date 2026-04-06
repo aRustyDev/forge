@@ -403,6 +403,8 @@ export interface Resume {
   latex_override_updated_at: string | null
   summary_override: string | null
   summary_override_updated_at: string | null
+  /** Per-resume toggle: show clearance one-liner in header (default true). */
+  show_clearance_in_header: boolean
   created_at: string
   updated_at: string
 }

@@ -44,7 +44,8 @@ interface ResumeRow {
   summary_id: string | null
   generated_tagline: string | null
   tagline_override: string | null
-  summary_override: string | null  // ← ADD THIS
+  summary_override: string | null
+  show_clearance_in_header: number
 }
 
 interface ResumeSectionRow {
@@ -97,7 +98,7 @@ export function compileResumeIR(db: Database, resumeId: string): ResumeDocument 
     .query(
       `SELECT id, name, target_role, header, summary_id,
               generated_tagline, tagline_override,
-              summary_override
+              summary_override, show_clearance_in_header
        FROM resumes WHERE id = ?`,
     )
     .get(resumeId) as ResumeRow | null
@@ -283,10 +284,12 @@ function parseHeader(db: Database, resume: ResumeRow, profile: UserProfile | nul
     console.warn('[resume-compiler] user_profile has no contact fields populated. Header will have no contact info.')
   }
 
-  // Clearance one-liner: boolean gate — if the user has an active clearance
-  // credential, show the highest-level one as a header line between tagline
-  // and contact info. Format: "Active TS/SCI Clearance with CI Poly".
-  const clearance = buildHeaderClearanceLine(db)
+  // Clearance one-liner: per-resume toggle. When enabled and the user has
+  // an active clearance credential, show the highest-level one as a header
+  // line between tagline and contact info.
+  const clearance = resume.show_clearance_in_header
+    ? buildHeaderClearanceLine(db)
+    : null
 
   // Contact fields from profile (single source of truth).
   return {

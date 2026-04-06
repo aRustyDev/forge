@@ -38,6 +38,7 @@ interface ResumeRow {
   markdown_override_updated_at: string | null
   latex_override: string | null
   latex_override_updated_at: string | null
+  show_clearance_in_header: number
   created_at: string
   updated_at: string
 }
@@ -81,6 +82,7 @@ function rowToResume(row: ResumeRow): Resume {
     markdown_override_updated_at: row.markdown_override_updated_at ?? null,
     latex_override: row.latex_override ?? null,
     latex_override_updated_at: row.latex_override_updated_at ?? null,
+    show_clearance_in_header: row.show_clearance_in_header ?? 1,
     created_at: row.created_at,
     updated_at: row.updated_at,
   }
@@ -298,6 +300,10 @@ export const ResumeRepository = {
       params.push(input.latex_override)
       sets.push('latex_override_updated_at = ?')
       params.push(input.latex_override !== null ? new Date().toISOString() : null)
+    }
+    if (input.show_clearance_in_header !== undefined) {
+      sets.push('show_clearance_in_header = ?')
+      params.push(input.show_clearance_in_header)
     }
 
     // Always update updated_at

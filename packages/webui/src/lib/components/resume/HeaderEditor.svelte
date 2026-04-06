@@ -26,10 +26,17 @@
   let saving = $state(false)
   let regenerating = $state(false)
   let taglineValue = $state('')
+  /**
+   * Whether the "Show Clearance" toggle should appear when clearance is
+   * hidden. True when the user has active clearance credentials but the
+   * resume's show_clearance_in_header is off (or was just toggled off).
+   */
+  let showClearanceToggle = $state(false)
 
   // Load the tagline taglineState on mount and whenever the resumeId changes
   $effect(() => {
     loadTaglineState()
+    checkClearanceCredentials()
   })
 
   async function loadTaglineState() {
@@ -37,6 +44,31 @@
     if (res.ok) {
       taglineState = res.data
       taglineValue = res.data.tagline_override ?? res.data.generated_tagline ?? ''
+    }
+  }
+
+  /** Check if the user has any active clearance credentials — if so, the
+   *  "Show Clearance" toggle should be visible when clearance is hidden. */
+  async function checkClearanceCredentials() {
+    const res = await forge.credentials.list({ type: 'clearance' })
+    showClearanceToggle = res.ok && res.data.some(c => c.status === 'active')
+  }
+
+  /** Toggle show_clearance_in_header on the resume and refresh. */
+  async function toggleClearanceInHeader() {
+    // Determine current state from the header: if clearance is shown, hide it; else show it.
+    const newValue = header.clearance ? 0 : 1
+    const res = await forge.resumes.update(resumeId, {
+      show_clearance_in_header: newValue,
+    } as any)
+    if (res.ok) {
+      addToast({
+        message: newValue ? 'Clearance shown in header' : 'Clearance hidden from header',
+        type: 'success',
+      })
+      await onSave()
+    } else {
+      addToast({ message: friendlyError(res.error), type: 'error' })
     }
   }
 
@@ -163,6 +195,23 @@
       </div>
     {/if}
 
+    <!-- Clearance one-liner (between tagline and contact info) -->
+    {#if header.clearance}
+      <div class="clearance-row">
+        <p class="header-clearance">{header.clearance}</p>
+        <button class="btn btn-sm btn-ghost" onclick={toggleClearanceInHeader} title="Hide clearance from this resume's header">
+          Hide
+        </button>
+      </div>
+    {:else if !header.clearance && showClearanceToggle}
+      <div class="clearance-row">
+        <p class="header-clearance placeholder">Clearance hidden</p>
+        <button class="btn btn-sm btn-ghost" onclick={toggleClearanceInHeader} title="Show clearance in this resume's header">
+          Show Clearance
+        </button>
+      </div>
+    {/if}
+
     <div class="header-contact">
       {#if header.location}<span>{header.location}</span>{/if}
       {#if header.email}<span>{header.email}</span>{/if}
@@ -171,9 +220,6 @@
       {#if header.github}<a href={header.github} target="_blank" rel="noopener">GitHub</a>{/if}
       {#if header.website}<a href={header.website} target="_blank" rel="noopener">Website</a>{/if}
     </div>
-    {#if header.clearance}
-      <p class="header-clearance">{header.clearance}</p>
-    {/if}
 
     <a href="/config/profile" class="edit-profile-link">
       Edit contact info in Profile
@@ -294,11 +340,25 @@
     text-decoration: underline;
   }
 
+  .clearance-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+  }
+
   .header-clearance {
-    margin-top: 0.5rem;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     font-weight: 600;
     color: var(--color-success-text);
+    margin: 0;
+  }
+
+  .header-clearance.placeholder {
+    color: var(--text-faint);
+    font-style: italic;
+    font-weight: normal;
   }
 
   .edit-profile-link {

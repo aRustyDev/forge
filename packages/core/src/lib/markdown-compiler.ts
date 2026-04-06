@@ -32,6 +32,11 @@ function renderHeader(header: ResumeHeader): string[] {
     lines.push(escapeMarkdown(header.tagline))
   }
 
+  // Clearance one-liner (between tagline and contact info)
+  if (header.clearance) {
+    lines.push(`**${escapeMarkdown(header.clearance)}**`)
+  }
+
   // Contact line
   const contact: string[] = []
   if (header.location) contact.push(escapeMarkdown(header.location))

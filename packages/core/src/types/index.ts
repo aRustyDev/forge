@@ -461,6 +461,8 @@ export interface Resume {
   latex_override_updated_at: string | null
   summary_override: string | null
   summary_override_updated_at: string | null
+  /** Per-resume toggle: show clearance one-liner in header (1=show, 0=hide). */
+  show_clearance_in_header: number
   created_at: string
   updated_at: string
 }
@@ -840,6 +842,7 @@ export interface UpdateResume {
   summary_override?: string | null
   markdown_override?: string | null
   latex_override?: string | null
+  show_clearance_in_header?: number
 }
 
 /** Input for adding a perspective to a resume. */

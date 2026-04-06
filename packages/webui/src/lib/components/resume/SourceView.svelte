@@ -308,6 +308,7 @@
     lines.push('')
     lines.push(`\\section*{${escLatex(doc.header.name)}}`)
     if (doc.header.tagline) lines.push(`\\textit{${escLatex(doc.header.tagline)}}`)
+    if (doc.header.clearance) lines.push(`\\textbf{${escLatex(doc.header.clearance)}}`)
     const contact: string[] = []
     if (doc.header.location) contact.push(escLatex(doc.header.location))
     if (doc.header.email) contact.push(escLatex(doc.header.email))
@@ -374,6 +375,7 @@
     const lines: string[] = []
     lines.push(`# ${doc.header.name}`)
     if (doc.header.tagline) lines.push(`*${doc.header.tagline}*`)
+    if (doc.header.clearance) lines.push(`**${doc.header.clearance}**`)
     const contact: string[] = []
     if (doc.header.location) contact.push(doc.header.location)
     if (doc.header.email) contact.push(doc.header.email)

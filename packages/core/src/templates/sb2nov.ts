@@ -90,6 +90,11 @@ export const sb2nov: LatexTemplate = {
       lines.push(`    \\small ${header.tagline} \\\\ \\vspace{3pt}`)
     }
 
+    // Clearance one-liner (between tagline and contact info)
+    if (header.clearance) {
+      lines.push(`    \\small\\textbf{${header.clearance}} \\\\ \\vspace{3pt}`)
+    }
+
     // Contact line
     const parts: string[] = []
     if (header.location) {

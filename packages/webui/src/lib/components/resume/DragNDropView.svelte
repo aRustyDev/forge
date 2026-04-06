@@ -42,12 +42,16 @@
     onMoveSection?: (sectionId: string, direction: 'up' | 'down') => void
     /**
      * Remove a single resume entry by id. Wired to per-entry delete
-     * buttons on education, certification, clearance, and project
-     * sections so users can remove one item without tearing down the
-     * whole section. The parent is expected to refresh the IR after
-     * a successful removal (via its own loadIR + onUpdate flow).
+     * buttons on education, clearance, and project sections so users
+     * can remove one item without tearing down the whole section.
      */
     onRemoveEntry?: (entryId: string) => Promise<void>
+    /**
+     * Remove a certification from the resume by resume_certifications.id.
+     * Cert entries use a separate junction table, so they cannot share
+     * the onRemoveEntry path which targets resume_entries.id.
+     */
+    onRemoveCertification?: (rcId: string) => Promise<void>
     onUpdateSummary?: (update: {
       summary_id?: string | null
       summary_override?: string | null
@@ -417,10 +421,10 @@
                 <span class="cert-list">
                   {#each cat.certs as cert, i}
                     <span class="cert-item">
-                      {cert.name}{#if onRemoveEntry && cert.entry_id}<button
+                      {cert.name}{#if onRemoveCertification && cert.entry_id}<button
                           type="button"
                           class="btn btn-xs btn-ghost entry-remove-btn"
-                          onclick={() => onRemoveEntry?.(cert.entry_id!)}
+                          onclick={() => onRemoveCertification?.(cert.entry_id!)}
                           aria-label="Remove {cert.name}"
                           title="Remove this entry"
                         >&times;</button>{/if}{#if i < cat.certs.length - 1}, {/if}

@@ -8,7 +8,7 @@
  *   [x] IR compiler: resume with clearance section renders credential data
  *       (not source data)
  *   [x] IR compiler: resume with certifications section renders cert data
- *       from the certifications table
+ *       from resume_certifications junction (per-resume selection)
  *   [x] Full CRUD round-trip: create entity via service → verify in IR
  *   [x] Credential details JSON survives the full pipeline
  *   [x] Certification skills survive the full pipeline
@@ -138,10 +138,19 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
   })
 
   // ────────────────────────────────────────────────────────────────
-  // Criterion: IR compiler renders certifications from certs table
+  // Criterion: IR compiler renders certifications from junction table
   // ────────────────────────────────────────────────────────────────
 
   describe('certification → IR compiler round-trip', () => {
+    /** Helper: pin a certification to a resume section via the junction. */
+    function pinCert(resumeId: string, certId: string, sectionId: string, position = 0) {
+      db.run(
+        `INSERT INTO resume_certifications (id, resume_id, certification_id, section_id, position)
+         VALUES (?, ?, ?, ?, ?)`,
+        [crypto.randomUUID(), resumeId, certId, sectionId, position],
+      )
+    }
+
     test('certification appears in compiled resume certifications section', () => {
       // Seed an org for issuer_id
       const isc2OrgId = crypto.randomUUID()
@@ -155,30 +164,33 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
         credential_id: 'CISSP-123',
       })
       expect(createResult.ok).toBe(true)
+      if (!createResult.ok) return
 
       const resumeId = seedResume(db)
-      seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+      const secId = seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+      pinCert(resumeId, createResult.data.id, secId)
 
       const ir = compileResumeIR(db, resumeId)!
       const certSection = ir.sections.find(s => s.type === 'certifications')
       expect(certSection).toBeDefined()
-      expect(certSection!.items.length).toBeGreaterThanOrEqual(1)
+      expect(certSection!.items).toHaveLength(1)
 
       const group = certSection!.items[0] as CertificationGroup
       expect(group.kind).toBe('certification_group')
       // Grouped by issuer org name
       expect(group.categories[0].label).toBe('ISC2')
-      // Name includes year and credential ID
-      expect(group.categories[0].certs[0].name).toContain('CISSP')
-      expect(group.categories[0].certs[0].name).toContain('2024')
-      expect(group.categories[0].certs[0].name).toContain('CISSP-123')
+      // Name is short_name only (no year/credential appended at compile time)
+      expect(group.categories[0].certs[0].name).toBe('CISSP')
     })
 
     test('certification without issuer groups under "Other"', () => {
-      certificationService.create({ short_name: 'Self Badge', long_name: 'Self-Study Badge' })
+      const certResult = certificationService.create({ short_name: 'Self Badge', long_name: 'Self-Study Badge' })
+      expect(certResult.ok).toBe(true)
+      if (!certResult.ok) return
 
       const resumeId = seedResume(db)
-      seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+      const secId = seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+      pinCert(resumeId, certResult.data.id, secId)
 
       const ir = compileResumeIR(db, resumeId)!
       const certSection = ir.sections.find(s => s.type === 'certifications')!
@@ -186,7 +198,10 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
       expect(group.categories[0].label).toBe('Other')
     })
 
-    test('empty certifications table → empty section items', () => {
+    test('empty junction → empty section items even when global certs exist', () => {
+      // Cert exists globally but is NOT pinned to this resume
+      certificationService.create({ short_name: 'Unpinned', long_name: 'Unpinned Cert' })
+
       const resumeId = seedResume(db)
       seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
 
@@ -203,12 +218,17 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
       db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'Amazon Web Services', 'company')`, [awsId])
       db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'PMI', 'company')`, [pmiId])
 
-      certificationService.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional', issuer_id: isc2Id })
-      certificationService.create({ short_name: 'AWS SA Pro', long_name: 'AWS Solutions Architect Professional', issuer_id: awsId })
-      certificationService.create({ short_name: 'PMP', long_name: 'Project Management Professional', issuer_id: pmiId })
+      const r1 = certificationService.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional', issuer_id: isc2Id })
+      const r2 = certificationService.create({ short_name: 'AWS SA Pro', long_name: 'AWS Solutions Architect Professional', issuer_id: awsId })
+      const r3 = certificationService.create({ short_name: 'PMP', long_name: 'Project Management Professional', issuer_id: pmiId })
+      expect(r1.ok && r2.ok && r3.ok).toBe(true)
+      if (!r1.ok || !r2.ok || !r3.ok) return
 
       const resumeId = seedResume(db)
-      seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+      const secId = seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+      pinCert(resumeId, r1.data.id, secId, 0)
+      pinCert(resumeId, r2.data.id, secId, 1)
+      pinCert(resumeId, r3.data.id, secId, 2)
 
       const ir = compileResumeIR(db, resumeId)!
       const certSection = ir.sections.find(s => s.type === 'certifications')!
@@ -277,14 +297,20 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
         expect(hydrated.data.skills[0].name).toBe('Security')
       }
 
-      // Verify IR still compiles cleanly (skills don't appear in IR
-      // directly, but the cert does and the compiler doesn't crash)
+      // Verify IR still compiles cleanly when cert is pinned to resume.
+      // Skills don't appear in IR directly, but the cert does and the
+      // compiler must not crash.
       const resumeId = seedResume(db)
-      seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+      const secId = seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+      db.run(
+        `INSERT INTO resume_certifications (id, resume_id, certification_id, section_id, position)
+         VALUES (?, ?, ?, ?, ?)`,
+        [crypto.randomUUID(), resumeId, certResult.data.id, secId, 0],
+      )
       const ir = compileResumeIR(db, resumeId)
       expect(ir).not.toBeNull()
       const certSection = ir!.sections.find(s => s.type === 'certifications')!
-      expect(certSection.items.length).toBeGreaterThanOrEqual(1)
+      expect(certSection.items).toHaveLength(1)
     })
   })
 })

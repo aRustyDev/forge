@@ -12,6 +12,7 @@
   import SourcePicker from '$lib/components/resume/SourcePicker.svelte'
   import ResumeLinkedJDs from '$lib/components/resume/ResumeLinkedJDs.svelte'
   import SummaryPicker from '$lib/components/SummaryPicker.svelte'
+  import CertPickerModal from '$lib/components/resume/CertPickerModal.svelte'
   import ViewToggle from '$lib/components/ViewToggle.svelte'
   import GenericKanban from '$lib/components/kanban/GenericKanban.svelte'
   import ResumeKanbanCard from '$lib/components/kanban/ResumeKanbanCard.svelte'
@@ -139,6 +140,7 @@
   let pickerDomainFilter = $state('')
   let skillsPickerSectionId = $state<string | null>(null)
   let sourcePickerState = $state<{ sectionId: string; sourceType: string; educationType?: string } | null>(null)
+  let certPickerState = $state<{ open: boolean; sectionId: string }>({ open: false, sectionId: '' })
   let freeformInput = $state('')
   let freeformSaving = $state(false)
 
@@ -612,11 +614,9 @@
         return
 
       case 'certifications':
-        // Certifications are stored as source_type='education' with
-        // education_type='certificate' (there is no dedicated source_type
-        // for certifications). The picker filters by the subtype so only
-        // certification sources show up.
-        sourcePickerState = { sectionId, sourceType: 'education', educationType: 'certificate' }
+        // Certifications now live in the resume_certifications junction table,
+        // not in source_education. Open the dedicated CertPickerModal.
+        certPickerState = { open: true, sectionId }
         return
 
       case 'projects':
@@ -1092,6 +1092,12 @@
                     await removeEntry(entryId)
                     if (selectedResumeId) await loadIR(selectedResumeId)
                   }}
+                  onRemoveCertification={async (rcId) => {
+                    if (!selectedResumeId) return
+                    const result = await forge.resumes.removeCertification(selectedResumeId, rcId)
+                    if (result.ok) await loadIR(selectedResumeId)
+                    else addToast({ message: friendlyError(result.error), type: 'error' })
+                  }}
                   onUpdateSummary={async (update) => {
                     if (!selectedResumeId) return
                     const result = await forge.resumes.update(selectedResumeId, update)
@@ -1231,6 +1237,22 @@
     educationType={sourcePickerState.educationType}
     onClose={() => sourcePickerState = null}
     onUpdate={handleIRUpdate}
+  />
+{/if}
+
+<!-- Cert picker modal -->
+{#if certPickerState.open && selectedResumeId}
+  <CertPickerModal
+    open={certPickerState.open}
+    onselect={async (certId) => {
+      await forge.resumes.addCertification(selectedResumeId!, {
+        certification_id: certId,
+        section_id: certPickerState.sectionId,
+      })
+      certPickerState = { open: false, sectionId: '' }
+      await loadIR(selectedResumeId!)
+    }}
+    onclose={() => certPickerState = { open: false, sectionId: '' }}
   />
 {/if}
 

@@ -25,7 +25,7 @@
  *   [x] Imports shared components
  *   [x] References forge.certifications + skill junction methods
  *   [x] Contains skill picker section
- *   [x] Contains education source dropdown
+ *   [x] Uses OrgCombobox for issuer FK (cert-rework schema)
  *   [x] No forbidden inline CSS patterns
  *
  * T87.4 — Remove clearances experience page:
@@ -209,9 +209,13 @@ describe('T87.3: Certifications page', () => {
     expect(content).toContain('skill-dropdown')
   })
 
-  test('contains education source dropdown', () => {
-    expect(content).toContain('educationSources')
-    expect(content).toContain('cert-edu-source')
+  test('uses OrgCombobox for issuer FK (cert-rework schema)', () => {
+    // Old design had a free-text issuer + educationSources dropdown.
+    // New design uses issuer_id FK with OrgCombobox and short_name/long_name.
+    expect(content).toContain('OrgCombobox')
+    expect(content).toContain('formIssuerId')
+    expect(content).toContain('formShortName')
+    expect(content).toContain('formLongName')
   })
 
   test('contains expiry-based status display', () => {

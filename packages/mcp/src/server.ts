@@ -20,6 +20,7 @@ import { registerTier2JDTools } from './tools/tier2-jd'
 import { registerTier2JDLinkageTools } from './tools/tier2-linkage'
 import { registerTier2MonitoringTools } from './tools/tier2-monitoring'
 import { registerTier2SearchTools } from './tools/tier2-search'
+import { registerTier2QualificationsTools } from './tools/tier2-qualifications'
 // Tier 3
 import { registerTier3UpdateTools } from './tools/tier3-update'
 import { registerTier3AssemblyTools } from './tools/tier3-assembly'
@@ -67,6 +68,7 @@ export function createForgeServer(sdk: ForgeClient, flags: FeatureFlags): McpSer
   registerTier2JDLinkageTools(server, sdk, mapResult, flags) // 0-2 tools (feature-flagged)
   registerTier2MonitoringTools(server, sdk, mapResult, flags) // 0-2 tools (feature-flagged)
   registerTier2SearchTools(server, sdk, mapResult)           // 3 tools
+  registerTier2QualificationsTools(server, sdk, mapResult)   // 8 tools
 
   // Tier 3: Refinement (up to 18 tools, some feature-flagged)
   registerTier3UpdateTools(server, sdk, mapResult)           // 5 tools

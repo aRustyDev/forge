@@ -21,7 +21,7 @@ export function registerResources(server: McpServer, sdk: ForgeClient): void {
   server.resource(
     'forge-profile',
     'forge://profile',
-    { description: 'User profile: name, contact info, clearance level' },
+    { description: 'User profile: name, contact info, salary expectations' },
     async (uri) => {
       const result = await sdk.profile.get()
       if (!result.ok) {
@@ -99,6 +99,58 @@ export function registerResources(server: McpServer, sdk: ForgeClient): void {
     { description: 'Resume templates with section structures' },
     async (uri) => {
       const result = await sdk.templates.list()
+      if (!result.ok) {
+        return {
+          contents: [{
+            uri: uri.href,
+            mimeType: 'application/json',
+            text: JSON.stringify({ error: result.error }),
+          }],
+        }
+      }
+      return {
+        contents: [{
+          uri: uri.href,
+          mimeType: 'application/json',
+          text: JSON.stringify(result.data, null, 2),
+        }],
+      }
+    },
+  )
+
+  // -- Qualifications resources (Phase 88) --
+
+  server.resource(
+    'forge-credentials',
+    'forge://credentials',
+    { description: 'Credentials: clearances, licenses, bar admissions, medical licenses (Phase 84-88 Qualifications track)' },
+    async (uri) => {
+      const result = await sdk.credentials.list()
+      if (!result.ok) {
+        return {
+          contents: [{
+            uri: uri.href,
+            mimeType: 'application/json',
+            text: JSON.stringify({ error: result.error }),
+          }],
+        }
+      }
+      return {
+        contents: [{
+          uri: uri.href,
+          mimeType: 'application/json',
+          text: JSON.stringify(result.data, null, 2),
+        }],
+      }
+    },
+  )
+
+  server.resource(
+    'forge-certifications',
+    'forge://certifications',
+    { description: 'Certifications with linked skills (Phase 84-88 Qualifications track)' },
+    async (uri) => {
+      const result = await sdk.certifications.list()
       if (!result.ok) {
         return {
           contents: [{

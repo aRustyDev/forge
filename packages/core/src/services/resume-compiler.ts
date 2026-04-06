@@ -797,63 +797,55 @@ function buildPresentationItems(db: Database, sectionId: string): PresentationIt
   }))
 }
 
-function buildCertificationItems(db: Database, sectionId: string): CertificationGroup[] {
-  // Same dual-path source resolution as buildEducationItems — see that
-  // function's comment for the reasoning. Certifications in particular
-  // rarely have derived perspectives, so almost every cert entry reaches
-  // its source via the direct re.source_id path.
+function buildCertificationItems(db: Database, _sectionId: string): CertificationGroup[] {
+  // As of Phase 88 (Qualifications track), certifications live in their own
+  // entity table — not in sources. Similar to buildClearanceItems, every
+  // certification renders automatically into any resume that contains a
+  // certifications section. No resume_entries row is needed per cert.
+  //
+  // Certifications are grouped by issuer (with a fallback label of "Other").
+  // Each cert renders as: `<name> — <issuer> (<year>)`, optionally with
+  // a credential ID sub-line.
+
+  type CertRow = {
+    id: string
+    name: string
+    issuer: string | null
+    date_earned: string | null
+    credential_id: string | null
+  }
+
   const rows = db
     .query(
-      `SELECT
-        re.id AS entry_id,
-        re.content AS entry_content,
-        re.perspective_id,
-        p.content AS perspective_content,
-        COALESCE(bs.source_id, re.source_id) AS source_id,
-        s.title AS source_title,
-        o.name AS institution,
-        se.field,
-        se.credential_id,
-        se.end_date
-      FROM resume_entries re
-      LEFT JOIN perspectives p ON p.id = re.perspective_id
-      LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
-      LEFT JOIN sources s ON s.id = COALESCE(bs.source_id, re.source_id)
-      LEFT JOIN source_education se ON se.source_id = s.id
-      LEFT JOIN organizations o ON o.id = se.organization_id
-      WHERE re.section_id = ?
-      ORDER BY re.position ASC`
+      `SELECT id, name, issuer, date_earned, credential_id
+       FROM certifications
+       ORDER BY issuer ASC, name ASC`,
     )
-    .all(sectionId) as Array<{
-      entry_id: string
-      entry_content: string | null
-      perspective_id: string | null
-      perspective_content: string | null
-      source_id: string | null
-      source_title: string | null
-      institution: string | null
-      field: string | null
-      credential_id: string | null
-      end_date: string | null
-    }>
+    .all() as CertRow[]
 
   if (rows.length === 0) return []
 
-  // Group by institution (issuing body). Fall back to source title when
-  // the source isn't linked to an organization yet, then to "Other".
-  // Display name picks `source_title` as the canonical cert name before
-  // falling back to clone/perspective content — source.title is the
-  // authoritative identifier for a cert (e.g. "AWS Certified SA"),
-  // and entry_content is only set in explicit clone mode.
-  const catMap = new Map<string, Array<{ name: string; entry_id: string; source_id: string | null }>>()
+  // Group by issuer
+  const catMap = new Map<string, Array<{ name: string; entry_id: string | null; source_id: string | null }>>()
 
   for (const row of rows) {
-    const label = row.institution ?? row.source_title ?? 'Other'
+    const label = row.issuer ?? 'Other'
     if (!catMap.has(label)) catMap.set(label, [])
+
+    // Build display name: "Name (year)" or "Name" if no date
+    let displayName = row.name
+    if (row.date_earned) {
+      const year = row.date_earned.slice(0, 4)
+      displayName += ` (${year})`
+    }
+    if (row.credential_id) {
+      displayName += ` — ID: ${row.credential_id}`
+    }
+
     catMap.get(label)!.push({
-      name: row.entry_content ?? row.source_title ?? row.perspective_content ?? '',
-      entry_id: row.entry_id,
-      source_id: row.source_id,
+      name: displayName,
+      entry_id: row.id, // certification id for traceability
+      source_id: null, // certifications are not sources
     })
   }
 
@@ -861,11 +853,7 @@ function buildCertificationItems(db: Database, sectionId: string): Certification
     kind: 'certification_group',
     categories: Array.from(catMap.entries()).map(([label, certs]) => ({
       label,
-      certs: certs.map(c => ({
-        name: c.name,
-        entry_id: c.entry_id,
-        source_id: c.source_id,
-      })),
+      certs,
     })),
   }]
 }

@@ -97,6 +97,7 @@ function updateExtension(
 
     if ('organization_id' in input) { sets.push('organization_id = ?'); params.push(input.organization_id ?? null) }
     if ('is_personal' in input) { sets.push('is_personal = ?'); params.push(input.is_personal ?? 0) }
+    if ('open_source' in input) { sets.push('open_source = ?'); params.push(input.open_source ?? 0) }
     if ('url' in input) { sets.push('url = ?'); params.push(input.url ?? null) }
     if ('start_date' in input) { sets.push('start_date = ?'); params.push(input.start_date ?? null) }
     if ('end_date' in input) { sets.push('end_date = ?'); params.push(input.end_date ?? null) }
@@ -194,12 +195,13 @@ export function create(db: Database, input: CreateSource): SourceWithExtension {
       )
     } else if (sourceType === 'project') {
       db.run(
-        `INSERT INTO source_projects (source_id, organization_id, is_personal, url, start_date, end_date)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO source_projects (source_id, organization_id, is_personal, open_source, url, start_date, end_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           id,
           input.organization_id ?? null,
           input.is_personal ?? 0,
+          input.open_source ?? 0,
           input.url ?? null,
           input.start_date ?? null,
           input.end_date ?? null,

@@ -336,6 +336,7 @@ export interface SourceProject {
   source_id: string
   organization_id: string | null
   is_personal: number
+  open_source: number
   url: string | null
   start_date: string | null
   end_date: string | null
@@ -761,6 +762,7 @@ export interface CreateSource {
   total_comp_notes?: string
   // Project extension fields
   is_personal?: number
+  open_source?: number
   url?: string
   // Education extension fields
   education_type?: EducationType
@@ -797,6 +799,7 @@ export interface UpdateSource {
   total_comp_notes?: string | null
   // Project extension fields
   is_personal?: number
+  open_source?: number
   url?: string | null
   // Education extension fields
   education_type?: EducationType

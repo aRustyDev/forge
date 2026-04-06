@@ -119,6 +119,7 @@ export interface SourceRole {
 export interface SourceProject {
   organization_id: string | null
   is_personal: boolean
+  open_source: boolean
   url: string | null
   start_date: string | null
   end_date: string | null

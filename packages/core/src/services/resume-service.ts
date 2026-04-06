@@ -481,17 +481,23 @@ export class ResumeService {
         { cwd: tmpDir, stdout: 'pipe', stderr: 'pipe' }
       )
 
-      // Timeout after 60 seconds
-      const timeout = setTimeout(() => {
+      // Timeout after 60 seconds. Use our own `timedOut` flag instead of
+      // proc.killed, which is unreliable in some Bun versions (reports true
+      // even for non-signal process exits, masking the real LaTeX error).
+      let timedOut = false
+      const timeoutHandle = setTimeout(() => {
+        timedOut = true
         proc.kill()
       }, 60_000)
 
       const exitCode = await proc.exited
-      clearTimeout(timeout)
+      clearTimeout(timeoutHandle)
 
       if (exitCode !== 0) {
         const stderr = await new Response(proc.stderr).text()
-        if (proc.killed) {
+        // Use our own flag instead of proc.killed, which can be unreliable
+        // in some Bun versions (reports true even for non-signal exits).
+        if (timedOut) {
           return { ok: false, error: { code: 'TECTONIC_TIMEOUT', message: 'PDF compilation timed out after 60 seconds' } }
         }
         return {

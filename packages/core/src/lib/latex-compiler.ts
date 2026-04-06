@@ -113,6 +113,16 @@ function escapeItem(item: IRSectionItem): IRSectionItem {
         institution: escapeLatex(item.institution),
         degree: escapeLatex(item.degree),
         date: escapeLatex(item.date),
+        field: item.field ? escapeLatex(item.field) : item.field,
+        degree_type: item.degree_type ? escapeLatex(item.degree_type) : item.degree_type,
+        location: item.location ? escapeLatex(item.location) : item.location,
+        gpa: item.gpa ? escapeLatex(item.gpa) : item.gpa,
+        credential_id: item.credential_id ? escapeLatex(item.credential_id) : item.credential_id,
+        issuing_body: item.issuing_body ? escapeLatex(item.issuing_body) : item.issuing_body,
+        edu_description: item.edu_description ? escapeLatex(item.edu_description) : item.edu_description,
+        campus_name: item.campus_name ? escapeLatex(item.campus_name) : item.campus_name,
+        campus_city: item.campus_city ? escapeLatex(item.campus_city) : item.campus_city,
+        campus_state: item.campus_state ? escapeLatex(item.campus_state) : item.campus_state,
       }
 
     case 'project':

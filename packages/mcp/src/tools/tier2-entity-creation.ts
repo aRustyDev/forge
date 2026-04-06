@@ -13,11 +13,11 @@ export function registerTier2EntityCreationTools(
   registerTool(
     server,
     'forge_create_source',
-    'Create a new experience source (role, project, education, clearance, or general).',
+    'Create a new experience source (role, project, education, or general). For clearances use forge_create_credential instead (Phase 84 moved clearances to the credentials entity).',
     {
       title: z.string().describe('Source title'),
       description: z.string().describe('Source description'),
-      source_type: z.enum(['role', 'project', 'education', 'clearance', 'general'])
+      source_type: z.enum(['role', 'project', 'education', 'general'])
         .describe('Type of experience source'),
       start_date: z.string().optional().describe('Start date (ISO 8601)'),
       end_date: z.string().optional().describe('End date (ISO 8601)'),
@@ -33,9 +33,6 @@ export function registerTier2EntityCreationTools(
         .describe('Education type (for education)'),
       degree_level: z.string().optional().describe('Degree level (for education)'),
       field: z.string().optional().describe('Field of study (for education)'),
-      // Clearance extension fields
-      level: z.string().optional().describe('Clearance level (for clearance)'),
-      polygraph: z.string().optional().describe('Polygraph type (for clearance)'),
     },
     async (params) => {
       // Restructure flat params into SDK nested format
@@ -63,11 +60,6 @@ export function registerTier2EntityCreationTools(
           education_type: params.education_type,
           degree_level: params.degree_level,
           field: params.field,
-        }
-      } else if (params.source_type === 'clearance') {
-        input.clearance = {
-          level: params.level,
-          polygraph: params.polygraph,
         }
       }
       // Note: source_type 'general' silently ignores extension fields.

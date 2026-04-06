@@ -299,30 +299,35 @@ describe('compileResumeIR', () => {
     expect(item.source_id).toBe(sourceId)
   })
 
-  test('certification section falls back to source.title when content is null (direct-source reference)', () => {
+  test('certification section renders from certifications table (Phase 88)', () => {
+    // After migration 037 + Phase 88, certifications are standalone entities.
+    // The compiler pulls directly from the certifications table — no
+    // resume_entries needed. Every certification renders automatically.
     const resumeId = seedResume(db)
-    const sourceId = seedSource(db, {
-      title: 'GPCS - Public Cloud Security',
-      sourceType: 'education',
-      description: 'certificate: GPCS - Public Cloud Security at GIAC', // must NOT be used
-    })
+    const certId = crypto.randomUUID()
     db.run(
-      `INSERT INTO source_education (source_id, education_type, end_date)
-       VALUES (?, ?, ?)`,
-      [sourceId, 'certificate', '2029-10-01']
+      `INSERT INTO certifications (id, name, issuer, date_earned, credential_id)
+       VALUES (?, 'CISSP', 'ISC2', '2024-06-01', 'CISSP-123456')`,
+      [certId],
     )
 
-    const secId = seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
-    seedResumeEntry(db, secId, { sourceId, position: 0 })
+    seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
 
     const result = compileResumeIR(db, resumeId)!
     const certSection = result.sections.find(s => s.type === 'certifications')
     expect(certSection).toBeDefined()
+    expect(certSection!.items.length).toBeGreaterThanOrEqual(1)
+
     const group = certSection!.items[0]
     expect(group.kind).toBe('certification_group')
     if (group.kind === 'certification_group') {
-      expect(group.categories[0].certs[0].name).toBe('GPCS - Public Cloud Security')
-      expect(group.categories[0].certs[0].name).not.toContain('certificate:')
+      // Grouped by issuer
+      expect(group.categories[0].label).toBe('ISC2')
+      // Name formatted as "CISSP (2024) — ID: CISSP-123456"
+      expect(group.categories[0].certs[0].name).toContain('CISSP')
+      expect(group.categories[0].certs[0].name).toContain('2024')
+      expect(group.categories[0].certs[0].name).toContain('CISSP-123456')
+      expect(group.categories[0].certs[0].source_id).toBeNull()
     }
   })
 
@@ -413,39 +418,60 @@ describe('compileResumeIR', () => {
     expect(item.source_id).toBe(sourceId)
   })
 
-  test('certification section renders direct-source entries (no perspective chain)', () => {
+  test('certification section groups by issuer and handles missing issuer', () => {
     const resumeId = seedResume(db)
-    const sourceId = seedSource(db, {
-      title: 'AWS Certified Solutions Architect',
-      sourceType: 'education',
-      description: 'AWS Certified Solutions Architect — Associate',
-    })
+    // Cert with issuer
     db.run(
-      `INSERT INTO source_education (source_id, education_type, credential_id, end_date)
-       VALUES (?, ?, ?, ?)`,
-      [sourceId, 'certificate', 'AWS-SAA-12345', '2024-08-15']
+      `INSERT INTO certifications (id, name, issuer, date_earned)
+       VALUES (?, 'AWS SA Pro', 'Amazon Web Services', '2024-08-15')`,
+      [crypto.randomUUID()],
+    )
+    // Cert without issuer
+    db.run(
+      `INSERT INTO certifications (id, name, issuer)
+       VALUES (?, 'Self-Study Badge', NULL)`,
+      [crypto.randomUUID()],
     )
 
-    const secId = seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
-    seedResumeEntry(db, secId, {
-      sourceId,
-      content: 'AWS Certified Solutions Architect — Associate',
-      position: 0,
-    })
+    seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
 
     const result = compileResumeIR(db, resumeId)!
     const certSection = result.sections.find(s => s.type === 'certifications')
     expect(certSection).toBeDefined()
-    expect(certSection!.items).toHaveLength(1)
     const group = certSection!.items[0]
     expect(group.kind).toBe('certification_group')
     if (group.kind === 'certification_group') {
-      // No organization linked → falls back to source title as the category
-      // label, and the cert name is the entry content.
-      expect(group.categories).toHaveLength(1)
-      expect(group.categories[0].certs).toHaveLength(1)
-      expect(group.categories[0].certs[0].name).toBe('AWS Certified Solutions Architect — Associate')
-      expect(group.categories[0].certs[0].source_id).toBe(sourceId)
+      const labels = group.categories.map(c => c.label).sort()
+      expect(labels).toContain('Amazon Web Services')
+      expect(labels).toContain('Other') // null issuer falls back to 'Other'
+    }
+  })
+
+  test('certification section returns empty items when no certs exist', () => {
+    const resumeId = seedResume(db)
+    seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+
+    const result = compileResumeIR(db, resumeId)!
+    const certSection = result.sections.find(s => s.type === 'certifications')
+    expect(certSection).toBeDefined()
+    expect(certSection!.items).toHaveLength(0)
+  })
+
+  test('certification without date or credential_id renders name only', () => {
+    const resumeId = seedResume(db)
+    db.run(
+      `INSERT INTO certifications (id, name, issuer)
+       VALUES (?, 'PMP', 'PMI')`,
+      [crypto.randomUUID()],
+    )
+
+    seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
+
+    const result = compileResumeIR(db, resumeId)!
+    const certSection = result.sections.find(s => s.type === 'certifications')
+    const group = certSection!.items[0]
+    if (group.kind === 'certification_group') {
+      expect(group.categories[0].certs[0].name).toBe('PMP')
     }
   })
 

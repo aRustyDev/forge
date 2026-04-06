@@ -8,14 +8,14 @@ import type { Services } from '../services'
 import { mapStatusCode } from './server'
 import type { CreateSource, UpdateSource, SourceWithExtension } from '../types'
 
-/** Map the internal `extension` field to the SDK's typed keys (role/project/education/clearance). */
+/** Map the internal `extension` field to the SDK's typed keys (role/project/education/presentation). */
 function mapExtension(source: SourceWithExtension): Record<string, unknown> {
   const { extension, ...rest } = source
   if (!extension) return rest
   const key = source.source_type === 'role' ? 'role'
     : source.source_type === 'project' ? 'project'
     : source.source_type === 'education' ? 'education'
-    : source.source_type === 'clearance' ? 'clearance'
+    : source.source_type === 'presentation' ? 'presentation'
     : null
   if (!key) return rest
   return { ...rest, [key]: extension }

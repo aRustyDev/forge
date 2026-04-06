@@ -39,7 +39,7 @@ export interface PaginationParams {
 // Source type discriminator
 // ---------------------------------------------------------------------------
 
-export type SourceType = 'role' | 'project' | 'education' | 'general'
+export type SourceType = 'role' | 'project' | 'education' | 'general' | 'presentation'
 
 // ── Clearance Unions ──────────────────────────────────────────────────
 
@@ -173,6 +173,25 @@ export interface SourceEducation {
 // ClearanceLevel / ClearancePolygraph / ClearanceStatus / ClearanceType /
 // ClearanceAccessProgram enums above remain exported — they're reused by
 // the `credentials` entity's type-specific details JSON in Phase 85.
+
+/** Valid presentation type discriminator values. */
+export type PresentationType =
+  | 'conference_talk'
+  | 'workshop'
+  | 'poster'
+  | 'webinar'
+  | 'lightning_talk'
+  | 'panel'
+  | 'internal'
+
+/** Presentation-specific details for a source with source_type='presentation'. */
+export interface SourcePresentation {
+  source_id: string
+  venue: string | null
+  presentation_type: PresentationType
+  url: string | null
+  coauthors: string | null
+}
 
 // ---------------------------------------------------------------------------
 // Qualifications — credentials + certifications (Phase 84-85)
@@ -327,6 +346,7 @@ export interface Source {
   role?: SourceRole
   project?: SourceProject
   education?: SourceEducation
+  presentation?: SourcePresentation
 }
 
 export interface Bullet {
@@ -1138,11 +1158,15 @@ export interface ClearanceItem {
 export interface PresentationItem {
   kind: 'presentation'
   title: string
-  venue: string
+  venue: string | null
   date: string | null
   entry_id: string | null
   source_id: string | null
   bullets: ExperienceBullet[]
+  description: string | null
+  presentation_type: string | null
+  url: string | null
+  coauthors: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -1279,6 +1303,10 @@ export interface CreateSource {
   role?: Partial<SourceRole>
   project?: Partial<SourceProject>
   education?: Partial<SourceEducation>
+  // Presentation extension fields
+  venue?: string
+  presentation_type?: PresentationType
+  coauthors?: string
 }
 
 export interface UpdateSource {
@@ -1290,6 +1318,10 @@ export interface UpdateSource {
   role?: Partial<SourceRole>
   project?: Partial<SourceProject>
   education?: Partial<SourceEducation>
+  // Presentation extension fields
+  venue?: string
+  presentation_type?: PresentationType
+  coauthors?: string
 }
 
 export interface UpdateBullet {

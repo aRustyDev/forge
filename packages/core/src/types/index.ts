@@ -62,7 +62,7 @@ export interface SkillExtractionResult {
 }
 
 /** Valid source type discriminator values. */
-export type SourceType = 'role' | 'project' | 'education' | 'general'
+export type SourceType = 'role' | 'project' | 'education' | 'general' | 'presentation'
 
 /** Valid entity types for embedding vectors. */
 export type EmbeddingEntityType = 'bullet' | 'perspective' | 'jd_requirement' | 'source'
@@ -346,6 +346,25 @@ export interface SourceProject {
 export type DegreeLevelType = 'associate' | 'bachelors' | 'masters' | 'doctoral' | 'graduate_certificate'
 export type CertificateSubtype = 'professional' | 'vendor' | 'completion'
 export type EducationType = 'degree' | 'certificate' | 'course' | 'self_taught'
+
+/** Valid presentation type discriminator values. */
+export type PresentationType =
+  | 'conference_talk'
+  | 'workshop'
+  | 'poster'
+  | 'webinar'
+  | 'lightning_talk'
+  | 'panel'
+  | 'internal'
+
+/** Presentation-specific details for a source with source_type='presentation'. */
+export interface SourcePresentation {
+  source_id: string
+  venue: string | null
+  presentation_type: PresentationType
+  url: string | null
+  coauthors: string | null
+}
 
 /** Education-specific details for a source with source_type='education'. */
 export interface SourceEducation {
@@ -751,6 +770,10 @@ export interface CreateSource {
   gpa?: string
   location?: string
   edu_description?: string
+  // Presentation extension fields
+  venue?: string
+  presentation_type?: PresentationType
+  coauthors?: string
 }
 
 /** Input for partially updating a Source. */
@@ -783,6 +806,10 @@ export interface UpdateSource {
   gpa?: string | null
   location?: string | null
   edu_description?: string | null
+  // Presentation extension fields
+  venue?: string
+  presentation_type?: PresentationType
+  coauthors?: string
 }
 
 /** Input for deriving a perspective from a bullet. */
@@ -990,7 +1017,7 @@ export interface CoverageSummary {
 
 /** A source with its polymorphic extension data. */
 export interface SourceWithExtension extends Source {
-  extension: SourceRole | SourceProject | SourceEducation | null
+  extension: SourceRole | SourceProject | SourceEducation | SourcePresentation | null
 }
 
 /** A source with its associated bullets. */
@@ -1197,11 +1224,15 @@ export interface ClearanceItem {
 export interface PresentationItem {
   kind: 'presentation'
   title: string
-  venue: string
+  venue: string | null
   date: string | null
   entry_id: string | null
   source_id: string | null
   bullets: ExperienceBullet[]
+  description: string | null
+  presentation_type: string | null
+  url: string | null
+  coauthors: string | null
 }
 
 export interface LatexTemplate {

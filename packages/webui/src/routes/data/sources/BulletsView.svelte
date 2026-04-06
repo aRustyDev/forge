@@ -251,12 +251,22 @@
   let showCreateForm = $state(false)
   let createContent = $state('')
   let createDomain = $state('')
+  let createSourceId = $state<string | null>(null)
   let creating = $state(false)
+  let allSources = $state<Array<{ id: string; title: string; source_type: string }>>([])
 
-  function openCreateForm() {
+  async function openCreateForm() {
     showCreateForm = true
     createContent = ''
     createDomain = ''
+    createSourceId = null
+    // Load sources for the dropdown (if not already loaded)
+    if (allSources.length === 0) {
+      const res = await forge.sources.list({ limit: 500 })
+      if (res.ok) {
+        allSources = res.data.map(s => ({ id: s.id, title: s.title, source_type: s.source_type }))
+      }
+    }
   }
 
   async function createBullet() {
@@ -268,6 +278,7 @@
     const res = await forge.bullets.create({
       content: createContent.trim(),
       domain: createDomain.trim() || undefined,
+      source_ids: createSourceId ? [{ id: createSourceId, is_primary: true }] : undefined,
     } as any)
     if (res.ok) {
       items = [res.data, ...items]
@@ -318,6 +329,15 @@
           placeholder="Describe an accomplishment, responsibility, or context..."
           class="create-textarea"
         ></textarea>
+      </div>
+      <div class="create-form-field">
+        <label for="create-source">Source (optional)</label>
+        <select id="create-source" bind:value={createSourceId} class="create-input">
+          <option value={null}>-- No source --</option>
+          {#each allSources as src (src.id)}
+            <option value={src.id}>[{src.source_type}] {src.title}</option>
+          {/each}
+        </select>
       </div>
       <div class="create-form-field">
         <label for="create-domain">Domain (optional)</label>

@@ -562,13 +562,23 @@
     deriving = false
   }
 
-  /** Filter orgs to only those the user has worked at (for role/project dropdowns). */
-  let roleFilteredOrgs = $derived(
-    organizations.filter(o => sources.some(s =>
+  /**
+   * Filter orgs to those the user has worked at (for role/project dropdowns).
+   *
+   * Graceful degradation: when NO orgs are linked yet (chicken-and-egg
+   * problem on fresh or V1-migrated data where all source_roles have
+   * organization_id = NULL), fall back to showing ALL organizations so
+   * the user can make their first linkage. Once at least one org is
+   * linked, the filter narrows to the "worked at" set per the original
+   * feedback intent.
+   */
+  let roleFilteredOrgs = $derived.by(() => {
+    const workedAt = organizations.filter(o => sources.some(s =>
       (s.source_type === 'role' && s.role?.organization_id === o.id) ||
       (s.source_type === 'project' && s.project?.organization_id === o.id)
     ))
-  )
+    return workedAt.length > 0 ? workedAt : organizations
+  })
 
   /**
    * Filter orgs by relevant tags for the current education type + cert subtype.

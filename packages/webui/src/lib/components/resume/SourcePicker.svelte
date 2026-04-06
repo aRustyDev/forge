@@ -89,10 +89,17 @@
       })
 
       if (perspResult.ok && perspResult.data.length > 0) {
-        // Has perspectives -- add the first one as an entry
+        // Has perspectives -- add via perspective_id AND source_id.
+        // Both are needed because the perspective's bullet might have
+        // a different PRIMARY source (e.g. a role) than the source the
+        // user clicked (e.g. a cert). The direct source_id gives the
+        // compiler a reliable FK to the intended source's extension
+        // data (source_education, source_presentations, etc.) even
+        // when the bullet_sources chain resolves elsewhere.
         const result = await forge.resumes.addEntry(resumeId, {
           section_id: sectionId,
           perspective_id: perspResult.data[0].id,
+          source_id: source.id,
         })
         if (result.ok) {
           addToast({ message: `Added ${source.title}`, type: 'success' })

@@ -323,7 +323,7 @@ function buildFreeformItems(db: Database, sectionId: string): SummaryItem[] {
 }
 
 function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[] {
-  // Dual-path source resolution via COALESCE(bs.source_id, re.source_id).
+  // Dual-path source resolution via COALESCE(re.source_id, bs.source_id).
   // Experience entries almost always come through the perspective chain
   // (bullets are the main derivation output for role sources), but the
   // LEFT JOIN keeps the query robust against direct-source entries too.
@@ -337,7 +337,7 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
         p.content AS perspective_content,
         p.bullet_id,
         b.content AS bullet_content,
-        COALESCE(bs.source_id, re.source_id) AS source_id,
+        COALESCE(re.source_id, bs.source_id) AS source_id,
         s.title AS source_title,
         sr.organization_id,
         sr.start_date,
@@ -351,7 +351,7 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
       LEFT JOIN perspectives p ON p.id = re.perspective_id
       LEFT JOIN bullets b ON b.id = p.bullet_id
       LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
-      LEFT JOIN sources s ON s.id = COALESCE(bs.source_id, re.source_id)
+      LEFT JOIN sources s ON s.id = COALESCE(re.source_id, bs.source_id)
       LEFT JOIN source_roles sr ON sr.source_id = s.id
       LEFT JOIN organizations o ON o.id = sr.organization_id
       LEFT JOIN org_campuses oc ON oc.organization_id = o.id AND oc.is_headquarters = 1
@@ -522,7 +522,7 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
         re.content AS entry_content,
         p.content AS perspective_content,
         s.title AS source_title,
-        COALESCE(bs.source_id, re.source_id) AS source_id,
+        COALESCE(re.source_id, bs.source_id) AS source_id,
         se.education_type,
         o.name AS institution,
         se.field,
@@ -549,7 +549,7 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
       FROM resume_entries re
       LEFT JOIN perspectives p ON p.id = re.perspective_id
       LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
-      LEFT JOIN sources s ON s.id = COALESCE(bs.source_id, re.source_id)
+      LEFT JOIN sources s ON s.id = COALESCE(re.source_id, bs.source_id)
       LEFT JOIN source_education se ON se.source_id = s.id
       LEFT JOIN organizations o ON o.id = se.organization_id
       LEFT JOIN org_campuses oc ON oc.id = se.campus_id
@@ -620,7 +620,7 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
         p.content AS perspective_content,
         p.bullet_id,
         b.content AS bullet_content,
-        COALESCE(bs.source_id, re.source_id) AS source_id,
+        COALESCE(re.source_id, bs.source_id) AS source_id,
         s.title AS source_title,
         s.description AS source_description,
         sp.start_date,
@@ -629,7 +629,7 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
       LEFT JOIN perspectives p ON p.id = re.perspective_id
       LEFT JOIN bullets b ON b.id = p.bullet_id
       LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
-      LEFT JOIN sources s ON s.id = COALESCE(bs.source_id, re.source_id)
+      LEFT JOIN sources s ON s.id = COALESCE(re.source_id, bs.source_id)
       LEFT JOIN source_projects sp ON sp.source_id = s.id
       WHERE re.section_id = ?
       ORDER BY re.position ASC`
@@ -800,7 +800,7 @@ function buildPresentationItems(db: Database, sectionId: string): PresentationIt
         p.content AS perspective_content,
         p.bullet_id,
         b.content AS bullet_content,
-        COALESCE(bs.source_id, re.source_id) AS source_id,
+        COALESCE(re.source_id, bs.source_id) AS source_id,
         s.title AS source_title,
         s.description AS source_description,
         s.end_date,
@@ -812,7 +812,7 @@ function buildPresentationItems(db: Database, sectionId: string): PresentationIt
       LEFT JOIN perspectives p ON p.id = re.perspective_id
       LEFT JOIN bullets b ON b.id = p.bullet_id
       LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
-      LEFT JOIN sources s ON s.id = COALESCE(bs.source_id, re.source_id)
+      LEFT JOIN sources s ON s.id = COALESCE(re.source_id, bs.source_id)
       LEFT JOIN source_presentations sp ON sp.source_id = s.id
       WHERE re.section_id = ?
       ORDER BY re.position ASC`

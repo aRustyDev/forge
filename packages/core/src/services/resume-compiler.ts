@@ -426,7 +426,7 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
           e.source_id !== null &&
           e.source_title !== null
         return {
-          content: e.entry_content ?? e.perspective_content ?? '',
+          content: e.entry_content ?? e.perspective_content ?? e.bullet_content ?? '',
           entry_id: e.entry_id,
           source_chain: hasChain
             ? {
@@ -677,7 +677,7 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
         e.source_id !== null &&
         e.source_title !== null
       return {
-        content: e.entry_content ?? e.perspective_content ?? '',
+        content: e.entry_content ?? e.perspective_content ?? e.bullet_content ?? e.source_description ?? '',
         entry_id: e.entry_id,
         source_chain: hasChain
           ? {
@@ -866,7 +866,7 @@ function buildPresentationItems(db: Database, sectionId: string): PresentationIt
         e.source_id !== null &&
         e.source_title !== null
       return {
-        content: e.entry_content ?? e.perspective_content ?? '',
+        content: e.entry_content ?? e.perspective_content ?? e.bullet_content ?? e.source_description ?? '',
         entry_id: e.entry_id,
         source_chain: hasChain
           ? {

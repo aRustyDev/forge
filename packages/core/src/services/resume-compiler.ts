@@ -980,13 +980,18 @@ export function formatDateRange(
 /**
  * Build the organization display string for experience sections.
  *
- * Format: `{org_name}{ - location}{ (work_arrangement)}`
+ * Format: `{org_name}{ (location)}` or `{org_name}{ (work_arrangement)}` as fallback.
+ *
+ * Location takes precedence over work arrangement in the parenthetical
+ * suffix — a resume reader cares about "Raytheon (Arlington, VA)" more
+ * than "Raytheon (Remote)". Work arrangement only shows when there's no
+ * campus location data.
  *
  * Examples:
- *   - "Cisco - Remote (Contract)"
- *   - "Raytheon Intelligence & Space - Arlington, VA (Remote)"
- *   - "United States Air Force Reserve - National Capitol Region"
- *   - "Acme Corp" (no location, no arrangement)
+ *   - "Raytheon Intelligence & Space (Arlington, VA)"
+ *   - "United States Air Force (Hampton, VA)"
+ *   - "Greymatter.io (Remote)"          — no campus location, shows arrangement
+ *   - "Acme Corp"                       — neither location nor arrangement
  *   - "Other" (null org name)
  */
 export function buildOrgDisplayString(
@@ -997,7 +1002,7 @@ export function buildOrgDisplayString(
 ): string {
   const name = orgName ?? 'Other'
 
-  // Build location string
+  // Build location string from campus headquarters data
   let location: string | null = null
   if (city && state) {
     location = `${city}, ${state}`
@@ -1013,14 +1018,8 @@ export function buildOrgDisplayString(
     arrangement = workArrangement.charAt(0).toUpperCase() + workArrangement.slice(1)
   }
 
-  // Compose: "{name}{ - location}{ (arrangement)}"
-  let result = name
-  if (location) {
-    result += ` - ${location}`
-  }
-  if (arrangement) {
-    result += ` (${arrangement})`
-  }
-
-  return result
+  // Compose: "{name} (location)" — prefer location over arrangement.
+  // Only one parenthetical suffix, never both.
+  const suffix = location ?? arrangement
+  return suffix ? `${name} (${suffix})` : name
 }

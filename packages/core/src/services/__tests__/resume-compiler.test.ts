@@ -1144,9 +1144,9 @@ describe('formatDateRange', () => {
 // ── Phase 44: IR Data Quality Tests ─────────────────────────────────
 
 describe('buildOrgDisplayString', () => {
-  test('returns full format with all fields', () => {
+  test('location in parens takes precedence over arrangement', () => {
     expect(buildOrgDisplayString('Raytheon', 'Arlington', 'VA', 'remote'))
-      .toBe('Raytheon - Arlington, VA (Remote)')
+      .toBe('Raytheon (Arlington, VA)')
   })
 
   test('returns org name only when no location or arrangement', () => {
@@ -1159,17 +1159,17 @@ describe('buildOrgDisplayString', () => {
       .toBe('Other')
   })
 
-  test('handles city only (no state)', () => {
+  test('city only shows in parens', () => {
     expect(buildOrgDisplayString('USAFR', 'National Capitol Region', null, null))
-      .toBe('USAFR - National Capitol Region')
+      .toBe('USAFR (National Capitol Region)')
   })
 
-  test('handles state only (no city)', () => {
+  test('state only shows in parens', () => {
     expect(buildOrgDisplayString('TestOrg', null, 'VA', null))
-      .toBe('TestOrg - VA')
+      .toBe('TestOrg (VA)')
   })
 
-  test('handles arrangement only (no location)', () => {
+  test('arrangement shows in parens when no location', () => {
     expect(buildOrgDisplayString('Cisco', null, null, 'remote'))
       .toBe('Cisco (Remote)')
   })
@@ -1179,9 +1179,9 @@ describe('buildOrgDisplayString', () => {
       .toBe('Corp (Contract)')
   })
 
-  test('handles city, state, and arrangement', () => {
+  test('location wins over arrangement when both present', () => {
     expect(buildOrgDisplayString('Cisco', 'San Jose', 'CA', 'contract'))
-      .toBe('Cisco - San Jose, CA (Contract)')
+      .toBe('Cisco (San Jose, CA)')
   })
 })
 
@@ -1341,7 +1341,8 @@ describe('compileResumeIR — Phase 44 data quality', () => {
     const result = compileResumeIR(db, resumeId)!
     const expSection = result.sections.find(s => s.type === 'experience')!
     const group = expSection.items[0] as ExperienceGroup
-    expect(group.organization).toBe('Raytheon Intelligence & Space - Arlington, VA (Remote)')
+    // New format: location in parens takes precedence over arrangement
+    expect(group.organization).toBe('Raytheon Intelligence & Space (Arlington, VA)')
   })
 
   test('experience org with work arrangement but no location', () => {

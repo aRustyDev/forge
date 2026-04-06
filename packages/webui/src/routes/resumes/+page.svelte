@@ -744,20 +744,31 @@
 
   async function handleMoveSection(sectionId: string, direction: 'up' | 'down') {
     if (!selectedResumeId || !ir) return
-    const sections = [...ir.sections].sort((a, b) => a.display_order - b.display_order)
+    // Sort by display_order, then by id as a stable tiebreaker so sections
+    // with the same position don't produce undefined swap behavior.
+    const sections = [...ir.sections].sort((a, b) =>
+      a.display_order !== b.display_order
+        ? a.display_order - b.display_order
+        : a.id.localeCompare(b.id)
+    )
     const idx = sections.findIndex(s => s.id === sectionId)
     if (idx < 0) return
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1
     if (swapIdx < 0 || swapIdx >= sections.length) return
 
-    // Swap positions
-    const currentPos = sections[idx].display_order
-    const swapPos = sections[swapIdx].display_order
+    // Swap positions in the sorted array, then RENUMBER all sections
+    // sequentially (0, 1, 2, ...) to eliminate ties. Ties caused the
+    // "stuck section" bug where two sections shared the same position
+    // and swapping produced a no-op.
+    const ordered = sections.map(s => s.id)
+    const [moved] = ordered.splice(idx, 1)
+    ordered.splice(swapIdx, 0, moved)
 
-    await Promise.all([
-      forge.resumes.updateSection(selectedResumeId, sections[idx].id, { position: swapPos }),
-      forge.resumes.updateSection(selectedResumeId, sections[swapIdx].id, { position: currentPos }),
-    ])
+    await Promise.all(
+      ordered.map((id, i) =>
+        forge.resumes.updateSection(selectedResumeId!, id, { position: i })
+      )
+    )
 
     await handleIRUpdate()
   }

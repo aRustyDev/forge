@@ -73,18 +73,33 @@
   // ── Education display helpers ──────────────────────────────────────
   // Format degree_type (e.g. "BS") when present; otherwise fall back to a
   // human-readable form of degree_level (e.g. "graduate_certificate" → "Graduate Cert").
-  // Returns `null` when no degree information is available, so the caller
-  // can skip the ", <type>" suffix entirely instead of rendering a stray comma.
-  function formatDegreeType(edu: EducationItem): string | null {
-    if (edu.degree_type) return edu.degree_type
-    const level = edu.degree_level
+  /**
+   * Format the full degree display line: "DegreeType Title".
+   *
+   * Examples:
+   *   - "BS Cybersecurity & Information Assurance" (degree_type + degree title)
+   *   - "Graduate Certificate, Cloud Security" (degree_level label + title)
+   *   - "Engineering" (no degree type/level → title only)
+   *
+   * The order is: type FIRST, title SECOND — matching resume convention
+   * where the credential abbreviation leads (BS, MS, AAS, PhD).
+   */
+  function formatDegreeLine(edu: EducationItem): string {
+    const type = edu.degree_type ?? formatDegreeLevel(edu.degree_level)
+    const title = edu.degree || ''
+    if (type && title) return `${type} ${title}`
+    return type || title || ''
+  }
+
+  /** Map degree_level enum → human-readable label. */
+  function formatDegreeLevel(level: string | null | undefined): string | null {
     if (!level) return null
     const levelLabels: Record<string, string> = {
       bachelors: 'Bachelors',
       masters: 'Masters',
       doctoral: 'Doctoral',
       associate: 'Associates',
-      graduate_certificate: 'Graduate Cert',
+      graduate_certificate: 'Graduate Certificate',
     }
     return levelLabels[level] ?? level.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
   }
@@ -363,7 +378,6 @@
         {#each section.items as item}
           {#if item.kind === 'education'}
             {@const edu = item as EducationItem}
-            {@const degreeType = formatDegreeType(edu)}
             <div class="education-item">
               <div class="edu-header">
                 <span class="edu-institution">{edu.institution}</span>
@@ -380,9 +394,7 @@
                   {/if}
                 </span>
               </div>
-              <span class="edu-degree">
-                {edu.degree}{#if degreeType}, {degreeType}{/if}
-              </span>
+              <span class="edu-degree">{formatDegreeLine(edu)}</span>
             </div>
           {/if}
         {/each}

@@ -16,8 +16,9 @@ describe('nav', () => {
   })
 
   describe('navigation', () => {
-    it('has 5 top-level entries', () => {
-      expect(navigation).toHaveLength(5)
+    it('has 6 top-level entries', () => {
+      // Dashboard + Experience + Qualifications + Data + Opportunities + Resumes
+      expect(navigation).toHaveLength(6)
     })
 
     it('starts with Dashboard as a plain link', () => {
@@ -26,29 +27,36 @@ describe('nav', () => {
       expect((navigation[0] as NavItem).label).toBe('Dashboard')
     })
 
-    it('has Experience group with 5 children', () => {
+    it('has Experience group with 4 children (Clearances removed in Phase 84)', () => {
       const exp = navigation[1]
       expect(isNavGroup(exp)).toBe(true)
       expect((exp as NavGroup).label).toBe('Experience')
-      expect((exp as NavGroup).children).toHaveLength(5)
+      expect((exp as NavGroup).children).toHaveLength(4)
+    })
+
+    it('has Qualifications group with 2 children (Phase 87)', () => {
+      const qual = navigation[2]
+      expect(isNavGroup(qual)).toBe(true)
+      expect((qual as NavGroup).label).toBe('Qualifications')
+      expect((qual as NavGroup).children).toHaveLength(2)
     })
 
     it('has Data group with 6 children', () => {
-      const data = navigation[2]
+      const data = navigation[3]
       expect(isNavGroup(data)).toBe(true)
       expect((data as NavGroup).label).toBe('Data')
       expect((data as NavGroup).children).toHaveLength(6)
     })
 
     it('has Opportunities group with 2 children', () => {
-      const opp = navigation[3]
+      const opp = navigation[4]
       expect(isNavGroup(opp)).toBe(true)
       expect((opp as NavGroup).label).toBe('Opportunities')
       expect((opp as NavGroup).children).toHaveLength(2)
     })
 
     it('has Resumes group with 3 children', () => {
-      const res = navigation[4]
+      const res = navigation[5]
       expect(isNavGroup(res)).toBe(true)
       expect((res as NavGroup).label).toBe('Resumes')
       expect((res as NavGroup).children).toHaveLength(3)

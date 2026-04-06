@@ -28,8 +28,15 @@ export const navigation: NavEntry[] = [
       { href: '/experience/roles', label: 'Roles' },
       { href: '/experience/projects', label: 'Projects' },
       { href: '/experience/education', label: 'Education' },
-      { href: '/experience/clearances', label: 'Clearances' },
       { href: '/experience/general', label: 'General' },
+    ],
+  },
+  {
+    label: 'Qualifications',
+    prefix: '/qualifications',
+    children: [
+      { href: '/qualifications/credentials', label: 'Credentials' },
+      { href: '/qualifications/certifications', label: 'Certifications' },
     ],
   },
   {

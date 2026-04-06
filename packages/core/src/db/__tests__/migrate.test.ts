@@ -65,6 +65,7 @@ const EXPECTED_TABLES = [
   "credentials", // added in migration 037
   "certifications", // added in migration 037
   "certification_skills", // added in migration 037
+  "source_presentations", // added in migration 039
   "_migrations",
 ];
 
@@ -131,7 +132,7 @@ describe("runMigrations", () => {
     const rows = db
       .query("SELECT name FROM _migrations ORDER BY name")
       .all() as { name: string }[];
-    expect(rows).toHaveLength(36);
+    expect(rows).toHaveLength(37);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");
@@ -168,6 +169,7 @@ describe("runMigrations", () => {
     expect(rows[33].name).toBe("036_null_auto_content_on_direct_source_entries");
     expect(rows[34].name).toBe("037_qualifications");
     expect(rows[35].name).toBe("038_resume_summary_override");
+    expect(rows[36].name).toBe("039_presentations");
   });
 
   test("already up-to-date: running again is a no-op with no errors", () => {
@@ -179,7 +181,7 @@ describe("runMigrations", () => {
     const rows = db.query("SELECT name FROM _migrations ORDER BY name").all() as {
       name: string;
     }[];
-    expect(rows).toHaveLength(36);
+    expect(rows).toHaveLength(37);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");
@@ -216,6 +218,7 @@ describe("runMigrations", () => {
     expect(rows[33].name).toBe("036_null_auto_content_on_direct_source_entries");
     expect(rows[34].name).toBe("037_qualifications");
     expect(rows[35].name).toBe("038_resume_summary_override");
+    expect(rows[36].name).toBe("039_presentations");
   });
 
   test("failed migration: broken 002 file rolls back; 001 is intact", () => {

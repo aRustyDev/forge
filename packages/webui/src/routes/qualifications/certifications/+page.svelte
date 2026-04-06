@@ -1,8 +1,10 @@
 <!--
   Certifications page — split-panel CRUD with skill tagging.
 
-  Phase 87 T87.3. Lists certifications with their linked skills, provides
-  a detail form with skill picker for keyword linking.
+  Updated for cert-rework schema:
+  - short_name + long_name (not a single `name`)
+  - issuer_id FK to organizations (via OrgCombobox, not free text)
+  - cert_id, credly_url, in_progress checkbox added
 
   Follows ui-shared-components.md rules:
   - SplitPanel, ListPanelHeader, EmptyPanel, ListSearchInput from $lib/components
@@ -12,23 +14,29 @@
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
   import { LoadingSpinner, SplitPanel, ListPanelHeader, EmptyPanel, ListSearchInput } from '$lib/components'
-  import type { CertificationWithSkills, Skill } from '@forge/sdk'
+  import OrgCombobox from '$lib/components/OrgCombobox.svelte'
+  import type { CertificationWithSkills, Skill, Organization } from '@forge/sdk'
 
   let certifications = $state<CertificationWithSkills[]>([])
   let allSkills = $state<Skill[]>([])
+  let allOrgs = $state<Organization[]>([])
   let selectedId = $state<string | null>(null)
   let searchQuery = $state('')
   let loading = $state(true)
   let editing = $state(false)
   let saving = $state(false)
 
-  // Form fields
-  let formName = $state('')
-  let formIssuer = $state('')
+  // Form fields — new schema
+  let formShortName = $state('')
+  let formLongName = $state('')
+  let formCertId = $state('')
+  let formIssuerId = $state<string | null>(null)
   let formDateEarned = $state('')
   let formExpiryDate = $state('')
   let formCredentialId = $state('')
   let formCredentialUrl = $state('')
+  let formCredlyUrl = $state('')
+  let formInProgress = $state(false)
 
   // Skill picker
   let skillSearch = $state('')
@@ -37,10 +45,14 @@
   let filteredCerts = $derived.by(() => {
     if (!searchQuery.trim()) return certifications
     const q = searchQuery.toLowerCase()
-    return certifications.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      (c.issuer?.toLowerCase().includes(q) ?? false)
-    )
+    return certifications.filter(c => {
+      const issuerOrg = allOrgs.find(o => o.id === c.issuer_id)
+      return (
+        c.short_name.toLowerCase().includes(q) ||
+        c.long_name.toLowerCase().includes(q) ||
+        (issuerOrg?.name.toLowerCase().includes(q) ?? false)
+      )
+    })
   })
 
   let selectedCert = $derived(certifications.find(c => c.id === selectedId) ?? null)
@@ -64,6 +76,7 @@
 
   /** Derive expiry-based display status. */
   function displayStatus(cert: CertificationWithSkills): string {
+    if (cert.in_progress) return 'in progress'
     if (!cert.expiry_date) return 'active'
     return new Date(cert.expiry_date) < new Date() ? 'expired' : 'active'
   }
@@ -72,36 +85,50 @@
 
   $effect(() => {
     if (selectedCert && !editing) {
-      formName = selectedCert.name
-      formIssuer = selectedCert.issuer ?? ''
+      formShortName = selectedCert.short_name
+      formLongName = selectedCert.long_name
+      formCertId = selectedCert.cert_id ?? ''
+      formIssuerId = selectedCert.issuer_id ?? null
       formDateEarned = selectedCert.date_earned ?? ''
       formExpiryDate = selectedCert.expiry_date ?? ''
       formCredentialId = selectedCert.credential_id ?? ''
       formCredentialUrl = selectedCert.credential_url ?? ''
+      formCredlyUrl = selectedCert.credly_url ?? ''
+      formInProgress = selectedCert.in_progress
     }
   })
 
   async function loadAll() {
     loading = true
-    const [certsRes, skillsRes] = await Promise.all([
+    const [certsRes, skillsRes, orgsRes] = await Promise.all([
       forge.certifications.list(),
       forge.skills.list({ limit: 500 }),
+      forge.organizations.list({ limit: 500 }),
     ])
     if (certsRes.ok) certifications = certsRes.data
     else addToast({ message: friendlyError(certsRes.error, 'Failed to load certifications'), type: 'error' })
     if (skillsRes.ok) allSkills = skillsRes.data
+    if (orgsRes.ok) allOrgs = orgsRes.data
     loading = false
+  }
+
+  function resetForm() {
+    formShortName = ''
+    formLongName = ''
+    formCertId = ''
+    formIssuerId = null
+    formDateEarned = ''
+    formExpiryDate = ''
+    formCredentialId = ''
+    formCredentialUrl = ''
+    formCredlyUrl = ''
+    formInProgress = false
   }
 
   function startNew() {
     selectedId = null
     editing = true
-    formName = ''
-    formIssuer = ''
-    formDateEarned = ''
-    formExpiryDate = ''
-    formCredentialId = ''
-    formCredentialUrl = ''
+    resetForm()
   }
 
   function selectCert(id: string) {
@@ -112,23 +139,30 @@
   function startEditing() { editing = true }
 
   async function saveCert() {
-    if (!formName.trim()) {
-      addToast({ message: 'Name is required', type: 'error' })
+    if (!formShortName.trim()) {
+      addToast({ message: 'Short name is required', type: 'error' })
+      return
+    }
+    if (!formLongName.trim()) {
+      addToast({ message: 'Long name is required', type: 'error' })
       return
     }
     saving = true
 
     if (editing && !selectedId) {
       const res = await forge.certifications.create({
-        name: formName.trim(),
-        issuer: formIssuer || undefined,
+        short_name: formShortName.trim(),
+        long_name: formLongName.trim(),
+        cert_id: formCertId || undefined,
+        issuer_id: formIssuerId || undefined,
         date_earned: formDateEarned || undefined,
         expiry_date: formExpiryDate || undefined,
         credential_id: formCredentialId || undefined,
         credential_url: formCredentialUrl || undefined,
+        credly_url: formCredlyUrl || undefined,
+        in_progress: formInProgress,
       })
       if (res.ok) {
-        // Reload to get the WithSkills variant
         await loadAll()
         selectedId = res.data.id
         editing = false
@@ -138,12 +172,16 @@
       }
     } else if (selectedId) {
       const res = await forge.certifications.update(selectedId, {
-        name: formName.trim(),
-        issuer: formIssuer || null,
+        short_name: formShortName.trim(),
+        long_name: formLongName.trim(),
+        cert_id: formCertId || null,
+        issuer_id: formIssuerId || null,
         date_earned: formDateEarned || null,
         expiry_date: formExpiryDate || null,
         credential_id: formCredentialId || null,
         credential_url: formCredentialUrl || null,
+        credly_url: formCredlyUrl || null,
+        in_progress: formInProgress,
       })
       if (res.ok) {
         await loadAll()
@@ -198,7 +236,6 @@
     if (!selectedId) return
     const res = await forge.certifications.removeSkill(selectedId, skillId)
     if (res.ok) {
-      // Reload to refresh skills array
       const updated = await forge.certifications.get(selectedId)
       if (updated.ok) {
         certifications = certifications.map(c => c.id === selectedId ? updated.data : c)
@@ -226,6 +263,7 @@
       {:else}
         <ul class="cert-list">
           {#each filteredCerts as cert (cert.id)}
+            {@const issuerOrg = allOrgs.find(o => o.id === cert.issuer_id)}
             <li>
               <button
                 class="cert-card"
@@ -233,12 +271,14 @@
                 onclick={() => selectCert(cert.id)}
               >
                 <div class="card-main">
-                  <span class="card-name">{cert.name}</span>
-                  {#if cert.issuer}
-                    <span class="card-issuer">{cert.issuer}</span>
+                  <span class="card-name">{cert.short_name}</span>
+                  {#if issuerOrg}
+                    <span class="card-issuer">{issuerOrg.name}</span>
                   {/if}
                 </div>
-                <span class="badge" class:expired={displayStatus(cert) === 'expired'}>
+                <span class="badge"
+                  class:expired={displayStatus(cert) === 'expired'}
+                  class:in-progress={displayStatus(cert) === 'in progress'}>
                   {displayStatus(cert)}
                 </span>
               </button>
@@ -252,6 +292,7 @@
       {#if !selectedCert && !editing}
         <EmptyPanel message="Select a certification or create a new one." />
       {:else}
+        {@const issuerOrg = selectedCert ? allOrgs.find(o => o.id === selectedCert.issuer_id) : null}
         <div class="editor-content">
           <div class="editor-header">
             <h3>{editing && !selectedId ? 'New Certification' : editing ? 'Edit Certification' : 'Certification Details'}</h3>
@@ -261,15 +302,35 @@
           </div>
 
           <div class="form-group">
-            <label for="cert-name">Name <span class="required">*</span></label>
-            <input id="cert-name" type="text" bind:value={formName} class="form-input"
-                   placeholder="e.g. AWS Solutions Architect Professional" disabled={!editing} />
+            <label for="cert-short-name">Short Name <span class="required">*</span></label>
+            <input id="cert-short-name" type="text" bind:value={formShortName} class="form-input"
+                   placeholder="e.g. CISSP" disabled={!editing} />
           </div>
 
           <div class="form-group">
-            <label for="cert-issuer">Issuer</label>
-            <input id="cert-issuer" type="text" bind:value={formIssuer} class="form-input"
-                   placeholder="e.g. Amazon Web Services" disabled={!editing} />
+            <label for="cert-long-name">Long Name <span class="required">*</span></label>
+            <input id="cert-long-name" type="text" bind:value={formLongName} class="form-input"
+                   placeholder="e.g. Certified Information Systems Security Professional" disabled={!editing} />
+          </div>
+
+          <div class="form-group">
+            <label for="cert-cert-id">Cert ID</label>
+            <input id="cert-cert-id" type="text" bind:value={formCertId} class="form-input"
+                   placeholder="e.g. AWS-SAP-C02" disabled={!editing} />
+          </div>
+
+          <div class="form-group">
+            <label for="cert-issuer">Issuer (organization)</label>
+            {#if editing}
+              <OrgCombobox
+                id="cert-issuer"
+                organizations={allOrgs}
+                bind:value={formIssuerId}
+                placeholder="Search organizations..."
+              />
+            {:else}
+              <input type="text" class="form-input" value={issuerOrg?.name ?? ''} disabled />
+            {/if}
           </div>
 
           <div class="form-row">
@@ -286,13 +347,26 @@
           <div class="form-group">
             <label for="cert-cred-id">Credential ID</label>
             <input id="cert-cred-id" type="text" bind:value={formCredentialId} disabled={!editing} class="form-input"
-                   placeholder="e.g. AWS-123456" />
+                   placeholder="e.g. CISSP-123456" />
           </div>
 
           <div class="form-group">
-            <label for="cert-cred-url">Verification URL</label>
+            <label for="cert-cred-url">Credential URL</label>
             <input id="cert-cred-url" type="text" bind:value={formCredentialUrl} disabled={!editing} class="form-input"
                    placeholder="e.g. https://verify.example.com/123" />
+          </div>
+
+          <div class="form-group">
+            <label for="cert-credly-url">Credly URL</label>
+            <input id="cert-credly-url" type="text" bind:value={formCredlyUrl} disabled={!editing} class="form-input"
+                   placeholder="e.g. https://www.credly.com/badges/..." />
+          </div>
+
+          <div class="form-group form-check">
+            <label class="check-label">
+              <input type="checkbox" bind:checked={formInProgress} disabled={!editing} />
+              In Progress
+            </label>
           </div>
 
           <!-- Skills section (only in view/non-new-edit mode) -->
@@ -419,6 +493,10 @@
     background: var(--color-danger-subtle);
     color: var(--color-danger-text);
   }
+  .badge.in-progress {
+    background: var(--color-info-subtle);
+    color: var(--color-info-text);
+  }
 
   .editor-content { max-width: 520px; padding: 1.5rem; }
   .editor-header {
@@ -437,6 +515,18 @@
     color: var(--text-secondary); margin-bottom: 0.3rem;
   }
   .required { color: var(--color-danger); }
+
+  .form-check { display: flex; align-items: center; }
+  .check-label {
+    display: flex !important;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--text-secondary);
+    margin-bottom: 0 !important;
+  }
 
   .form-input {
     width: 100%;

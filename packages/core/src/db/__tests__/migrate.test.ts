@@ -66,6 +66,7 @@ const EXPECTED_TABLES = [
   "certifications", // added in migration 037
   "certification_skills", // added in migration 037
   "source_presentations", // added in migration 039
+  "resume_certifications", // added in migration 041
   "_migrations",
 ];
 
@@ -132,7 +133,7 @@ describe("runMigrations", () => {
     const rows = db
       .query("SELECT name FROM _migrations ORDER BY name")
       .all() as { name: string }[];
-    expect(rows).toHaveLength(40);
+    expect(rows).toHaveLength(41);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");
@@ -173,6 +174,7 @@ describe("runMigrations", () => {
     expect(rows[37].name).toBe("040_resume_show_clearance_header");
     expect(rows[38].name).toBe("041_skill_categories_and_seeds");
     expect(rows[39].name).toBe("042_project_open_source");
+    expect(rows[40].name).toBe("043_cert_schema_rework");
   });
 
   test("already up-to-date: running again is a no-op with no errors", () => {
@@ -184,7 +186,7 @@ describe("runMigrations", () => {
     const rows = db.query("SELECT name FROM _migrations ORDER BY name").all() as {
       name: string;
     }[];
-    expect(rows).toHaveLength(40);
+    expect(rows).toHaveLength(41);
     expect(rows[0].name).toBe("001_initial");
     expect(rows[1].name).toBe("002_schema_evolution");
     expect(rows[2].name).toBe("003_renderer_and_entities");
@@ -222,6 +224,10 @@ describe("runMigrations", () => {
     expect(rows[34].name).toBe("037_qualifications");
     expect(rows[35].name).toBe("038_resume_summary_override");
     expect(rows[36].name).toBe("039_presentations");
+    expect(rows[37].name).toBe("040_resume_show_clearance_header");
+    expect(rows[38].name).toBe("041_skill_categories_and_seeds");
+    expect(rows[39].name).toBe("042_project_open_source");
+    expect(rows[40].name).toBe("043_cert_schema_rework");
   });
 
   test("failed migration: broken 002 file rolls back; 001 is intact", () => {

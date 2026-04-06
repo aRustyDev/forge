@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { Database } from 'bun:sqlite'
 import * as SourceRepo from '../source-repository'
 import { createTestDb, seedSource, seedOrganization } from '../../__tests__/helpers'
-import type { SourceRole, SourceProject, SourceEducation } from '../../../types'
+import type { SourceRole, SourceProject, SourceEducation, SourcePresentation } from '../../../types'
 
 describe('SourceRepository', () => {
   let db: Database
@@ -494,6 +494,53 @@ describe('SourceRepository', () => {
       const fetched = SourceRepo.get(db, source.id)
       expect(fetched!.status).toBe('draft')
       expect(fetched!.last_derived_at).toBeNull()
+    })
+  })
+
+  // ── presentation ────────────────────────────────────────────────────
+
+  describe('presentation', () => {
+    test('creates a presentation source with extension fields', () => {
+      const source = SourceRepo.create(db, {
+        title: 'Cloud Forensics at Scale',
+        description: 'Lessons from production IR',
+        source_type: 'presentation',
+        venue: 'BSides DC 2024',
+        presentation_type: 'conference_talk',
+        url: 'https://slides.example.com/bsides-2024',
+        coauthors: 'Jane Smith',
+      })
+      expect(source.source_type).toBe('presentation')
+      expect(source.extension).not.toBeNull()
+      const ext = source.extension as SourcePresentation
+      expect(ext.venue).toBe('BSides DC 2024')
+      expect(ext.presentation_type).toBe('conference_talk')
+      expect(ext.url).toBe('https://slides.example.com/bsides-2024')
+      expect(ext.coauthors).toBe('Jane Smith')
+    })
+
+    test('updates presentation extension fields', () => {
+      const source = SourceRepo.create(db, {
+        title: 'Talk',
+        description: 'A talk',
+        source_type: 'presentation',
+        venue: 'Old Venue',
+      })
+      const updated = SourceRepo.update(db, source.id, {
+        venue: 'New Venue',
+        presentation_type: 'workshop',
+      })
+      const ext = updated!.extension as SourcePresentation
+      expect(ext.venue).toBe('New Venue')
+      expect(ext.presentation_type).toBe('workshop')
+    })
+
+    test('lists presentation sources via source_type filter', () => {
+      SourceRepo.create(db, { title: 'Talk', description: 'd', source_type: 'presentation' })
+      SourceRepo.create(db, { title: 'Role', description: 'd', source_type: 'role' })
+      const result = SourceRepo.list(db, { source_type: 'presentation' }, 0, 50)
+      expect(result.total).toBe(1)
+      expect(result.data[0].source_type).toBe('presentation')
     })
   })
 })

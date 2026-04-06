@@ -22,6 +22,7 @@ import type {
   SourceRole,
   SourceProject,
   SourceEducation,
+  SourcePresentation,
   SourceWithExtension,
 } from '../../types'
 
@@ -52,7 +53,7 @@ export function getExtension(
   db: Database,
   sourceId: string,
   sourceType: string,
-): SourceRole | SourceProject | SourceEducation | null {
+): SourceRole | SourceProject | SourceEducation | SourcePresentation | null {
   switch (sourceType) {
     case 'role':
       return db.query('SELECT * FROM source_roles WHERE source_id = ?').get(sourceId) as SourceRole | null
@@ -60,6 +61,8 @@ export function getExtension(
       return db.query('SELECT * FROM source_projects WHERE source_id = ?').get(sourceId) as SourceProject | null
     case 'education':
       return db.query('SELECT * FROM source_education WHERE source_id = ?').get(sourceId) as SourceEducation | null
+    case 'presentation':
+      return db.query('SELECT * FROM source_presentations WHERE source_id = ?').get(sourceId) as SourcePresentation | null
     default:
       return null
   }
@@ -126,6 +129,17 @@ function updateExtension(
     if (sets.length > 0) {
       params.push(sourceId)
       db.run(`UPDATE source_education SET ${sets.join(', ')} WHERE source_id = ?`, params)
+    }
+  } else if (sourceType === 'presentation') {
+    const sets: string[] = []
+    const params: unknown[] = []
+    if ('venue' in input) { sets.push('venue = ?'); params.push(input.venue ?? null) }
+    if ('presentation_type' in input) { sets.push('presentation_type = ?'); params.push(input.presentation_type) }
+    if ('url' in input) { sets.push('url = ?'); params.push(input.url ?? null) }
+    if ('coauthors' in input) { sets.push('coauthors = ?'); params.push(input.coauthors ?? null) }
+    if (sets.length > 0) {
+      params.push(sourceId)
+      db.run(`UPDATE source_presentations SET ${sets.join(', ')} WHERE source_id = ?`, params)
     }
   }
 }
@@ -216,6 +230,18 @@ export function create(db: Database, input: CreateSource): SourceWithExtension {
           input.gpa ?? null,
           input.location ?? null,
           input.edu_description ?? null,
+        ],
+      )
+    } else if (sourceType === 'presentation') {
+      db.run(
+        `INSERT INTO source_presentations (source_id, venue, presentation_type, url, coauthors)
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          id,
+          input.venue ?? null,
+          input.presentation_type ?? 'conference_talk',
+          input.url ?? null,
+          input.coauthors ?? null,
         ],
       )
     }

@@ -676,8 +676,11 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
         e.bullet_id !== null &&
         e.source_id !== null &&
         e.source_title !== null
+      // Don't fall back to source_description — it's already rendered as
+      // the project-level description. Falling through duplicates text.
+      const content = e.entry_content ?? e.perspective_content ?? e.bullet_content ?? ''
       return {
-        content: e.entry_content ?? e.perspective_content ?? e.bullet_content ?? e.source_description ?? '',
+        content,
         entry_id: e.entry_id,
         source_chain: hasChain
           ? {
@@ -691,7 +694,7 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
           : undefined,
         is_cloned: e.entry_content !== null,
       }
-    }),
+    }).filter(b => b.content !== ''),
   }))
 }
 
@@ -865,8 +868,10 @@ function buildPresentationItems(db: Database, sectionId: string): PresentationIt
         e.bullet_id !== null &&
         e.source_id !== null &&
         e.source_title !== null
+      // Same fix as buildProjectItems — don't echo source_description.
+      const content = e.entry_content ?? e.perspective_content ?? e.bullet_content ?? ''
       return {
-        content: e.entry_content ?? e.perspective_content ?? e.bullet_content ?? e.source_description ?? '',
+        content,
         entry_id: e.entry_id,
         source_chain: hasChain
           ? {
@@ -880,7 +885,7 @@ function buildPresentationItems(db: Database, sectionId: string): PresentationIt
           : undefined,
         is_cloned: e.entry_content !== null,
       }
-    }),
+    }).filter(b => b.content !== ''),
   }))
 }
 

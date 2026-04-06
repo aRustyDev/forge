@@ -26,6 +26,10 @@ const VALID_CATEGORIES: readonly SkillCategory[] = [
   'protocol',
   'concept',
   'soft_skill',
+  'ai_ml',
+  'infrastructure',
+  'data_systems',
+  'security',
   'other',
 ] as const
 

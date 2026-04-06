@@ -4,9 +4,10 @@
   import { LoadingSpinner, EmptyState, ListSearchInput, SplitPanel, ListPanelHeader, EmptyPanel } from '$lib/components'
   import type { Skill, SkillCategory, Domain } from '@forge/sdk'
 
-  // Phase 89: SkillCategory enum — matches migration 031 CHECK constraint.
+  // SkillCategory enum — matches migration 041 CHECK constraint.
   const CATEGORIES: SkillCategory[] = [
-    'language', 'framework', 'platform', 'tool', 'library',
+    'ai_ml', 'language', 'framework', 'platform', 'tool', 'library',
+    'infrastructure', 'data_systems', 'security',
     'methodology', 'protocol', 'concept', 'soft_skill', 'other',
   ]
 

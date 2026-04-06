@@ -561,6 +561,10 @@ export type SkillCategory =
   | 'protocol'
   | 'concept'
   | 'soft_skill'
+  | 'ai_ml'
+  | 'infrastructure'
+  | 'data_systems'
+  | 'security'
   | 'other'
 
 /** A named skill with structured category. */

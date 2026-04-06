@@ -198,16 +198,28 @@ export function seedResumeSkill(db: Database, sectionId: string, skillId: string
   return id
 }
 
-/** Seed a test skill and return its ID. Category defaults to 'language' (Phase 89 enum). */
+/**
+ * Seed a test skill and return its ID. Category defaults to 'language'.
+ * Idempotent: if a skill with the same name already exists (e.g., seeded
+ * by migration 041), returns the existing row's ID instead of crashing.
+ */
 export function seedSkill(db: Database, opts: {
   name?: string
   category?: string | null
 } = {}): string {
+  const name = opts.name ?? 'Python'
+  const category = opts.category ?? 'language'
+
+  // Check if skill already exists (migration 041 seeds common names)
+  const existing = db
+    .query('SELECT id FROM skills WHERE name = ?')
+    .get(name) as { id: string } | null
+  if (existing) return existing.id
+
   const id = testUuid()
   db.run(
-    `INSERT INTO skills (id, name, category)
-     VALUES (?, ?, ?)`,
-    [id, opts.name ?? 'Python', opts.category ?? 'language']
+    `INSERT INTO skills (id, name, category) VALUES (?, ?, ?)`,
+    [id, name, category],
   )
   return id
 }

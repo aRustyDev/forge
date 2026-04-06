@@ -457,8 +457,48 @@
           {/if}
         {/each}
 
+      {:else if section.type === 'presentations'}
+        {#each section.items as item}
+          {#if item.kind === 'presentation'}
+            {@const pres = item as PresentationItem}
+            <div class="project-item">
+              <div class="project-header">
+                <span class="project-name">{pres.title}</span>
+                <span class="project-meta">
+                  {#if pres.date}<span class="project-date">{pres.date}</span>{/if}
+                  {#if onRemoveEntry && pres.entry_id}
+                    <button
+                      type="button"
+                      class="btn btn-xs btn-ghost entry-remove-btn"
+                      onclick={() => onRemoveEntry?.(pres.entry_id!)}
+                      aria-label="Remove {pres.title}"
+                      title="Remove this presentation"
+                    >&times;</button>
+                  {/if}
+                </span>
+              </div>
+              {#if pres.venue}
+                <span class="edu-degree">{pres.venue}{#if pres.presentation_type} · {pres.presentation_type.replace(/_/g, ' ')}{/if}</span>
+              {/if}
+              {#if pres.description}
+                <p class="project-description">{pres.description}</p>
+              {/if}
+              {#each pres.bullets as bullet (bullet.entry_id)}
+                <div
+                  class="bullet-item"
+                  class:cloned={bullet.is_cloned}
+                  onmouseenter={(e) => showTooltip(bullet, e)}
+                  onmouseleave={scheduleHideTooltip}
+                >
+                  <span class="bullet-content">{bullet.content}</span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        {/each}
+
       {:else}
-        <!-- Generic fallback for clearance, presentations, awards, custom -->
+        <!-- Generic fallback for clearance, awards, custom -->
         {#each section.items as item}
           <div class="generic-item">
             {#if 'content' in item}
@@ -474,17 +514,6 @@
                   >&times;</button>
                 {/if}
               </div>
-            {/if}
-            {#if 'bullets' in item && Array.isArray((item as PresentationItem).bullets)}
-              {#each (item as PresentationItem).bullets as bullet}
-                <div
-                  class="bullet-item"
-                  onmouseenter={(e) => showTooltip(bullet, e)}
-                  onmouseleave={scheduleHideTooltip}
-                >
-                  <span class="bullet-content">{bullet.content}</span>
-                </div>
-              {/each}
             {/if}
           </div>
         {/each}

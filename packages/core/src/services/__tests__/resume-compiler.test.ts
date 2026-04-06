@@ -1535,6 +1535,34 @@ describe('compileResumeIR — Phase 44 data quality', () => {
     warnSpy.mockRestore()
   })
 
+  test('presentation section renders direct-source entry with venue + type', () => {
+    const resumeId = seedResume(db)
+    const sourceId = seedSource(db, {
+      title: 'Cloud Forensics at Scale',
+      sourceType: 'presentation',
+      description: 'Lessons from production IR',
+    })
+    db.run(
+      `INSERT INTO source_presentations (source_id, venue, presentation_type, url, coauthors)
+       VALUES (?, ?, ?, ?, ?)`,
+      [sourceId, 'BSides DC 2024', 'conference_talk', 'https://slides.example.com', 'Jane Smith']
+    )
+    const secId = seedResumeSection(db, resumeId, 'Presentations', 'presentations', 0)
+    seedResumeEntry(db, secId, { sourceId, position: 0 })
+
+    const result = compileResumeIR(db, resumeId)!
+    const presSection = result.sections.find(s => s.type === 'presentations')!
+    expect(presSection.items).toHaveLength(1)
+    const item = presSection.items[0] as PresentationItem
+    expect(item.kind).toBe('presentation')
+    expect(item.title).toBe('Cloud Forensics at Scale')
+    expect(item.venue).toBe('BSides DC 2024')
+    expect(item.presentation_type).toBe('conference_talk')
+    expect(item.url).toBe('https://slides.example.com')
+    expect(item.coauthors).toBe('Jane Smith')
+    expect(item.description).toBe('Lessons from production IR')
+  })
+
   test('skills categories are ordered alphabetically', () => {
     const resumeId = seedResume(db)
     seedProfile(db, { name: 'Adam', email: 'adam@test.com' })

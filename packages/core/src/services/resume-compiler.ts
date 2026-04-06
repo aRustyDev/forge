@@ -799,12 +799,18 @@ function buildPresentationItems(db: Database, sectionId: string): PresentationIt
         b.content AS bullet_content,
         COALESCE(bs.source_id, re.source_id) AS source_id,
         s.title AS source_title,
-        s.end_date
+        s.description AS source_description,
+        s.end_date,
+        sp.venue,
+        sp.presentation_type,
+        sp.url AS presentation_url,
+        sp.coauthors
       FROM resume_entries re
       LEFT JOIN perspectives p ON p.id = re.perspective_id
       LEFT JOIN bullets b ON b.id = p.bullet_id
       LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
       LEFT JOIN sources s ON s.id = COALESCE(bs.source_id, re.source_id)
+      LEFT JOIN source_presentations sp ON sp.source_id = s.id
       WHERE re.section_id = ?
       ORDER BY re.position ASC`
     )
@@ -817,7 +823,12 @@ function buildPresentationItems(db: Database, sectionId: string): PresentationIt
       bullet_content: string | null
       source_id: string | null
       source_title: string | null
+      source_description: string | null
       end_date: string | null
+      venue: string | null
+      presentation_type: string | null
+      presentation_url: string | null
+      coauthors: string | null
     }>
 
   // Group by source_title (presentation name). Direct-source entries
@@ -832,7 +843,11 @@ function buildPresentationItems(db: Database, sectionId: string): PresentationIt
   return Array.from(presMap.entries()).map(([title, entries]) => ({
     kind: 'presentation' as const,
     title: title.startsWith('untitled:') ? 'Untitled Presentation' : title,
-    venue: '', // TODO: extract from source metadata when available
+    description: entries[0].source_description ?? null,
+    venue: entries[0].venue ?? null,
+    presentation_type: entries[0].presentation_type ?? null,
+    url: entries[0].presentation_url ?? null,
+    coauthors: entries[0].coauthors ?? null,
     date: entries[0].end_date ? new Date(entries[0].end_date).getFullYear().toString() : null,
     entry_id: entries[0].entry_id,
     source_id: entries[0].source_id,

@@ -632,8 +632,11 @@
         freeformInput = ''
         return
 
-      case 'experience':
       case 'presentations':
+        sourcePickerState = { sectionId, sourceType: 'presentation' }
+        return
+
+      case 'experience':
       default:
         // Perspective picker (existing behavior)
         pickerModal = { open: true, sectionId, entryType, sourceId: sourceId ?? null, sourceLabel: sourceLabel ?? null }

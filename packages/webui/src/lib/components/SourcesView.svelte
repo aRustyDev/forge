@@ -97,6 +97,12 @@
   let formIsPersonal = $state(false)
   let formProjectUrl = $state('')
 
+  // Presentation extension fields
+  let formVenue = $state('')
+  let formPresentationType = $state('conference_talk')
+  let formPresentationUrl = $state('')
+  let formCoauthors = $state('')
+
   // Clearance extension fields
   let formLevel = $state<ClearanceLevel>('secret')
   let formPolygraph = $state<ClearancePolygraph | ''>('')
@@ -338,6 +344,10 @@
     formEduDescription = ''
     formIsPersonal = false
     formProjectUrl = ''
+    formVenue = ''
+    formPresentationType = 'conference_talk'
+    formPresentationUrl = ''
+    formCoauthors = ''
     formLevel = 'secret'
     formPolygraph = ''
     formClearanceStatus = 'active'
@@ -378,6 +388,11 @@
       formProjectUrl = source.project.url ?? ''
       formStartDate = source.project.start_date ?? ''
       formEndDate = source.project.end_date ?? ''
+    } else if (source.source_type === 'presentation' && source.presentation) {
+      formVenue = source.presentation.venue ?? ''
+      formPresentationType = source.presentation.presentation_type ?? 'conference_talk'
+      formPresentationUrl = source.presentation.url ?? ''
+      formCoauthors = source.presentation.coauthors ?? ''
     } else if (source.source_type === 'clearance' && source.clearance) {
       formLevel = source.clearance.level
       formPolygraph = source.clearance.polygraph ?? ''
@@ -419,6 +434,10 @@
     formEduDescription = ''
     formIsPersonal = false
     formProjectUrl = ''
+    formVenue = ''
+    formPresentationType = 'conference_talk'
+    formPresentationUrl = ''
+    formCoauthors = ''
     formLevel = 'secret'
     formPolygraph = ''
     formClearanceStatus = 'active'
@@ -492,6 +511,13 @@
         url: formProjectUrl || undefined,
         start_date: formStartDate || undefined,
         end_date: formEndDate || undefined,
+      }
+    } else if (formSourceType === 'presentation') {
+      basePayload.presentation = {
+        venue: formVenue || undefined,
+        presentation_type: formPresentationType || undefined,
+        url: formPresentationUrl || undefined,
+        coauthors: formCoauthors || undefined,
       }
     } else if (formSourceType === 'clearance') {
       basePayload.clearance = {
@@ -793,6 +819,9 @@
       {#if source.source_type === 'education' && source.education?.education_type}
         <span class="edu-type-badge">{source.education.education_type}</span>
       {/if}
+      {#if source.source_type === 'presentation' && source.presentation?.venue}
+        <span class="card-org">{source.presentation.venue}</span>
+      {/if}
     </div>
     <span class="card-date">{formatDate(source.updated_at)}</span>
   </button>
@@ -895,6 +924,7 @@
             <option value="general">General</option>
             <option value="role">Role</option>
             <option value="project">Project</option>
+            <option value="presentation">Presentation</option>
             <option value="education">Education</option>
             <option value="clearance">Clearance</option>
           </select>
@@ -1176,6 +1206,45 @@
               <label for="proj-end">End Date</label>
               <input id="proj-end" type="date" bind:value={formEndDate} />
             </div>
+          </div>
+        {/if}
+
+        <!-- Presentation-specific fields -->
+        {#if formSourceType === 'presentation'}
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pres-venue">Venue / Event</label>
+              <input id="pres-venue" type="text" bind:value={formVenue}
+                     placeholder="e.g. BSides DC 2024, AWS re:Inforce" />
+            </div>
+            <div class="form-group">
+              <label for="pres-type">Type</label>
+              <select id="pres-type" bind:value={formPresentationType}>
+                <option value="conference_talk">Conference Talk</option>
+                <option value="workshop">Workshop</option>
+                <option value="poster">Poster</option>
+                <option value="webinar">Webinar</option>
+                <option value="lightning_talk">Lightning Talk</option>
+                <option value="panel">Panel</option>
+                <option value="internal">Internal</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pres-start">Date</label>
+              <input id="pres-start" type="date" bind:value={formStartDate} />
+            </div>
+            <div class="form-group">
+              <label for="pres-url">URL (slides/recording)</label>
+              <input id="pres-url" type="url" bind:value={formPresentationUrl}
+                     placeholder="https://..." />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="pres-coauthors">Co-authors</label>
+            <input id="pres-coauthors" type="text" bind:value={formCoauthors}
+                   placeholder="e.g. Jane Smith, Bob Lee" />
           </div>
         {/if}
 

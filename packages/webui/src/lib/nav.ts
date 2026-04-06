@@ -27,6 +27,7 @@ export const navigation: NavEntry[] = [
     children: [
       { href: '/experience/roles', label: 'Roles' },
       { href: '/experience/projects', label: 'Projects' },
+      { href: '/experience/presentations', label: 'Presentations' },
       { href: '/experience/education', label: 'Education' },
       { href: '/experience/general', label: 'General' },
     ],

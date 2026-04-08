@@ -310,6 +310,7 @@ export function resumeRoutes(services: Services, db: Database) {
 
   app.post('/resumes/:id/pdf', async (c) => {
     let latex: string | undefined
+    const bust = c.req.query('bust') === '1'
     try {
       const body = await c.req.json()
       latex = body.latex
@@ -317,7 +318,7 @@ export function resumeRoutes(services: Services, db: Database) {
       // No body is fine -- compile from IR
     }
 
-    const result = await services.resumes.generatePDF(c.req.param('id'), latex)
+    const result = await services.resumes.generatePDF(c.req.param('id'), latex, bust)
     if (!result.ok) {
       const code = result.error.code
       const status = code === 'TECTONIC_NOT_AVAILABLE' ? 501
@@ -332,6 +333,7 @@ export function resumeRoutes(services: Services, db: Database) {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'inline; filename="resume.pdf"',
+        'X-Forge-Pdf-Cache': result._cacheHit ? 'hit' : 'miss',
       },
     })
   })

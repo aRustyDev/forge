@@ -29,11 +29,19 @@ import { PerspectiveRepository } from '../db/repositories/perspective-repository
 import { BulletRepository } from '../db/repositories/bullet-repository'
 import { THIN_COVERAGE_THRESHOLD } from '../constants/archetypes'
 import * as ArchetypeRepo from '../db/repositories/archetype-repository'
+import { createHash } from 'crypto'
+import { existsSync } from 'fs'
 import { compileResumeIR } from './resume-compiler'
 import { compileToLatex } from '../lib/latex-compiler'
 import { lintMarkdown } from '../lib/markdown-linter'
 import { lintLatex } from '../lib/latex-linter'
 import { sb2nov } from '../templates/sb2nov'
+
+export const PDF_CACHE_DIR = '/tmp/forge-pdf-cache'
+
+export function hashLatexContent(content: string): string {
+  return createHash('sha256').update(content).digest('hex')
+}
 
 // ── Tectonic availability check ────────────────────────────────────
 
@@ -483,7 +491,7 @@ export class ResumeService {
     return { ok: true, data: resume }
   }
 
-  async generatePDF(id: string, latex?: string): Promise<Result<Buffer>> {
+  async generatePDF(id: string, latex?: string, bust = false): Promise<Result<Buffer> & { _cacheHit?: boolean }> {
     // Check tectonic availability
     if (!(await checkTectonic())) {
       return { ok: false, error: { code: 'TECTONIC_NOT_AVAILABLE', message: 'tectonic is not installed. Install it for PDF generation.' } }
@@ -504,6 +512,21 @@ export class ResumeService {
         if (!ir) return { ok: false, error: { code: 'NOT_FOUND', message: `Resume ${id} not found` } }
         latexContent = compileToLatex(ir, sb2nov)
       }
+    }
+
+    const hash = hashLatexContent(latexContent)
+    const cachePath = `${PDF_CACHE_DIR}/${hash}.pdf`
+
+    // Ensure cache dir exists (lazy init)
+    if (!existsSync(PDF_CACHE_DIR)) {
+      const { mkdirSync } = await import('fs')
+      mkdirSync(PDF_CACHE_DIR, { recursive: true })
+    }
+
+    // Cache hit?
+    if (!bust && existsSync(cachePath)) {
+      const cached = await Bun.file(cachePath).arrayBuffer()
+      return { ok: true, data: Buffer.from(cached), _cacheHit: true }
     }
 
     // Write to temp file
@@ -553,7 +576,9 @@ export class ResumeService {
 
       // Read PDF
       const pdfBytes = await Bun.file(pdfPath).arrayBuffer()
-      return { ok: true, data: Buffer.from(pdfBytes) }
+      const buffer = Buffer.from(pdfBytes)
+      await Bun.write(cachePath, buffer)
+      return { ok: true, data: buffer, _cacheHit: false }
 
     } finally {
       // Cleanup temp files

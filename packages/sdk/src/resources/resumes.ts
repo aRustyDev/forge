@@ -246,29 +246,25 @@ export class ResumesResource {
     )
   }
 
-  async pdf(id: string, latex?: string): Promise<Result<Blob>> {
-    const path = `/api/resumes/${id}/pdf`
+  async pdf(id: string, opts?: { bust?: boolean }): Promise<Result<Blob> & { cacheStatus?: 'hit' | 'miss' }> {
+    const bustParam = opts?.bust ? '?bust=1' : ''
+    const path = `/api/resumes/${id}/pdf${bustParam}`
     const method = 'POST'
     const start = performance.now()
 
     try {
-      const headers: Record<string, string> = {}
-      const body = latex ? JSON.stringify({ latex }) : undefined
-      if (body) headers['Content-Type'] = 'application/json'
-
-      const response = await fetch(`${this.baseUrl}${path}`, { method, headers, body })
+      const response = await fetch(`${this.baseUrl}${path}`, { method })
       const duration = Math.round(performance.now() - start)
 
       if (response.ok) {
-        // Success — response is binary PDF
         const blob = await response.blob()
+        const cacheStatus = response.headers.get('X-Forge-Pdf-Cache') as 'hit' | 'miss' | null
         if (this.debug?.logToConsole) {
-          console.debug(`[forge:sdk] ← ${method} ${path} ${response.status} ${duration}ms ok (${blob.size} bytes PDF)`)
+          console.debug(`[forge:sdk] ← ${method} ${path} ${response.status} ${duration}ms ok (${blob.size} bytes PDF, cache: ${cacheStatus})`)
         }
-        return { ok: true, data: blob }
+        return { ok: true, data: blob, cacheStatus: cacheStatus ?? undefined }
       }
 
-      // Error — response is JSON envelope
       const json = await response.json() as { error?: ForgeError }
       const error = json.error ?? { code: 'UNKNOWN_ERROR', message: `HTTP ${response.status}` }
       if (this.debug?.logToConsole) {

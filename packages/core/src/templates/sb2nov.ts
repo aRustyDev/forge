@@ -25,7 +25,8 @@ export const sb2nov: LatexTemplate = {
 \\usepackage{titlesec}
 \\usepackage[usenames,dvipsnames]{color}
 \\usepackage{enumitem}
-\\usepackage[hidelinks]{hyperref}
+\\usepackage{hyperref}
+\\hypersetup{hidelinks,pdfpagemode=UseNone}
 \\usepackage{fancyhdr}
 \\usepackage[english]{babel}
 \\usepackage{tabularx}

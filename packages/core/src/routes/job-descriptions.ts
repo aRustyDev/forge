@@ -6,13 +6,7 @@ import { Hono } from 'hono'
 import type { Database } from 'bun:sqlite'
 import type { Services } from '../services'
 import { mapStatusCode } from './server'
-import {
-  invokeClaude,
-  renderJDSkillExtractionPrompt,
-  JD_SKILL_EXTRACTION_TEMPLATE_VERSION,
-  validateSkillExtraction,
-} from '../ai'
-import * as PromptLogRepo from '../db/repositories/prompt-log-repository'
+import { renderJDSkillExtractionPrompt } from '../ai'
 import { regenerateResumeTagline } from '../services/tagline-service'
 
 export function jobDescriptionRoutes(services: Services, db: Database) {
@@ -235,10 +229,10 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
     return c.json({ data: result.data })
   })
 
-  // ── JD Skill Extraction (AI) ──────────────────────────────────────
-  // Returns suggested skills for frontend review. No skills are auto-
-  // persisted -- the frontend must call POST /:id/skills for each
-  // accepted skill individually (human review required).
+  // ── JD Skill Extraction (Context) ────────────────────────────────
+  // Returns a context payload for MCP client to perform extraction.
+  // No AI call is made here -- the caller executes the prompt_template
+  // and calls POST /:id/skills for each accepted skill individually.
 
   app.post('/job-descriptions/:id/extract-skills', async (c) => {
     const { id } = c.req.param()
@@ -250,94 +244,52 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
     }
     const jd = jdResult.data
 
-    // 2. Validate raw_text exists and is non-empty
+    // 2. Validate raw_text
     if (!jd.raw_text || jd.raw_text.trim().length === 0) {
-      return c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Job description has no text to extract skills from',
-          },
-        },
-        400,
-      )
+      return c.json({
+        error: { code: 'VALIDATION_ERROR', message: 'Job description has no text to extract skills from' },
+      }, 400)
     }
 
-    // 3. Render prompt
-    const prompt = renderJDSkillExtractionPrompt(jd.raw_text)
+    // 3. Render prompt template
+    const prompt_template = renderJDSkillExtractionPrompt(jd.raw_text)
 
-    // 4. Invoke Claude CLI
-    const result = await invokeClaude({ prompt })
+    // 4. Get existing skills filtered by categories mentioned in JD text
+    const rawText = jd.raw_text.toLowerCase()
+    const categoryKeywords: Record<string, string[]> = {
+      language: ['python', 'java', 'go', 'rust', 'typescript', 'javascript', 'c++', 'scala', 'ruby', 'kotlin'],
+      framework: ['fastapi', 'django', 'flask', 'react', 'next.js', 'express', 'spring', 'pytorch', 'tensorflow'],
+      tool: ['docker', 'kubernetes', 'terraform', 'helm', 'git', 'jenkins', 'grafana', 'prometheus'],
+      platform: ['aws', 'gcp', 'azure', 'vercel', 'heroku', 'cloudflare'],
+      methodology: ['agile', 'scrum', 'kanban', 'devops', 'devsecops', 'ci/cd', 'tdd', 'sre'],
+      domain: ['machine learning', 'deep learning', 'nlp', 'computer vision', 'distributed systems', 'security'],
+      certification: ['cka', 'ckad', 'aws certified', 'security+', 'cissp'],
+    }
 
-    // 5. Handle AI errors
-    if (!result.ok) {
-      // Log the failed attempt (best-effort -- logging failure must not
-      // break the extraction response)
-      try {
-        PromptLogRepo.create(db, {
-          entity_type: 'job_description',
-          entity_id: id,
-          prompt_template: JD_SKILL_EXTRACTION_TEMPLATE_VERSION,
-          prompt_input: prompt,
-          raw_response: result.rawResponse ?? '',
-        })
-      } catch (logErr) {
-        console.error('[forge] Failed to log prompt error:', logErr)
+    const matchedCategories = new Set<string>()
+    for (const [category, keywords] of Object.entries(categoryKeywords)) {
+      if (keywords.some(kw => rawText.includes(kw))) {
+        matchedCategories.add(category)
       }
+    }
+    matchedCategories.add('other')
+    matchedCategories.add('soft_skill')
 
-      return c.json(
-        { error: { code: 'AI_ERROR', message: result.message } },
-        502,
-      )
+    let existingSkills: Array<{ id: string; name: string; category: string }> = []
+    const allSkills = services.skills.list()
+    if (allSkills.ok) {
+      existingSkills = allSkills.data
+        .filter(s => s.category && matchedCategories.has(s.category))
+        .map(s => ({ id: s.id, name: s.name, category: s.category ?? 'other' }))
     }
 
-    // 6. Validate response
-    const validated = validateSkillExtraction(result.data)
-    if (!validated.ok) {
-      try {
-        PromptLogRepo.create(db, {
-          entity_type: 'job_description',
-          entity_id: id,
-          prompt_template: JD_SKILL_EXTRACTION_TEMPLATE_VERSION,
-          prompt_input: prompt,
-          raw_response: result.rawResponse,
-        })
-      } catch (logErr) {
-        console.error('[forge] Failed to log prompt validation error:', logErr)
-      }
-
-      return c.json(
-        {
-          error: {
-            code: 'AI_ERROR',
-            message: `Invalid AI response: ${validated.error}`,
-          },
-        },
-        502,
-      )
-    }
-
-    // 7. Log successful extraction (best-effort)
-    // rawResponse may be undefined if the AI driver only returns parsed data.
-    // Fall back to stringified result.data to satisfy the NOT NULL constraint.
-    try {
-      PromptLogRepo.create(db, {
-        entity_type: 'job_description',
-        entity_id: id,
-        prompt_template: JD_SKILL_EXTRACTION_TEMPLATE_VERSION,
-        prompt_input: prompt,
-        raw_response: result.rawResponse ?? JSON.stringify(result.data) ?? '',
-      })
-    } catch (logErr) {
-      console.error('[forge] Failed to log prompt success:', logErr)
-    }
-
-    // 8. Return extracted skills (NOT persisted -- user must accept individually)
+    // 5. Return context payload
     return c.json({
-      ok: true,
       data: {
-        skills: validated.data.skills,
-        warnings: validated.warnings,
+        jd_raw_text: jd.raw_text,
+        existing_skills: existingSkills,
+        prompt_template,
+        instructions: 'Execute the prompt_template to extract skills from the JD text. For each extracted skill, check existing_skills for a match by name before creating new ones. Call forge_tag_jd_skill (or POST /api/job-descriptions/:id/skills) for each accepted skill.',
       },
     })
   })

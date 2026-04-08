@@ -277,6 +277,14 @@ export type {
   MatchRequirementsOptions,
 } from './types'
 
+// Split-handshake derivation types
+export type {
+  PrepareResult,
+  BulletCommitInput,
+  PerspectiveCommitInput,
+  JDSkillExtractionContext,
+} from './types'
+
 // Resource classes (for advanced use / testing)
 export { SourcesResource } from './resources/sources'
 export { BulletsResource } from './resources/bullets'
@@ -300,3 +308,4 @@ export { SummariesResource } from './resources/summaries'
 export { ExportResource } from './resources/export'
 export { ContactsResource } from './resources/contacts'
 export { AlignmentResource } from './resources/alignment'
+export { DerivationsResource } from './resources/derivations'

@@ -151,20 +151,6 @@ describe('Resource clients', () => {
       expect(result.ok).toBe(true)
     })
 
-    it('deriveBullets sends POST /api/sources/:id/derive-bullets', async () => {
-      const bullets = [{ id: 'b1', content: 'bullet', sources: [] }]
-      fetchMock.mockImplementation(() =>
-        Promise.resolve(jsonResponse({ data: bullets })),
-      )
-
-      const result = await client.sources.deriveBullets('s1')
-
-      expect(calledUrl(fetchMock)).toBe(
-        'http://localhost:3000/api/sources/s1/derive-bullets',
-      )
-      expect(calledInit(fetchMock).method).toBe('POST')
-      expect(result).toEqual({ ok: true, data: bullets })
-    })
   })
 
   // -----------------------------------------------------------------------
@@ -285,29 +271,6 @@ describe('Resource clients', () => {
       expect(calledInit(fetchMock).method).toBe('PATCH')
     })
 
-    it('derivePerspectives sends POST /api/bullets/:id/derive-perspectives with input', async () => {
-      const perspective = { id: 'p1', content: 'derived' }
-      fetchMock.mockImplementation(() =>
-        Promise.resolve(jsonResponse({ data: perspective })),
-      )
-
-      const result = await client.bullets.derivePerspectives('b1', {
-        archetype: 'platform-engineer',
-        domain: 'cloud',
-        framing: 'accomplishment',
-      })
-
-      expect(calledUrl(fetchMock)).toBe(
-        'http://localhost:3000/api/bullets/b1/derive-perspectives',
-      )
-      expect(calledInit(fetchMock).method).toBe('POST')
-      expect(JSON.parse(calledInit(fetchMock).body as string)).toEqual({
-        archetype: 'platform-engineer',
-        domain: 'cloud',
-        framing: 'accomplishment',
-      })
-      expect(result).toEqual({ ok: true, data: perspective })
-    })
   })
 
   // -----------------------------------------------------------------------

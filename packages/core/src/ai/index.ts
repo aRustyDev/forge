@@ -1,12 +1,8 @@
 /**
  * @forge/core AI module — public interface.
  *
- * Re-exports the Claude CLI wrapper, prompt templates, and output validators.
+ * Re-exports prompt templates and output validators.
  */
-
-// Claude CLI wrapper
-export { invokeClaude, parseClaudeEnvelope, stripCodeFences } from './claude-cli'
-export type { ClaudeOptions, ClaudeResult } from './claude-cli'
 
 // Prompt templates
 export {

@@ -67,12 +67,39 @@ shell:
 mcp:
     bun run packages/mcp/src/index.ts
 
+# Launch MCP Inspector (stdio mode — opens browser UI for testing tools)
+inspect:
+    @echo "Starting Forge API (:3000) + MCP (:5174) + WebUI (:5173)..."
+    @echo "Database: {{FORGE_DB_PATH}}"
+    bun run --filter '@forge/core' dev &
+    sleep 1
+    bun run --filter '@forge/mcp' dev &
+    sleep 1
+    bun run --filter '@forge/webui' dev &
+    sleep 1
+    bun run --filter '@forge/mcp' inspect:http
+
 # Build all TypeScript packages + webui
 build:
     bun run --filter '*' build
 
 # Build everything including Rust
 build-all: build check-rust
+
+# Start mitmproxy telemetry capture for Claude Code
+telemetry:
+    @echo "Starting mitmproxy telemetry proxy on :8888..."
+    @echo "Use with: HTTPS_PROXY=http://localhost:8888 NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem claude"
+    mitmdump --listen-port 8888 -s scripts/claude-telemetry-addon.py
+
+# Ingest captured telemetry into MLFlow
+telemetry-ingest:
+    MLFLOW_TRACKING_URI=http://127.0.0.1:5000 python3 scripts/ingest-telemetry.py
+
+# Stop the telemetry proxy
+telemetry-stop:
+    pkill -f mitmdump || true
+    @echo "Telemetry proxy stopped."
 
 # Install dependencies and set up env
 setup:

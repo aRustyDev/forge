@@ -21,6 +21,11 @@ interface McpToolResponse {
  */
 export function mapResult<T>(result: Result<T>): McpToolResponse {
   if (result.ok) {
+    // Void-return operations (delete, remove, unlink) have undefined data.
+    // JSON.stringify(undefined) returns JS undefined, which crashes Buffer.byteLength.
+    if (result.data === undefined || result.data === null) {
+      return { content: [{ type: 'text', text: 'Success.' }] }
+    }
     const { text } = truncateResponse(result.data)
     return {
       content: [{ type: 'text', text }],

@@ -8,7 +8,7 @@ import { registerTier0Tools } from './tools/tier0'
 import { registerSearchTools } from './tools/search'
 import { registerGetTools } from './tools/get'
 import { registerListTools } from './tools/list'
-import { registerDeriveTools } from './tools/derive'
+import { registerDerivationTools } from './tools/derive'
 import { registerReviewTools } from './tools/review'
 import { registerAssemblyTools } from './tools/assembly'
 import { registerAnalysisTools } from './tools/analysis'
@@ -26,6 +26,7 @@ import { registerTier3UpdateTools } from './tools/tier3-update'
 import { registerTier3AssemblyTools } from './tools/tier3-assembly'
 import { registerTier3WorkflowTools } from './tools/tier3-workflow'
 import { registerTier3NoteTools } from './tools/tier3-notes'
+import { registerTier3BulletTools } from './tools/tier3-bullets'
 import { registerTier3JDUpdateTool } from './tools/tier3-jd-update'
 
 /**
@@ -55,7 +56,7 @@ export function createForgeServer(sdk: ForgeClient, flags: FeatureFlags): McpSer
   registerSearchTools(server, sdk)    // 3 tools
   registerGetTools(server, sdk)       // 3 tools
   registerListTools(server, sdk)      // 1 tool
-  registerDeriveTools(server, sdk)    // 2 tools
+  registerDerivationTools(server, sdk)  // 2 tools (prepare + commit)
   registerReviewTools(server, sdk)    // 4 tools
   registerAssemblyTools(server, sdk)  // 3 tools
   registerAnalysisTools(server, sdk)  // 3 analysis tools (gap_analysis, align_resume, match_requirements)
@@ -75,6 +76,7 @@ export function createForgeServer(sdk: ForgeClient, flags: FeatureFlags): McpSer
   registerTier3AssemblyTools(server, sdk, mapResult, flags)  // 4-5 tools (1 feature-flagged)
   registerTier3WorkflowTools(server, sdk, mapResult)         // 5 tools
   registerTier3NoteTools(server, sdk, mapResult, flags)      // 0-2 tools (feature-flagged)
+  registerTier3BulletTools(server, sdk, mapResult)            // 3 tools
   registerTier3JDUpdateTool(server, sdk, mapResult)          // 1 tool
 
   return server

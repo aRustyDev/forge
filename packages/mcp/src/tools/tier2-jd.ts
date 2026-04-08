@@ -43,24 +43,24 @@ export function registerTier2JDTools(
     },
   )
 
+  // forge_extract_jd_skills -- always available (client-side AI, no feature flag needed)
+  registerTool(
+    server,
+    'forge_extract_jd_skills',
+    'Returns JD text, existing skill inventory, and a prompt template for client-side skill extraction. Execute the prompt template, then call forge_tag_jd_skill for each accepted skill. The existing_skills list helps avoid creating duplicate skills.',
+    {
+      job_description_id: z.string().describe('Job description ID'),
+    },
+    async (params) => {
+      const result = await sdk.jobDescriptions.extractSkills(
+        params.job_description_id,
+      )
+      return respond(result)
+    },
+  )
+
   // Feature-flagged: Phase 62
   if (flags.jdSkillExtraction) {
-    registerTool(
-      server,
-      'forge_extract_jd_skills',
-      'Trigger AI-powered skill extraction from a job description. Returns suggested skills with confidence scores.',
-      {
-        job_description_id: z.string().describe('Job description ID'),
-      },
-      async (params) => {
-        // TODO: Remove `as any` once Phase 62 SDK types are available (see Phase 62)
-        const result = await (sdk.jobDescriptions as any).extractSkills(
-          params.job_description_id,
-        )
-        return respond(result)
-      },
-    )
-
     registerTool(
       server,
       'forge_tag_jd_skill',

@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "FORGE_MCP_TRANSPORT=http bun run src/index.ts",
     "dev:stdio": "bun run src/index.ts",
+    "inspect": "npx @modelcontextprotocol/inspector bun run src/index.ts",
+    "inspect:http": "npx @modelcontextprotocol/inspector --transport http --server-url http://localhost:5174/mcp",
     "build": "bun build src/index.ts --outdir dist --target bun"
   },
   "dependencies": {

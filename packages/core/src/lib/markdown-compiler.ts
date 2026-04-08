@@ -72,7 +72,8 @@ function renderSection(section: IRSection): string[] {
         if (item.kind === 'experience_group') {
           lines.push(`### ${escapeMarkdown(item.organization)}`)
           for (const sub of item.subheadings) {
-            lines.push(`**${escapeMarkdown(sub.title)}** | ${escapeMarkdown(sub.date_range)}`)
+            const titleWithLoc = sub.location ? `${sub.title} (${sub.location})` : sub.title
+            lines.push(`**${escapeMarkdown(titleWithLoc)}** | ${escapeMarkdown(sub.date_range)}`)
             for (const bullet of sub.bullets) {
               lines.push(`- ${escapeMarkdown(bullet.content)}`)
             }

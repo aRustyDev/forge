@@ -74,6 +74,7 @@ interface ExperienceEntryRow {
   org_city: string | null
   org_state: string | null
   work_arrangement: string | null
+  employment_type: string | null
   start_date: string | null
   end_date: string | null
   is_current: number | null
@@ -366,6 +367,7 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
         sr.is_current,
         sr.work_arrangement,
         o.name AS org_name,
+        o.employment_type,
         oc.city AS org_city,
         oc.state AS org_state
       FROM resume_entries re
@@ -419,9 +421,7 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
       ? '⚠ Unlinked Sources'
       : buildOrgDisplayString(
           firstEntry.org_name,
-          firstEntry.org_city,
-          firstEntry.org_state,
-          firstEntry.work_arrangement,
+          firstEntry.employment_type,
         )
 
     if (isUnlinked) {
@@ -466,6 +466,7 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
       subheadings.push({
         id: syntheticUUID('subheading', `${orgKey}-${roleTitle}`),
         title: roleTitle.startsWith('untitled:') ? 'Untitled Role' : roleTitle,
+        location: buildRoleLocationString(first.org_city, first.org_state, first.work_arrangement),
         date_range: dateRange,
         source_id: first.source_id,
         bullets,
@@ -500,20 +501,21 @@ function buildSkillItems(db: Database, sectionId: string): SkillGroup[] {
 
   const rows = db
     .query(
-      `SELECT s.name AS skill_name, s.category
+      `SELECT s.name AS skill_name, COALESCE(sc.display_name, s.category) AS category_display
        FROM resume_skills rs
        JOIN skills s ON s.id = rs.skill_id
+       LEFT JOIN skill_categories sc ON sc.slug = s.category
        WHERE rs.section_id = ?
-       ORDER BY s.category ASC, rs.position ASC`
+       ORDER BY COALESCE(sc.position, 999) ASC, rs.position ASC`
     )
-    .all(sectionId) as Array<{ skill_name: string; category: string | null }>
+    .all(sectionId) as Array<{ skill_name: string; category_display: string | null }>
 
   if (rows.length === 0) return []
 
-  // Group by category (ordered by first appearance due to ORDER BY above)
+  // Group by category display name (ordered by position due to ORDER BY above)
   const catMap = new Map<string, string[]>()
   for (const row of rows) {
-    const cat = row.category ?? 'Other'
+    const cat = row.category_display ?? 'Other'
     if (!catMap.has(cat)) catMap.set(cat, [])
     catMap.get(cat)!.push(row.skill_name)
   }
@@ -1044,46 +1046,51 @@ export function formatDateRange(
 /**
  * Build the organization display string for experience sections.
  *
- * Format: `{org_name}{ (location)}` or `{org_name}{ (work_arrangement)}` as fallback.
- *
- * Location takes precedence over work arrangement in the parenthetical
- * suffix — a resume reader cares about "Raytheon (Arlington, VA)" more
- * than "Raytheon (Remote)". Work arrangement only shows when there's no
- * campus location data.
+ * Format: `{org_name}{ (employment_type)}` — e.g. "Cisco (Contract)".
+ * Location and work arrangement are now on the role subheading level,
+ * not the organization level.
  *
  * Examples:
- *   - "Raytheon Intelligence & Space (Arlington, VA)"
- *   - "United States Air Force (Hampton, VA)"
- *   - "Greymatter.io (Remote)"          — no campus location, shows arrangement
- *   - "Acme Corp"                       — neither location nor arrangement
+ *   - "Cisco (Contract)"
+ *   - "United States Air Force (Active Duty)"
+ *   - "Raytheon Intelligence & Space"    — civilian, no suffix
  *   - "Other" (null org name)
  */
+
+const EMPLOYMENT_TYPE_DISPLAY: Record<string, string> = {
+  contractor: 'Contract',
+  military_active: 'Active Duty',
+  military_reserve: 'Reserve',
+  volunteer: 'Volunteer',
+  intern: 'Intern',
+}
+
 export function buildOrgDisplayString(
   orgName: string | null,
+  employmentType: string | null,
+): string {
+  const name = orgName ?? 'Other'
+  const label = employmentType ? EMPLOYMENT_TYPE_DISPLAY[employmentType] : null
+  return label ? `${name} (${label})` : name
+}
+
+/**
+ * Build a location string for a role subheading.
+ * Prefers campus city/state, falls back to work arrangement.
+ *
+ * Examples:
+ *   - "Arlington, VA"
+ *   - "Remote"
+ *   - null (no location or arrangement)
+ */
+export function buildRoleLocationString(
   city: string | null,
   state: string | null,
   workArrangement: string | null,
-): string {
-  const name = orgName ?? 'Other'
-
-  // Build location string from campus headquarters data
-  let location: string | null = null
-  if (city && state) {
-    location = `${city}, ${state}`
-  } else if (city) {
-    location = city
-  } else if (state) {
-    location = state
-  }
-
-  // Format work arrangement for display (capitalize first letter)
-  let arrangement: string | null = null
-  if (workArrangement) {
-    arrangement = workArrangement.charAt(0).toUpperCase() + workArrangement.slice(1)
-  }
-
-  // Compose: "{name} (location)" — prefer location over arrangement.
-  // Only one parenthetical suffix, never both.
-  const suffix = location ?? arrangement
-  return suffix ? `${name} (${suffix})` : name
+): string | null {
+  if (city && state) return `${city}, ${state}`
+  if (city) return city
+  if (state) return state
+  if (workArrangement) return workArrangement.charAt(0).toUpperCase() + workArrangement.slice(1)
+  return null
 }

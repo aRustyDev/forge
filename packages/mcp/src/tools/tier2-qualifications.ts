@@ -53,7 +53,7 @@ export function registerTier2QualificationsTools(
         .describe('Status (default: active)'),
       organization_id: z.string().optional()
         .describe('Sponsor/issuing organization ID'),
-      details: z.record(z.unknown())
+      details: z.record(z.string(), z.unknown())
         .describe('Type-specific details JSON. Clearance: {level, polygraph?, clearance_type, access_programs?}. License: {class, state, endorsements?}. Bar: {jurisdiction, bar_number?}. Medical: {license_type, state, license_number?}.'),
       issued_date: z.string().optional().describe('Issue date (ISO 8601)'),
       expiry_date: z.string().optional().describe('Expiry date (ISO 8601)'),
@@ -75,7 +75,7 @@ export function registerTier2QualificationsTools(
         .describe('Updated status'),
       organization_id: z.string().nullable().optional()
         .describe('Updated sponsor org (null to clear)'),
-      details: z.record(z.unknown()).optional()
+      details: z.record(z.string(), z.unknown()).optional()
         .describe('Partial details update (merged with existing)'),
       issued_date: z.string().nullable().optional()
         .describe('Updated issue date (null to clear)'),

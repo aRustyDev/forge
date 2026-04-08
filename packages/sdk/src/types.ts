@@ -1624,3 +1624,29 @@ export interface MatchRequirementsOptions {
   threshold?: number
   limit?: number
 }
+
+// ── Split-Handshake Derivation ─────────────────────────────────────
+
+export interface PrepareResult {
+  derivation_id: string
+  prompt: string
+  snapshot: string
+  instructions: string
+  expires_at: string
+}
+
+export interface BulletCommitInput {
+  bullets: Array<{ content: string; technologies: string[]; metrics: string | null }>
+}
+
+export interface PerspectiveCommitInput {
+  content: string
+  reasoning: string
+}
+
+export interface JDSkillExtractionContext {
+  jd_raw_text: string
+  existing_skills: Array<{ id: string; name: string; category: string }>
+  prompt_template: string
+  instructions: string
+}

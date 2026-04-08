@@ -2,10 +2,8 @@ import type {
   Bullet,
   BulletFilter,
   BulletWithRelations,
-  DerivePerspectiveInput,
   PaginatedResult,
   PaginationParams,
-  Perspective,
   RejectInput,
   RequestFn,
   RequestListFn,
@@ -77,17 +75,6 @@ export class BulletsResource {
   /** Submit a draft bullet for review (draft -> in_review). */
   submit(id: string): Promise<Result<Bullet>> {
     return this.request<Bullet>('PATCH', `/api/bullets/${id}/submit`)
-  }
-
-  derivePerspectives(
-    id: string,
-    input: DerivePerspectiveInput,
-  ): Promise<Result<Perspective>> {
-    return this.request<Perspective>(
-      'POST',
-      `/api/bullets/${id}/derive-perspectives`,
-      input,
-    )
   }
 
   // ── Bullet Skills ───────────────────────────────────────────────────

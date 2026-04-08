@@ -1,83 +1,84 @@
+# TODOs
+
 - [ ] /data/gaps
-    - 
 - [ ] JobDescription Schema
-    - About
-    - Responsibilities
-    - Roles
-    - Requirements
-    - Preferrences
-    - Status
-    - Link
-    - Qualifications
-    - OrganizationId
-    - Compensation
-    - Locations (Organization.Campus)
-    - Posture
-    - RoleName
-    - Seniority
-    - Related
-        - Skills
+  - About
+  - Responsibilities
+  - Roles
+  - Requirements
+  - Preferrences
+  - Status
+  - Link
+  - Qualifications
+  - OrganizationId
+  - Compensation
+  - Locations (Organization.Campus)
+  - Posture
+  - RoleName
+  - Seniority
+  - Related
+    - Skills
 - [ ] Modals
-    - Organization
-    - Skill
-    - UserProfile
-    - Contact
-    - Resume
-    - JobDescription
-    - Summary
-    - EdgeNodeGraph
+  - Organization
+  - Skill
+  - UserProfile
+  - Contact
+  - Resume
+  - JobDescription
+  - Summary
+  - EdgeNodeGraph
 - [ ] Resume deep review
-    - persona based reviews w/ synthesis (Consensus Strengths/Concerns/Weaknesses)
+  - persona based reviews w/ synthesis (Consensus Strengths/Concerns/Weaknesses)
 - [ ] Resume deep alignment (we analyzed but didn't execute)
-    - Cover letters for Marriott/Mattermost roles
-    - Notes GFM markdown preview (job-hunting-63h beads issue)
+  - Cover letters for Marriott/Mattermost roles
+  - Notes GFM markdown preview (job-hunting-63h beads issue)
 - [ ] feat: CHOROPLETH MAP for viewing role saturation by locale
-    - Display where roles are at
-    - Want more granularity of locations. Thinking Zipcode or City level w/ hexagonal binning?
+  - Display where roles are at
+  - Want more granularity of locations. Thinking Zipcode or City level w/ hexagonal binning?
 - [ ] feat: 'add note' functionality as a key-bind + hover-revealed button per-object, with automatic referencing
-    - 'note' should be a overlay modal when being added
-    - http://localhost:5173/data/bullets (bullets && perspectives)
-    - http://localhost:5173/data/skills
-    - http://localhost:5173/data/organizations
-    - http://localhost:5173/data/domains (domains && archetypes)
-    - http://localhost:5173/experience/education
-    - http://localhost:5173/experience/projects
-    - http://localhost:5173/experience/roles
-    - http://localhost:5173/opportunities/organizations
-    - http://localhost:5173/opportunities/job-descriptions
-    - http://localhost:5173/resumes
-    - http://localhost:5173/resumes/summaries
-      - http://localhost:5173/resumes/templates
+  - 'note' should be a overlay modal when being added
+  - http://localhost:5173/data/bullets (bullets && perspectives)
+  - http://localhost:5173/data/skills
+  - http://localhost:5173/data/organizations
+  - http://localhost:5173/data/domains (domains && archetypes)
+  - http://localhost:5173/experience/education
+  - http://localhost:5173/experience/projects
+  - http://localhost:5173/experience/roles
+  - http://localhost:5173/opportunities/organizations
+  - http://localhost:5173/opportunities/job-descriptions
+  - http://localhost:5173/resumes
+  - http://localhost:5173/resumes/summaries
+    - http://localhost:5173/resumes/templates
 - [ ] feat: Resume Templates import from Overleaf
 - [ ] WATERFALL CHART
 - [ ] Plugins
       - Overleaf Import
       - RSS Feed
 - `taglines` should come from the JD and be generated per Resume. Its basically an IDF/IVF Keyword relevance score lookup
-    - Ex: `<target-role> -- <keyword> + <keyword> + <keyword>`
-    - [Source](http://localhost:5173/resumes/summaries)
+  - Ex: `<target-role> -- <keyword> + <keyword> + <keyword>`
+  - [Source](http://localhost:5173/resumes/summaries)
 - `summary`/`header` should be importable from http://localhost:5173/resumes/summaries
-    - [Source](http://localhost:5173/resumes)
+  - [Source](http://localhost:5173/resumes)
 - `Salary Expectations` Should be input-able as Hourly/Yearly/Bi-Weekly/Monthly, and then auto-calculate to convert to the other values
-    - [Source](http://localhost:5173/config/profile)
+  - [Source](http://localhost:5173/config/profile)
 - `Summary` entries should open as an overlay modal
-    - [Source](http://localhost:5173/resumes/summaries)
+  - [Source](http://localhost:5173/resumes/summaries)
 - When `Generate PDF` is clicked, the PDF Preview should open w/o the sidebar toggled
-    - [Source](http://localhost:5173/resumes?id=32acab19-5de6-4408-a2a1-0dd8ba90bde8)
+  - [Source](http://localhost:5173/resumes?id=32acab19-5de6-4408-a2a1-0dd8ba90bde8)
 - The `User Profile` modal (bottom left button) is rendering behind the main views, but over the sidebar. This should be rendered on the top-level (ie above everything else) everytime
 - The `User Profile` modal should change 'User' to whatever the user has entered as their `Name` in their profile
-    - [Source](http://localhost:5173/config/profile)
+  - [Source](http://localhost:5173/config/profile)
 - Clicking any 'linked JD' from a Resume should open the JD in an overlay/popup modal
-    - [Source](http://localhost:5173/resumes?id=32acab19-5de6-4408-a2a1-0dd8ba90bde8)
+  - [Source](http://localhost:5173/resumes?id=32acab19-5de6-4408-a2a1-0dd8ba90bde8)
 - Clicking any 'Job Description Entry' should open the JD in the Split view
-    - [Source](http://localhost:5173/opportunities/job-descriptions)
+  - [Source](http://localhost:5173/opportunities/job-descriptions)
 - I'd like for both 'templates' and 'summaries' sections to collapse as I scroll down. So that the Page Title (Summaries; plus the subtitle), the 'Templates' section title, and the 'Summaries' Section title are all still visible and clickable even from the very bottom of the entries list.
-    - [Source](http://localhost:5173/resumes/summaries)
+  - [Source](http://localhost:5173/resumes/summaries)
 - I'd like for the 'Gap Analysis' sidebar to be collapsible. Ideally a notification bubble will display when its collapsed that indicates GAPs are present. 
-    - [Source](http://localhost:5173/resumes?id=32acab19-5de6-4408-a2a1-0dd8ba90bde8)
+  - [Source](http://localhost:5173/resumes?id=32acab19-5de6-4408-a2a1-0dd8ba90bde8)
 - the `Summaries` list should be groupable, sortable, and filterable
-    - Sort By: Title
-    - Group By: KeyWord, Industry, RoleType, etc; This will likely mean more structured fields for this data object 
-    - [Source](http://localhost:5173/resumes/summaries)
+  - Sort By: Title
+  - Group By: KeyWord, Industry, RoleType, etc; This will likely mean more structured fields for this data object 
+  - [Source](http://localhost:5173/resumes/summaries)
 - the `Summaries` list entries should be clickable, instead of having the 'edit | clone | promote | delete' buttons on it directly; 
-    - [Source](http://localhost:5173/resumes/summaries)
+  - [Source](http://localhost:5173/resumes/summaries)

@@ -11,7 +11,7 @@ export function registerSearchTools(server: McpServer, sdk: ForgeClient): void {
   registerTool(
     server,
     'forge_search_sources',
-    'Search experience sources by employer, type, date range, status. Sources with status "deriving" are locked by an in-progress AI derivation -- do not call forge_derive_bullets on them. Poll forge_search_sources with status filter to check if derivation has completed, or use forge_review_pending (available in Phase 72) to check the review queue.',
+    'Search experience sources by employer, type, date range, status. Sources with status "deriving" are locked by an in-progress derivation -- do not call forge_prepare_derivation on them. Poll forge_search_sources with status filter to check if derivation has completed, or use forge_review_pending to check the review queue.',
     {
       source_type: z.enum(['role', 'project', 'education', 'clearance', 'general']).optional()
         .describe('Filter by source type'),

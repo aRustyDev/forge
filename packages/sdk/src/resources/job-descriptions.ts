@@ -1,5 +1,6 @@
 import type {
   CreateJobDescription,
+  JDSkillExtractionContext,
   JobDescriptionFilter,
   JobDescriptionWithOrg,
   PaginatedResult,
@@ -9,7 +10,6 @@ import type {
   ResumeLink,
   Result,
   Skill,
-  SkillExtractionResult,
   UpdateJobDescription,
 } from '../types'
 
@@ -131,9 +131,9 @@ export class JobDescriptionsResource {
 
   // ── AI Skill Extraction ───────────────────────────────────────────
 
-  /** Extract skills from JD text using AI. Returns suggested skills for review. */
-  extractSkills(jdId: string): Promise<Result<SkillExtractionResult>> {
-    return this.request<SkillExtractionResult>(
+  /** Returns JD text + skill inventory + prompt template for client-side extraction. */
+  extractSkills(jdId: string): Promise<Result<JDSkillExtractionContext>> {
+    return this.request<JDSkillExtractionContext>(
       'POST',
       `/api/job-descriptions/${jdId}/extract-skills`,
     )

@@ -1221,6 +1221,7 @@ export interface ExperienceGroup {
 export interface ExperienceSubheading {
   id: string
   title: string
+  location: string | null
   date_range: string
   source_id: string | null
   bullets: ExperienceBullet[]

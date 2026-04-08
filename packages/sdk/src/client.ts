@@ -1,4 +1,5 @@
 import { AlignmentResource } from './resources/alignment'
+import { DerivationsResource } from './resources/derivations'
 import { ArchetypesResource } from './resources/archetypes'
 import { BulletsResource } from './resources/bullets'
 import { DebugStore } from './debug'
@@ -45,9 +46,9 @@ export class ForgeClient {
   /** Debug store for programmatic inspection of SDK requests. */
   public debug: DebugStore
 
-  /** Source CRUD + deriveBullets. */
+  /** Source CRUD. */
   public sources: SourcesResource
-  /** Bullet listing, status transitions, derivePerspectives. */
+  /** Bullet listing, status transitions. */
   public bullets: BulletsResource
   /** Perspective listing, status transitions. */
   public perspectives: PerspectivesResource
@@ -89,6 +90,8 @@ export class ForgeClient {
   public certifications: CertificationsResource
   /** Alignment scoring & requirement matching (Phase 70+). */
   public alignment?: AlignmentResource
+  /** Split-handshake derivation — prepare + commit. */
+  public derivations: DerivationsResource
 
   constructor(options: ForgeClientOptions) {
     // Strip trailing slash so callers can pass "http://localhost:3000/" without
@@ -127,6 +130,7 @@ export class ForgeClient {
     this.credentials = new CredentialsResource(req)
     this.certifications = new CertificationsResource(req)
     this.alignment = new AlignmentResource(req)
+    this.derivations = new DerivationsResource(req)
   }
 
   /** Check connectivity to the Forge HTTP server. */

@@ -87,3 +87,4 @@ v1/scratch.md
 packages/webui/test-results/
 packages/webui/.svelte-kit/
 packages/webui/build/
+telemetry/

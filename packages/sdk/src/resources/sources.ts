@@ -1,5 +1,4 @@
 import type {
-  Bullet,
   CreateSource,
   PaginatedResult,
   PaginationParams,
@@ -53,9 +52,5 @@ export class SourcesResource {
 
   delete(id: string): Promise<Result<void>> {
     return this.request<void>('DELETE', `/api/sources/${id}`)
-  }
-
-  deriveBullets(id: string): Promise<Result<Bullet[]>> {
-    return this.request<Bullet[]>('POST', `/api/sources/${id}/derive-bullets`)
   }
 }

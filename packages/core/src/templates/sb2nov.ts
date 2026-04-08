@@ -198,15 +198,17 @@ function renderExperienceSection(section: IRSection): string {
     for (let i = 0; i < item.subheadings.length; i++) {
       const sub = item.subheadings[i]
 
+      const titleWithLocation = sub.location ? `${sub.title} (${sub.location})` : sub.title
+
       if (i === 0) {
         lines.push('')
         lines.push(`    \\resumeSubheading`)
         lines.push(`      {${item.organization}}{}`)
-        lines.push(`      {${sub.title}}{${sub.date_range}}`)
+        lines.push(`      {${titleWithLocation}}{${sub.date_range}}`)
       } else {
         lines.push('    \\vspace{5pt}')
         lines.push(`    \\resumeSubSubheading`)
-        lines.push(`      {${sub.title}}{${sub.date_range}}`)
+        lines.push(`      {${titleWithLocation}}{${sub.date_range}}`)
       }
 
       lines.push('      \\resumeItemListStart')

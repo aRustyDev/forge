@@ -60,16 +60,14 @@ export interface Services {
 
 /**
  * Create all services with shared database connection.
- * The in-memory derivation lock Set is a singleton for bullet derivation.
+ * DerivationService uses DB-level locking (pending_derivations table) — no in-memory Set needed.
  */
 export function createServices(db: Database, dbPath: string): Services {
-  const derivingBullets = new Set<string>()
-
   return {
     sources: new SourceService(db),
     bullets: new BulletService(db),
     perspectives: new PerspectiveService(db),
-    derivation: new DerivationService(db, derivingBullets),
+    derivation: new DerivationService(db),
     resumes: new ResumeService(db),
     audit: new AuditService(db),
     review: new ReviewService(db),

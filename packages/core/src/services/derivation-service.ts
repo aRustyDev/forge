@@ -1,13 +1,15 @@
 /**
- * DerivationService — orchestrates the AI derivation chain.
+ * DerivationService — split-handshake derivation protocol.
  *
- * This is the most critical service. It manages:
- * - Source → Bullet derivation (via Claude CLI)
- * - Bullet → Perspective derivation (via Claude CLI)
- * - Concurrency locking (DB-level for sources, in-memory Set for bullets)
- * - Content snapshot capture
- * - Prompt log creation
- * - Transaction management for atomic writes
+ * This service manages the prepare/commit protocol for AI-driven derivation:
+ * - prepareBulletDerivation    — lock source, render prompt, return context
+ * - commitBulletDerivation     — validate input, write bullets, delete lock
+ * - preparePerspectiveDerivation — lock bullet, render prompt, return context
+ * - commitPerspectiveDerivation  — validate input, write perspective, delete lock
+ * - recoverStaleLocks          — delete expired pending_derivations rows
+ *
+ * The AI work (LLM call) is performed by the MCP client between prepare and
+ * commit.  This service does NOT invoke any AI CLI directly.
  */
 
 import type { Database } from 'bun:sqlite'
@@ -20,8 +22,8 @@ import { PerspectiveRepository } from '../db/repositories/perspective-repository
 import * as PromptLogRepo from '../db/repositories/prompt-log-repository'
 import * as ArchetypeRepo from '../db/repositories/archetype-repository'
 import * as DomainRepo from '../db/repositories/domain-repository'
+import * as PendingDerivationRepo from '../db/repositories/pending-derivation-repository'
 import {
-  invokeClaude,
   renderSourceToBulletPrompt,
   renderBulletToPerspectivePrompt,
   validateBulletDerivation,
@@ -31,13 +33,54 @@ import {
 } from '../ai'
 import type { EmbeddingService } from './embedding-service'
 
+// ── Public types ────────────────────────────────────────────────────────────
+
+export interface PrepareResult {
+  derivation_id: string
+  prompt: string
+  snapshot: string
+  instructions: string
+  expires_at: string
+}
+
+export interface BulletCommitInput {
+  bullets: Array<{ content: string; technologies: string[]; metrics: string | null }>
+}
+
+export interface PerspectiveCommitInput {
+  content: string
+  reasoning: string
+}
+
+// ── Constants ───────────────────────────────────────────────────────────────
+
+const LOCK_TIMEOUT_MS = Number(
+  process.env.FORGE_DERIVATION_LOCK_TIMEOUT_MS ?? 120_000,
+)
+
+const BULLET_INSTRUCTIONS = `Respond with a JSON object:
+{
+  "bullets": [
+    {
+      "content": "factual bullet text",
+      "technologies": ["tech1", "tech2"],
+      "metrics": "quantitative metric if present, null otherwise"
+    }
+  ]
+}`
+
+const PERSPECTIVE_INSTRUCTIONS = `Respond with a JSON object:
+{
+  "content": "reframed perspective text",
+  "reasoning": "brief explanation of framing choices"
+}`
+
+// ── Service ─────────────────────────────────────────────────────────────────
+
 export class DerivationService {
   private embeddingService: EmbeddingService | null = null
 
-  constructor(
-    private db: Database,
-    private derivingBullets: Set<string>,
-  ) {}
+  constructor(private db: Database) {}
 
   /**
    * Set the embedding service for fire-and-forget hooks.
@@ -51,123 +94,194 @@ export class DerivationService {
     this.embeddingService = svc
   }
 
+  // ── Bullet derivation ─────────────────────────────────────────────────────
+
   /**
-   * Derive bullets from a source using AI.
+   * Prepare a bullet derivation for a source.
    *
-   * Flow: get source → lock → snapshot → prompt → AI → validate → write → unlock
+   * Acquires an exclusive lock on the source (via pending_derivations), renders
+   * the prompt, and returns the derivation context so the MCP client can invoke
+   * the LLM and call commitBulletDerivation().
    */
-  async deriveBulletsFromSource(sourceId: string): Promise<Result<Bullet[]>> {
+  async prepareBulletDerivation(
+    sourceId: string,
+    clientId: string,
+  ): Promise<Result<PrepareResult>> {
     // 1. Get source
     const source = SourceRepo.get(this.db, sourceId)
     if (!source) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Source ${sourceId} not found` } }
     }
 
-    // 1b. Reject archived sources
+    // 2. Reject archived sources
     if (source.status === 'archived') {
-      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'Cannot derive from archived source. Unarchive it first.' } }
+      return {
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Cannot derive from archived source. Unarchive it first.' },
+      }
     }
 
-    // 2. Acquire deriving lock
-    const locked = SourceRepo.acquireDerivingLock(this.db, sourceId)
-    if (!locked) {
-      return { ok: false, error: { code: 'CONFLICT', message: `Source ${sourceId} is already being derived` } }
+    // 3. Check for existing unexpired lock
+    const existing = PendingDerivationRepo.findUnexpiredByEntity(this.db, 'source', sourceId)
+    if (existing) {
+      return {
+        ok: false,
+        error: { code: 'CONFLICT', message: `Source ${sourceId} is already being derived` },
+      }
     }
 
-    const previousStatus = source.status
+    // 4. Capture snapshot and render prompt
+    const snapshot = source.description
+    const prompt = renderSourceToBulletPrompt(snapshot)
+    const expiresAt = new Date(Date.now() + LOCK_TIMEOUT_MS).toISOString()
 
+    // 5. Create pending derivation row (exclusive lock via UNIQUE index)
+    let row: ReturnType<typeof PendingDerivationRepo.create>
     try {
-      // 3. Capture snapshot
-      const snapshot = source.description
-
-      // 4. Render prompt
-      const prompt = renderSourceToBulletPrompt(snapshot)
-
-      // 5. Invoke Claude CLI
-      const aiResult = await invokeClaude({ prompt })
-      if (!aiResult.ok) {
-        SourceRepo.releaseDerivingLock(this.db, sourceId, previousStatus, false)
-        const errorCode = aiResult.error === 'TIMEOUT' ? 'GATEWAY_TIMEOUT' : 'AI_ERROR'
-        return { ok: false, error: { code: errorCode, message: `AI invocation failed: ${aiResult.error}`, details: aiResult.raw } }
-      }
-
-      // 6. Validate response
-      const validation = validateBulletDerivation(aiResult.data)
-      if (!validation.ok) {
-        SourceRepo.releaseDerivingLock(this.db, sourceId, previousStatus, false)
-        return { ok: false, error: { code: 'AI_ERROR', message: `AI response validation failed: ${validation.error}` } }
-      }
-
-      // 7. Atomic write: prompt log + bullets + technologies + unlock
-      const bullets: Bullet[] = []
-
-      const txn = this.db.transaction(() => {
-        for (const item of validation.data.bullets) {
-          // Create bullet (prompt_log_id linked after)
-          const bullet = BulletRepository.create(this.db, {
-            content: item.content,
-            source_content_snapshot: snapshot,
-            technologies: item.technologies,
-            metrics: item.metrics,
-            status: 'in_review',
-            source_ids: [{ id: sourceId, is_primary: true }],
-          })
-
-          // Create prompt log entry for this bullet
-          PromptLogRepo.create(this.db, {
-            entity_type: 'bullet',
-            entity_id: bullet.id,
-            prompt_template: SOURCE_TO_BULLET_TEMPLATE_VERSION,
-            prompt_input: prompt,
-            raw_response: JSON.stringify(aiResult.data),
-          })
-
-          bullets.push(bullet)
-        }
-
-        // Release lock with success
-        SourceRepo.releaseDerivingLock(this.db, sourceId, previousStatus, true)
+      row = PendingDerivationRepo.create(this.db, {
+        entity_type: 'source',
+        entity_id: sourceId,
+        client_id: clientId,
+        prompt,
+        snapshot,
+        derivation_params: null,
+        expires_at: expiresAt,
       })
-
-      txn()
-
-      // Fire-and-forget embedding for each created bullet
-      if (this.embeddingService) {
-        for (const bullet of bullets) {
-          queueMicrotask(() =>
-            this.embeddingService!.onBulletCreated(bullet).catch(err =>
-              // TODO: Replace with structured logger (Phase 23)
-              console.error(`[DerivationService] Embedding hook failed for bullet ${bullet.id}:`, err)
-            )
-          )
+    } catch (err: unknown) {
+      // UNIQUE constraint violation — concurrent prepare
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('UNIQUE')) {
+        return {
+          ok: false,
+          error: { code: 'CONFLICT', message: `Source ${sourceId} is already being derived` },
         }
       }
-
-      return { ok: true, data: bullets }
-    } catch (err) {
-      // Ensure lock is released on any error
-      SourceRepo.releaseDerivingLock(this.db, sourceId, previousStatus, false)
       throw err
+    }
+
+    return {
+      ok: true,
+      data: {
+        derivation_id: row.id,
+        prompt,
+        snapshot,
+        instructions: BULLET_INSTRUCTIONS,
+        expires_at: expiresAt,
+      },
     }
   }
 
   /**
-   * Derive a perspective from a bullet using AI.
+   * Commit a bullet derivation with the LLM response.
    *
-   * Uses in-memory lock (Set of bullet IDs) since bullets don't have a 'deriving' status.
-   * Only approved bullets can have perspectives derived.
+   * Validates the input, writes bullets + prompt log atomically, and deletes
+   * the pending derivation row (releasing the lock).
    */
-  async derivePerspectivesFromBullet(
+  async commitBulletDerivation(
+    derivationId: string,
+    input: BulletCommitInput,
+  ): Promise<Result<Bullet[]>> {
+    // 1. Look up pending row
+    const pending = PendingDerivationRepo.getById(this.db, derivationId)
+    if (!pending) {
+      return { ok: false, error: { code: 'NOT_FOUND', message: `Derivation ${derivationId} not found` } }
+    }
+
+    // 2. Check expiry
+    if (new Date(pending.expires_at) <= new Date()) {
+      PendingDerivationRepo.deleteById(this.db, derivationId)
+      return { ok: false, error: { code: 'GONE', message: `Derivation ${derivationId} has expired` } }
+    }
+
+    // 3. Validate entity_type
+    if (pending.entity_type !== 'source') {
+      return {
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Derivation is not for a source (use commitPerspectiveDerivation)' },
+      }
+    }
+
+    // 4. Validate response shape
+    const validation = validateBulletDerivation(input)
+    if (!validation.ok) {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: `Validation failed: ${validation.error}` } }
+    }
+
+    const sourceId = pending.entity_id
+    const snapshot = pending.snapshot
+    const prompt = pending.prompt
+
+    // 5. Transaction: write bullets + prompt logs + delete pending row
+    const bullets: Bullet[] = []
+
+    const txn = this.db.transaction(() => {
+      for (const item of validation.data.bullets) {
+        const bullet = BulletRepository.create(this.db, {
+          content: item.content,
+          source_content_snapshot: snapshot,
+          technologies: item.technologies,
+          metrics: item.metrics,
+          status: 'in_review',
+          source_ids: [{ id: sourceId, is_primary: true }],
+        })
+
+        PromptLogRepo.create(this.db, {
+          entity_type: 'bullet',
+          entity_id: bullet.id,
+          prompt_template: SOURCE_TO_BULLET_TEMPLATE_VERSION,
+          prompt_input: prompt,
+          raw_response: JSON.stringify(input),
+        })
+
+        bullets.push(bullet)
+      }
+
+      // Release lock
+      PendingDerivationRepo.deleteById(this.db, derivationId)
+
+      // Mark source as derived (update last_derived_at, restore previous status)
+      const source = SourceRepo.get(this.db, sourceId)
+      if (source) {
+        SourceRepo.releaseDerivingLock(this.db, sourceId, source.status as any, true)
+      }
+    })
+
+    txn()
+
+    // 6. Fire-and-forget embedding hooks
+    if (this.embeddingService) {
+      for (const bullet of bullets) {
+        queueMicrotask(() =>
+          this.embeddingService!.onBulletCreated(bullet).catch(err =>
+            console.error(`[DerivationService] Embedding hook failed for bullet ${bullet.id}:`, err)
+          )
+        )
+      }
+    }
+
+    return { ok: true, data: bullets }
+  }
+
+  // ── Perspective derivation ────────────────────────────────────────────────
+
+  /**
+   * Prepare a perspective derivation for a bullet.
+   *
+   * Validates the bullet and params, acquires a lock, renders the prompt,
+   * and returns context for the MCP client to invoke the LLM.
+   */
+  async preparePerspectiveDerivation(
     bulletId: string,
     params: DerivePerspectiveInput,
-  ): Promise<Result<Perspective>> {
+    clientId: string,
+  ): Promise<Result<PrepareResult>> {
     // 1. Get bullet
     const bullet = BulletRepository.get(this.db, bulletId)
     if (!bullet) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Bullet ${bulletId} not found` } }
     }
 
-    // Reject archived bullets with a specific message
+    // 2. Reject archived bullets
     if (bullet.status === 'archived') {
       return {
         ok: false,
@@ -175,15 +289,18 @@ export class DerivationService {
       }
     }
 
-    // Only approved bullets
+    // 3. Only approved bullets
     if (bullet.status !== 'approved') {
       return {
         ok: false,
-        error: { code: 'VALIDATION_ERROR', message: `Bullet must be approved to derive perspectives (current: ${bullet.status})` },
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: `Bullet must be approved to derive perspectives (current: ${bullet.status})`,
+        },
       }
     }
 
-    // Validate archetype exists in DB
+    // 4. Validate archetype exists
     const archetypeExists = ArchetypeRepo.getByName(this.db, params.archetype)
     if (!archetypeExists) {
       return {
@@ -195,7 +312,7 @@ export class DerivationService {
       }
     }
 
-    // Validate domain exists in DB
+    // 5. Validate domain exists
     const domainExists = DomainRepo.getByName(this.db, params.domain)
     if (!domainExists) {
       return {
@@ -207,95 +324,166 @@ export class DerivationService {
       }
     }
 
-    // 2. Acquire in-memory lock
-    if (this.derivingBullets.has(bulletId)) {
-      return { ok: false, error: { code: 'CONFLICT', message: `Bullet ${bulletId} is already being derived` } }
+    // 6. Check for existing unexpired lock
+    const existing = PendingDerivationRepo.findUnexpiredByEntity(this.db, 'bullet', bulletId)
+    if (existing) {
+      return {
+        ok: false,
+        error: { code: 'CONFLICT', message: `Bullet ${bulletId} is already being derived` },
+      }
     }
-    this.derivingBullets.add(bulletId)
 
+    // 7. Capture snapshot and render prompt
+    const snapshot = bullet.content
+    const prompt = renderBulletToPerspectivePrompt(
+      snapshot,
+      bullet.technologies,
+      bullet.metrics,
+      params.archetype,
+      params.domain,
+      params.framing,
+    )
+    const expiresAt = new Date(Date.now() + LOCK_TIMEOUT_MS).toISOString()
+
+    // 8. Create pending derivation row
+    let row: ReturnType<typeof PendingDerivationRepo.create>
     try {
-      // 3. Capture snapshot
-      const snapshot = bullet.content
-
-      // 4. Render prompt
-      const prompt = renderBulletToPerspectivePrompt(
+      row = PendingDerivationRepo.create(this.db, {
+        entity_type: 'bullet',
+        entity_id: bulletId,
+        client_id: clientId,
+        prompt,
         snapshot,
-        bullet.technologies,
-        bullet.metrics,
-        params.archetype,
-        params.domain,
-        params.framing,
-      )
-
-      // 5. Invoke Claude CLI
-      const aiResult = await invokeClaude({ prompt })
-      if (!aiResult.ok) {
-        this.derivingBullets.delete(bulletId)
-        const errorCode = aiResult.error === 'TIMEOUT' ? 'GATEWAY_TIMEOUT' : 'AI_ERROR'
-        return { ok: false, error: { code: errorCode, message: `AI invocation failed: ${aiResult.error}`, details: aiResult.raw } }
-      }
-
-      // 6. Validate response
-      const validation = validatePerspectiveDerivation(aiResult.data)
-      if (!validation.ok) {
-        this.derivingBullets.delete(bulletId)
-        return { ok: false, error: { code: 'AI_ERROR', message: `AI response validation failed: ${validation.error}` } }
-      }
-
-      // 7. Atomic write
-      let perspective!: Perspective
-
-      const txn = this.db.transaction(() => {
-        perspective = PerspectiveRepository.create(this.db, {
-          bullet_id: bulletId,
-          content: validation.data.content,
-          bullet_content_snapshot: snapshot,
-          target_archetype: params.archetype,
-          domain: params.domain,
-          framing: params.framing,
-          status: 'in_review',
-        })
-
-        PromptLogRepo.create(this.db, {
-          entity_type: 'perspective',
-          entity_id: perspective.id,
-          prompt_template: BULLET_TO_PERSPECTIVE_TEMPLATE_VERSION,
-          prompt_input: prompt,
-          raw_response: JSON.stringify(aiResult.data),
-        })
+        derivation_params: JSON.stringify(params),
+        expires_at: expiresAt,
       })
-
-      txn()
-      this.derivingBullets.delete(bulletId)
-
-      // Fire-and-forget embedding for the created perspective
-      if (this.embeddingService) {
-        queueMicrotask(() =>
-          this.embeddingService!.onPerspectiveCreated(perspective).catch(err =>
-            // TODO: Replace with structured logger (Phase 23)
-            console.error(`[DerivationService] Embedding hook failed for perspective ${perspective.id}:`, err)
-          )
-        )
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('UNIQUE')) {
+        return {
+          ok: false,
+          error: { code: 'CONFLICT', message: `Bullet ${bulletId} is already being derived` },
+        }
       }
-
-      return { ok: true, data: perspective }
-    } catch (err) {
-      this.derivingBullets.delete(bulletId)
       throw err
+    }
+
+    return {
+      ok: true,
+      data: {
+        derivation_id: row.id,
+        prompt,
+        snapshot,
+        instructions: PERSPECTIVE_INSTRUCTIONS,
+        expires_at: expiresAt,
+      },
     }
   }
 
   /**
-   * Reset sources stuck in 'deriving' status (crashed during derivation).
+   * Commit a perspective derivation with the LLM response.
+   *
+   * Validates the input, writes the perspective + prompt log atomically, and
+   * deletes the pending derivation row.
+   */
+  async commitPerspectiveDerivation(
+    derivationId: string,
+    input: PerspectiveCommitInput,
+  ): Promise<Result<Perspective>> {
+    // 1. Look up pending row
+    const pending = PendingDerivationRepo.getById(this.db, derivationId)
+    if (!pending) {
+      return { ok: false, error: { code: 'NOT_FOUND', message: `Derivation ${derivationId} not found` } }
+    }
+
+    // 2. Check expiry
+    if (new Date(pending.expires_at) <= new Date()) {
+      PendingDerivationRepo.deleteById(this.db, derivationId)
+      return { ok: false, error: { code: 'GONE', message: `Derivation ${derivationId} has expired` } }
+    }
+
+    // 3. Validate entity_type
+    if (pending.entity_type !== 'bullet') {
+      return {
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Derivation is not for a bullet (use commitBulletDerivation)' },
+      }
+    }
+
+    // 4. Validate response shape
+    const validation = validatePerspectiveDerivation(input)
+    if (!validation.ok) {
+      return { ok: false, error: { code: 'VALIDATION_ERROR', message: `Validation failed: ${validation.error}` } }
+    }
+
+    const bulletId = pending.entity_id
+    const snapshot = pending.snapshot
+    const prompt = pending.prompt
+
+    // Parse derivation params
+    const params: DerivePerspectiveInput = pending.derivation_params
+      ? JSON.parse(pending.derivation_params)
+      : { archetype: null, domain: null, framing: 'accomplishment' }
+
+    // 5. Transaction: write perspective + prompt log + delete pending row
+    let perspective!: Perspective
+
+    const txn = this.db.transaction(() => {
+      perspective = PerspectiveRepository.create(this.db, {
+        bullet_id: bulletId,
+        content: validation.data.content,
+        bullet_content_snapshot: snapshot,
+        target_archetype: params.archetype,
+        domain: params.domain,
+        framing: params.framing,
+        status: 'in_review',
+      })
+
+      PromptLogRepo.create(this.db, {
+        entity_type: 'perspective',
+        entity_id: perspective.id,
+        prompt_template: BULLET_TO_PERSPECTIVE_TEMPLATE_VERSION,
+        prompt_input: prompt,
+        raw_response: JSON.stringify(input),
+      })
+
+      PendingDerivationRepo.deleteById(this.db, derivationId)
+    })
+
+    txn()
+
+    // 6. Fire-and-forget embedding hook
+    if (this.embeddingService) {
+      queueMicrotask(() =>
+        this.embeddingService!.onPerspectiveCreated(perspective).catch(err =>
+          console.error(`[DerivationService] Embedding hook failed for perspective ${perspective.id}:`, err)
+        )
+      )
+    }
+
+    return { ok: true, data: perspective }
+  }
+
+  // ── Stale lock recovery ───────────────────────────────────────────────────
+
+  /**
+   * Clean up expired locks and reset any sources stuck in legacy 'deriving' status.
    * Called once at server startup.
+   *
+   * Returns the number of expired pending_derivations rows deleted.
    */
   static recoverStaleLocks(db: Database, thresholdMs = 300_000): number {
+    // Delete expired pending_derivations rows
+    const deleted = PendingDerivationRepo.deleteExpired(db)
+
+    // Also reset sources stuck in legacy 'deriving' status (backward compat)
     const threshold = new Date(Date.now() - thresholdMs).toISOString()
-    const result = db.run(
+    db.run(
       `UPDATE sources SET status = 'draft', updated_at = ?
        WHERE status = 'deriving' AND updated_at < ?`,
       [new Date().toISOString(), threshold],
     )
-    return result.changes
+
+    return deleted
   }
 }

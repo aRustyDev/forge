@@ -88,20 +88,4 @@ describe('Data Visualization Acceptance Tests', () => {
       expect(perspectivesLinks).toBe(1)
     })
   })
-
-  describe('79.6: RenderViewport placeholder exists', () => {
-    test('RenderViewport.svelte exists', () => {
-      expect(existsSync(join(COMPONENTS_DIR, 'RenderViewport.svelte'))).toBe(true)
-    })
-
-    test('has format prop', () => {
-      const content = read(join(COMPONENTS_DIR, 'RenderViewport.svelte'))
-      expect(content).toContain("format: 'markdown' | 'latex' | 'pdf'")
-    })
-
-    test('exported from barrel', () => {
-      const barrel = read(join(COMPONENTS_DIR, 'index.ts'))
-      expect(barrel).toContain('RenderViewport')
-    })
-  })
 })

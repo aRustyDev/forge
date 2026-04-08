@@ -2,9 +2,11 @@
  * End-to-end integration tests exercising the full stack:
  * routes -> services -> repositories -> SQLite
  *
- * AI calls are mocked via spyOn of the ai module's invokeClaude function.
+ * AI derivation uses the prepare/commit handshake protocol.
+ * No AI calls are mocked — the tests simulate the MCP client
+ * by calling prepare and then commit with synthetic LLM output.
  */
-import { describe, test, expect, beforeEach, afterEach, spyOn, mock } from 'bun:test'
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { Database } from 'bun:sqlite'
 import { createTestApp, apiRequest, type TestContext } from '../../routes/__tests__/helpers'
 import {
@@ -17,45 +19,83 @@ import {
   seedOrganization,
   seedUserNote,
 } from '../../db/__tests__/helpers'
-import * as ai from '../../ai'
+
+// ── Derivation helpers ─────────────────────────────────────────────────────
+
+/**
+ * Simulate the MCP client bullet derivation handshake:
+ * 1. POST /derivations/prepare with entity_type: 'source'
+ * 2. POST /derivations/:id/commit with synthetic bullets
+ *
+ * Returns the committed bullets array.
+ */
+async function deriveBullets(
+  app: any,
+  sourceId: string,
+  bullets: Array<{ content: string; technologies: string[]; metrics: string | null }>,
+) {
+  const prepRes = await apiRequest(app, 'POST', '/derivations/prepare', {
+    entity_type: 'source',
+    entity_id: sourceId,
+    client_id: 'test',
+  })
+  if (prepRes.status !== 201) {
+    throw new Error(`deriveBullets prepare failed: ${prepRes.status} ${await prepRes.text()}`)
+  }
+  const { data: { derivation_id } } = await prepRes.json()
+
+  const commitRes = await apiRequest(app, 'POST', `/derivations/${derivation_id}/commit`, { bullets })
+  if (commitRes.status !== 201) {
+    throw new Error(`deriveBullets commit failed: ${commitRes.status} ${await commitRes.text()}`)
+  }
+  return (await commitRes.json()).data as Array<{ id: string; content: string; status: string }>
+}
+
+/**
+ * Simulate the MCP client perspective derivation handshake:
+ * 1. POST /derivations/prepare with entity_type: 'bullet'
+ * 2. POST /derivations/:id/commit with synthetic content + reasoning
+ *
+ * Returns the committed perspective.
+ */
+async function derivePerspective(
+  app: any,
+  bulletId: string,
+  params: { archetype: string; domain: string; framing: string },
+  content: string,
+  reasoning: string,
+) {
+  const prepRes = await apiRequest(app, 'POST', '/derivations/prepare', {
+    entity_type: 'bullet',
+    entity_id: bulletId,
+    client_id: 'test',
+    params,
+  })
+  if (prepRes.status !== 201) {
+    throw new Error(`derivePerspective prepare failed: ${prepRes.status} ${await prepRes.text()}`)
+  }
+  const { data: { derivation_id } } = await prepRes.json()
+
+  const commitRes = await apiRequest(app, 'POST', `/derivations/${derivation_id}/commit`, {
+    content,
+    reasoning,
+  })
+  if (commitRes.status !== 201) {
+    throw new Error(`derivePerspective commit failed: ${commitRes.status} ${await commitRes.text()}`)
+  }
+  return (await commitRes.json()).data as { id: string; content: string; status: string; bullet_id: string }
+}
+
+// ── E2E-1: Full Derivation Chain ───────────────────────────────────────────
 
 describe('E2E-1: Full Derivation Chain', () => {
   let ctx: TestContext
-  let aiMock: ReturnType<typeof spyOn>
 
   beforeEach(() => {
     ctx = createTestApp()
-    aiMock = spyOn(ai, 'invokeClaude').mockImplementation(async ({ prompt }) => {
-      // Return different mock responses based on prompt content
-      if (prompt.includes('bullets')) {
-        return {
-          ok: true as const,
-          data: {
-            bullets: [
-              {
-                content: 'Led migration of forensics platform to AWS OpenSearch',
-                technologies: ['AWS', 'OpenSearch'],
-                metrics: '4 engineers, 3 months',
-              },
-            ],
-          },
-          rawResponse: '{"bullets":[...]}',
-        }
-      }
-      // Perspective derivation
-      return {
-        ok: true as const,
-        data: {
-          content: 'Architected cloud-native forensics pipeline using AWS OpenSearch',
-          reasoning: 'Reframed for AI/ML archetype focus',
-        },
-        rawResponse: '{"content":"...","reasoning":"..."}',
-      }
-    })
   })
 
   afterEach(() => {
-    aiMock.mockRestore()
     ctx.db.close()
   })
 
@@ -70,10 +110,14 @@ describe('E2E-1: Full Derivation Chain', () => {
     const source = (await createRes.json()).data
     expect(source.id).toHaveLength(36)
 
-    // 2. Derive bullets from source
-    const deriveRes = await apiRequest(ctx.app, 'POST', `/sources/${source.id}/derive-bullets`)
-    expect(deriveRes.status).toBe(201)
-    const derivedBullets = (await deriveRes.json()).data
+    // 2. Derive bullets via prepare/commit
+    const derivedBullets = await deriveBullets(ctx.app, source.id, [
+      {
+        content: 'Led migration of forensics platform to AWS OpenSearch',
+        technologies: ['AWS', 'OpenSearch'],
+        metrics: '4 engineers, 3 months',
+      },
+    ])
     expect(derivedBullets).toBeArray()
     expect(derivedBullets.length).toBeGreaterThanOrEqual(1)
     const bulletId = derivedBullets[0].id
@@ -84,14 +128,14 @@ describe('E2E-1: Full Derivation Chain', () => {
     expect(approveRes.status).toBe(200)
     expect((await approveRes.json()).data.status).toBe('approved')
 
-    // 4. Derive perspective from approved bullet
-    const perspRes = await apiRequest(ctx.app, 'POST', `/bullets/${bulletId}/derive-perspectives`, {
-      archetype: 'agentic-ai',
-      domain: 'ai_ml',
-      framing: 'accomplishment',
-    })
-    expect(perspRes.status).toBe(201)
-    const perspective = (await perspRes.json()).data
+    // 4. Derive perspective via prepare/commit
+    const perspective = await derivePerspective(
+      ctx.app,
+      bulletId,
+      { archetype: 'agentic-ai', domain: 'ai_ml', framing: 'accomplishment' },
+      'Architected cloud-native forensics pipeline using AWS OpenSearch',
+      'Reframed for AI/ML archetype focus',
+    )
     expect(perspective.id).toHaveLength(36)
     expect(perspective.status).toBe('in_review')
 
@@ -131,6 +175,8 @@ describe('E2E-1: Full Derivation Chain', () => {
     expect(fullResume.sections[0].entries[0].perspective_id).toBe(perspective.id)
   })
 })
+
+// ── E2E-2: Content Drift Detection ────────────────────────────────────────
 
 describe('E2E-2: Content Drift Detection', () => {
   let ctx: TestContext
@@ -181,24 +227,16 @@ describe('E2E-2: Content Drift Detection', () => {
   })
 })
 
+// ── E2E-3: Rejection and Reopen Flow ──────────────────────────────────────
+
 describe('E2E-3: Rejection and Reopen Flow', () => {
   let ctx: TestContext
-  let aiMock: ReturnType<typeof spyOn>
 
   beforeEach(() => {
     ctx = createTestApp()
-    aiMock = spyOn(ai, 'invokeClaude').mockImplementation(async () => ({
-      ok: true as const,
-      data: {
-        content: 'A reframed perspective after reopen',
-        reasoning: 'Improved version',
-      },
-      rawResponse: '{"content":"...","reasoning":"..."}',
-    }))
   })
 
   afterEach(() => {
-    aiMock.mockRestore()
     ctx.db.close()
   })
 
@@ -223,50 +261,33 @@ describe('E2E-3: Rejection and Reopen Flow', () => {
     expect(approveRes.status).toBe(200)
     expect((await approveRes.json()).data.status).toBe('approved')
 
-    // 4. Derive a perspective from the approved bullet
-    const perspRes = await apiRequest(ctx.app, 'POST', `/bullets/${bulletId}/derive-perspectives`, {
-      archetype: 'security-engineer',
-      domain: 'security',
-      framing: 'accomplishment',
-    })
-    expect(perspRes.status).toBe(201)
-    const perspective = (await perspRes.json()).data
+    // 4. Derive a perspective via prepare/commit
+    const perspective = await derivePerspective(
+      ctx.app,
+      bulletId,
+      { archetype: 'security-engineer', domain: 'security', framing: 'accomplishment' },
+      'A reframed perspective after reopen',
+      'Improved version',
+    )
     expect(perspective.bullet_id).toBe(bulletId)
     expect(perspective.status).toBe('in_review')
   })
 })
 
+// ── E2E-4: Concurrency Protection ─────────────────────────────────────────
+
 describe('E2E-4: Concurrency Protection', () => {
   let ctx: TestContext
-  let aiMock: ReturnType<typeof spyOn>
 
   beforeEach(() => {
     ctx = createTestApp()
-    // Simulate a slow AI call that takes time
-    aiMock = spyOn(ai, 'invokeClaude').mockImplementation(async () => {
-      await new Promise((r) => setTimeout(r, 50))
-      return {
-        ok: true as const,
-        data: {
-          bullets: [
-            {
-              content: 'Derived bullet',
-              technologies: ['AWS'],
-              metrics: null,
-            },
-          ],
-        },
-        rawResponse: '{"bullets":[...]}',
-      }
-    })
   })
 
   afterEach(() => {
-    aiMock.mockRestore()
     ctx.db.close()
   })
 
-  test('concurrent derivation of same source returns 409', async () => {
+  test('concurrent prepare on same source returns 409', async () => {
     // Create source
     const createRes = await apiRequest(ctx.app, 'POST', '/sources', {
       title: 'Concurrency Test',
@@ -274,10 +295,18 @@ describe('E2E-4: Concurrency Protection', () => {
     })
     const source = (await createRes.json()).data
 
-    // Fire two derive requests concurrently
+    // Fire two prepare requests concurrently — the lock prevents both from acquiring
     const [res1, res2] = await Promise.all([
-      apiRequest(ctx.app, 'POST', `/sources/${source.id}/derive-bullets`),
-      apiRequest(ctx.app, 'POST', `/sources/${source.id}/derive-bullets`),
+      apiRequest(ctx.app, 'POST', '/derivations/prepare', {
+        entity_type: 'source',
+        entity_id: source.id,
+        client_id: 'client-1',
+      }),
+      apiRequest(ctx.app, 'POST', '/derivations/prepare', {
+        entity_type: 'source',
+        entity_id: source.id,
+        client_id: 'client-2',
+      }),
     ])
 
     const statuses = [res1.status, res2.status].sort()
@@ -285,6 +314,8 @@ describe('E2E-4: Concurrency Protection', () => {
     expect(statuses).toEqual([201, 409])
   })
 })
+
+// ── E2E-5: Cascade and Restrict Behavior ──────────────────────────────────
 
 describe('E2E-5: Cascade and Restrict Behavior', () => {
   let ctx: TestContext
@@ -332,6 +363,8 @@ describe('E2E-5: Cascade and Restrict Behavior', () => {
     expect(deleteSourceRes.status).toBe(204)
   })
 })
+
+// ── E2E-6: Polymorphic Source CRUD ────────────────────────────────────────
 
 describe('E2E-6: Polymorphic Source CRUD', () => {
   let ctx: TestContext
@@ -401,6 +434,8 @@ describe('E2E-6: Polymorphic Source CRUD', () => {
   })
 })
 
+// ── E2E-7: Organization CRUD + Source Linkage ─────────────────────────────
+
 describe('E2E-7: Organization CRUD + Source Linkage', () => {
   let ctx: TestContext
 
@@ -449,41 +484,16 @@ describe('E2E-7: Organization CRUD + Source Linkage', () => {
   })
 })
 
+// ── E2E-8: Resume Entries (Copy-on-Write) ─────────────────────────────────
+
 describe('E2E-8: Resume Entries (Copy-on-Write)', () => {
   let ctx: TestContext
-  let aiMock: ReturnType<typeof spyOn>
 
   beforeEach(() => {
     ctx = createTestApp()
-    aiMock = spyOn(ai, 'invokeClaude').mockImplementation(async ({ prompt }) => {
-      if (prompt.includes('bullets')) {
-        return {
-          ok: true as const,
-          data: {
-            bullets: [
-              {
-                content: 'Managed Kubernetes clusters across 3 availability zones',
-                technologies: ['Kubernetes', 'AWS'],
-                metrics: '99.9% uptime',
-              },
-            ],
-          },
-          rawResponse: '{"bullets":[...]}',
-        }
-      }
-      return {
-        ok: true as const,
-        data: {
-          content: 'Architected highly available Kubernetes platform on AWS',
-          reasoning: 'Reframed for infrastructure archetype',
-        },
-        rawResponse: '{"content":"...","reasoning":"..."}',
-      }
-    })
   })
 
   afterEach(() => {
-    aiMock.mockRestore()
     ctx.db.close()
   })
 
@@ -496,20 +506,24 @@ describe('E2E-8: Resume Entries (Copy-on-Write)', () => {
     })
     const source = (await srcRes.json()).data
 
-    const deriveRes = await apiRequest(ctx.app, 'POST', `/sources/${source.id}/derive-bullets`)
-    expect(deriveRes.status).toBe(201)
-    const bullets = (await deriveRes.json()).data
+    const bullets = await deriveBullets(ctx.app, source.id, [
+      {
+        content: 'Managed Kubernetes clusters across 3 availability zones',
+        technologies: ['Kubernetes', 'AWS'],
+        metrics: '99.9% uptime',
+      },
+    ])
     const bulletId = bullets[0].id
 
     await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/approve`)
 
-    const perspRes = await apiRequest(ctx.app, 'POST', `/bullets/${bulletId}/derive-perspectives`, {
-      archetype: 'infrastructure',
-      domain: 'devops',
-      framing: 'accomplishment',
-    })
-    expect(perspRes.status).toBe(201)
-    const perspective = (await perspRes.json()).data
+    const perspective = await derivePerspective(
+      ctx.app,
+      bulletId,
+      { archetype: 'infrastructure', domain: 'devops', framing: 'accomplishment' },
+      'Architected highly available Kubernetes platform on AWS',
+      'Reframed for infrastructure archetype',
+    )
 
     await apiRequest(ctx.app, 'PATCH', `/perspectives/${perspective.id}/approve`)
 
@@ -577,41 +591,16 @@ describe('E2E-8: Resume Entries (Copy-on-Write)', () => {
   })
 })
 
+// ── E2E-9: Integrity Drift Detection ──────────────────────────────────────
+
 describe('E2E-9: Integrity Drift Detection', () => {
   let ctx: TestContext
-  let aiMock: ReturnType<typeof spyOn>
 
   beforeEach(() => {
     ctx = createTestApp()
-    aiMock = spyOn(ai, 'invokeClaude').mockImplementation(async ({ prompt }) => {
-      if (prompt.includes('bullets')) {
-        return {
-          ok: true as const,
-          data: {
-            bullets: [
-              {
-                content: 'Built real-time data pipeline processing 10M events/day',
-                technologies: ['Kafka', 'Flink'],
-                metrics: '10M events/day',
-              },
-            ],
-          },
-          rawResponse: '{"bullets":[...]}',
-        }
-      }
-      return {
-        ok: true as const,
-        data: {
-          content: 'Designed streaming data architecture for high-throughput analytics',
-          reasoning: 'Reframed for data engineering focus',
-        },
-        rawResponse: '{"content":"...","reasoning":"..."}',
-      }
-    })
   })
 
   afterEach(() => {
-    aiMock.mockRestore()
     ctx.db.close()
   })
 
@@ -623,19 +612,24 @@ describe('E2E-9: Integrity Drift Detection', () => {
     })
     const source = (await srcRes.json()).data
 
-    const deriveRes = await apiRequest(ctx.app, 'POST', `/sources/${source.id}/derive-bullets`)
-    expect(deriveRes.status).toBe(201)
-    const bullets = (await deriveRes.json()).data
+    const bullets = await deriveBullets(ctx.app, source.id, [
+      {
+        content: 'Built real-time data pipeline processing 10M events/day',
+        technologies: ['Kafka', 'Flink'],
+        metrics: '10M events/day',
+      },
+    ])
     const bulletId = bullets[0].id
 
     await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}/approve`)
 
-    const perspRes = await apiRequest(ctx.app, 'POST', `/bullets/${bulletId}/derive-perspectives`, {
-      archetype: 'agentic-ai',
-      domain: 'ai_ml',
-      framing: 'accomplishment',
-    })
-    expect(perspRes.status).toBe(201)
+    await derivePerspective(
+      ctx.app,
+      bulletId,
+      { archetype: 'agentic-ai', domain: 'ai_ml', framing: 'accomplishment' },
+      'Designed streaming data architecture for high-throughput analytics',
+      'Reframed for data engineering focus',
+    )
 
     // Verify no drift initially (snapshot matches source description)
     const driftRes1 = await apiRequest(ctx.app, 'GET', '/integrity/drift')
@@ -663,6 +657,8 @@ describe('E2E-9: Integrity Drift Detection', () => {
     expect(perspDrifts.length).toBe(0)
   })
 })
+
+// ── E2E-10: Notes + Entity Linking ────────────────────────────────────────
 
 describe('E2E-10: Notes + Entity Linking', () => {
   let ctx: TestContext

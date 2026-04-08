@@ -1,13 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { forge, friendlyError } from '$lib/sdk'
-  import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog, PageWrapper, PageHeader } from '$lib/components'
+  import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog, PageWrapper, PageHeader, TabBar } from '$lib/components'
   import { addToast } from '$lib/stores/toast.svelte'
   import type { Resume, ResumeWithEntries, ResumeEntry, Perspective, GapAnalysis, ResumeDocument, Archetype, ResumeTemplate } from '@forge/sdk'
   import { debugState } from '$lib/debug.svelte'
-  import DragNDropView from '$lib/components/resume/DragNDropView.svelte'
-  import PdfView from '$lib/components/resume/PdfView.svelte'
-  import SourceView from '$lib/components/resume/SourceView.svelte'
+  import { FormatToggle, ResumePreview, ResumeEditor } from '$lib/components/resume'
   import SkillsPicker from '$lib/components/resume/SkillsPicker.svelte'
   import SourcePicker from '$lib/components/resume/SourcePicker.svelte'
   import ResumeLinkedJDs from '$lib/components/resume/ResumeLinkedJDs.svelte'
@@ -19,13 +17,15 @@
   import ResumeFilterBar from '$lib/components/filters/ResumeFilterBar.svelte'
   import { getViewMode, setViewMode } from '$lib/stores/viewMode.svelte'
 
-  type ViewTab = 'editor' | 'preview' | 'source'
+  type ViewTab = 'editor' | 'preview'
 
   const VIEW_TABS: { value: ViewTab; label: string }[] = [
     { value: 'editor', label: 'Editor' },
     { value: 'preview', label: 'Preview' },
-    { value: 'source', label: 'Source' },
   ]
+
+  type Format = 'default' | 'latex' | 'markdown'
+  let activeFormat = $state<Format>('default')
 
   let archetypeNames = $state<string[]>([])
   // Load archetypes from API
@@ -288,6 +288,16 @@
       irError = 'Failed to load resume IR'
     } finally {
       irLoading = false
+    }
+  }
+
+  async function refreshSelectedResume() {
+    if (!selectedResumeId) return
+    const result = await forge.resumes.get(selectedResumeId)
+    if (result.ok) {
+      resumeDetail = result.data
+      const irResult = await forge.resumes.ir(selectedResumeId)
+      if (irResult.ok) ir = irResult.data
     }
   }
 
@@ -1052,16 +1062,9 @@
 
         <!-- View Mode Tabs -->
         <div class="view-tabs-container">
-          <div class="view-tabs">
-            {#each VIEW_TABS as tab}
-              <button
-                class="view-tab"
-                class:active={activeViewTab === tab.value}
-                onclick={() => activeViewTab = tab.value}
-              >
-                {tab.label}
-              </button>
-            {/each}
+          <div class="view-header">
+            <TabBar tabs={VIEW_TABS} active={activeViewTab} onchange={(v) => activeViewTab = v as ViewTab} />
+            <FormatToggle value={activeFormat} onChange={(f) => activeFormat = f} />
           </div>
 
           <div class="view-content">
@@ -1078,9 +1081,16 @@
               </div>
             {:else if ir}
               {#if activeViewTab === 'editor'}
-                <DragNDropView
-                  ir={ir}
+                <ResumeEditor
                   resumeId={selectedResumeId}
+                  {ir}
+                  format={activeFormat}
+                  latexOverride={resumeDetail.latex_override ?? null}
+                  latexOverrideUpdatedAt={resumeDetail.latex_override_updated_at ?? null}
+                  markdownOverride={resumeDetail.markdown_override ?? null}
+                  markdownOverrideUpdatedAt={resumeDetail.markdown_override_updated_at ?? null}
+                  resumeUpdatedAt={resumeDetail.updated_at}
+                  onOverrideChange={refreshSelectedResume}
                   onUpdate={handleIRUpdate}
                   onAddEntry={(sectionId, entryType, sourceId, sourceLabel) => openPicker(sectionId, entryType, sourceId, sourceLabel)}
                   onAddSection={handleAddSection}
@@ -1107,19 +1117,8 @@
                     }
                   }}
                 />
-              {:else if activeViewTab === 'preview'}
-                <PdfView resumeId={selectedResumeId} {ir} />
-              {:else if activeViewTab === 'source'}
-                <SourceView
-                  {ir}
-                  resumeId={selectedResumeId}
-                  latexOverride={resumeDetail.latex_override ?? null}
-                  latexOverrideUpdatedAt={resumeDetail.latex_override_updated_at ?? null}
-                  markdownOverride={resumeDetail.markdown_override ?? null}
-                  markdownOverrideUpdatedAt={resumeDetail.markdown_override_updated_at ?? null}
-                  resumeUpdatedAt={resumeDetail.updated_at}
-                  onOverrideChange={async () => { await loadResumeDetail(selectedResumeId!) }}
-                />
+              {:else}
+                <ResumePreview resumeId={selectedResumeId} {ir} format={activeFormat} />
               {/if}
             {/if}
           </div>
@@ -2002,37 +2001,18 @@
     background: var(--color-surface);
   }
 
-  .view-tabs {
+  .view-header {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem;
     border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface-raised);
-  }
-
-  .view-tab {
-    padding: 0.75rem 1.25rem;
-    border: none;
-    background: transparent;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-muted);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: color 0.15s, border-color 0.15s;
-    font-family: inherit;
-  }
-
-  .view-tab:hover {
-    color: var(--text-secondary);
-  }
-
-  .view-tab.active {
-    color: var(--color-primary);
-    border-bottom-color: var(--color-primary);
-    background: var(--color-surface);
   }
 
   .view-content {
+    flex: 1;
     min-height: 400px;
+    overflow: hidden;
   }
 
   .view-error {

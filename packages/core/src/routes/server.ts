@@ -36,6 +36,7 @@ import { roleTypeRoutes } from './role-types'
 import { credentialRoutes } from './credentials'
 import { certificationRoutes } from './certifications'
 import { alignmentRoutes } from './alignment'
+import { derivationRoutes } from './derivations'
 
 /** Map error codes to HTTP status codes. */
 // Re-export for backward compatibility — prefer importing from './status-codes' directly
@@ -127,6 +128,7 @@ export function createApp(services: Services, db: Database) {
   app.route('/', credentialRoutes(services))
   app.route('/', certificationRoutes(services))
   app.route('/', alignmentRoutes(services))
+  app.route('/', derivationRoutes(services))
 
   // ── Global error handler ───────────────────────────────────────────
 

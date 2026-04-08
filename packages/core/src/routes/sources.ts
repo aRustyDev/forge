@@ -103,10 +103,13 @@ export function sourceRoutes(services: Services, db: Database) {
     return c.body(null, 204)
   })
 
-  app.post('/sources/:id/derive-bullets', async (c) => {
-    const result = await services.derivation.deriveBulletsFromSource(c.req.param('id'))
-    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
-    return c.json({ data: result.data }, 201)
+  app.post('/sources/:id/derive-bullets', (c) => {
+    return c.json({
+      error: {
+        code: 'NOT_IMPLEMENTED',
+        message: 'This endpoint has been replaced. Use POST /api/derivations/prepare with entity_type "source".',
+      },
+    }, 501)
   })
 
   // ── Source Skills ─────────────────────────────────────────────────

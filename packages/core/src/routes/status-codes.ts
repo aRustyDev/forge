@@ -14,6 +14,8 @@ export function mapStatusCode(code: string): number {
       return 404
     case 'CONFLICT':
       return 409
+    case 'GONE':
+      return 410
     case 'MISSING_EMBEDDINGS':
       return 422
     case 'AI_ERROR':

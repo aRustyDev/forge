@@ -74,15 +74,13 @@ export function bulletRoutes(services: Services, db: Database) {
     return c.json({ data: result.data })
   })
 
-  app.post('/bullets/:id/derive-perspectives', async (c) => {
-    const body = await c.req.json<{ archetype: string; domain: string; framing: string }>()
-    const result = await services.derivation.derivePerspectivesFromBullet(c.req.param('id'), {
-      archetype: body.archetype,
-      domain: body.domain,
-      framing: body.framing as any,
-    })
-    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
-    return c.json({ data: result.data }, 201)
+  app.post('/bullets/:id/derive-perspectives', (c) => {
+    return c.json({
+      error: {
+        code: 'NOT_IMPLEMENTED',
+        message: 'This endpoint has been replaced. Use POST /api/derivations/prepare with entity_type "bullet".',
+      },
+    }, 501)
   })
 
   // ── Bullet Skills ───────────────────────────────────────────────────

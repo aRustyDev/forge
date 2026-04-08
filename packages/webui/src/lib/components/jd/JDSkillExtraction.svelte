@@ -19,6 +19,7 @@
 <script lang="ts">
   import type { ForgeClient } from '@forge/sdk'
   import type { ExtractedSkill } from '@forge/sdk'
+  import { addToast } from '$lib/stores/toast.svelte'
   import ExtractedSkillCard from './ExtractedSkillCard.svelte'
 
   interface LinkedSkill {
@@ -67,28 +68,8 @@
   let acceptingAll = $state(false)
 
   async function handleExtract() {
-    extracting = true
-    errorMessage = ''
-    try {
-      const result = await forge.jobDescriptions.extractSkills(jdId)
-      if (result.ok) {
-        extractedSkills = result.data.skills
-        acceptedNames = new Set()
-        dismissedNames = new Set()
-        editedNames = new Map()
-        showPanel = true
-
-        if (result.data.warnings.length > 0) {
-          console.warn('[forge] Extraction warnings:', result.data.warnings)
-        }
-      } else {
-        errorMessage = result.error?.message ?? 'Extraction failed'
-      }
-    } catch (err) {
-      errorMessage = 'Network error during extraction'
-    } finally {
-      extracting = false
-    }
+    addToast({ message: 'Skill extraction temporarily disabled — use MCP tools (forge_extract_jd_skills)', type: 'info' })
+    return
   }
 
   async function handleAccept(skill: ExtractedSkill) {

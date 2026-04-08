@@ -59,23 +59,7 @@
 
   async function derive() {
     if (!canDerive) return
-    deriving = true
-
-    const res = await forge.bullets.derivePerspectives(bulletId, {
-      archetype: selectedArchetype,
-      domain: selectedDomain,
-      framing: selectedFraming,
-    })
-
-    if (res.ok) {
-      addToast({ message: 'Perspectives derived successfully', type: 'success' })
-      onderive()
-      onclose()
-    } else {
-      addToast({ message: friendlyError(res.error, 'Derivation failed'), type: 'error' })
-    }
-
-    deriving = false
+    addToast({ message: 'Perspective derivation temporarily disabled — use MCP tools', type: 'info' })
   }
 
   function handleKeydown(e: KeyboardEvent) {

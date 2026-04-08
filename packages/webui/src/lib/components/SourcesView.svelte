@@ -553,19 +553,7 @@
   }
 
   async function deriveBullets() {
-    if (!selectedId) return
-    deriving = true
-
-    const result = await forge.sources.deriveBullets(selectedId)
-    if (result.ok) {
-      const count = result.data.length
-      addToast({ message: `Derived ${count} bullet${count === 1 ? '' : 's'} from source.`, type: 'success' })
-      await loadSources()
-    } else {
-      addToast({ message: `Derivation failed: ${result.error.message}`, type: 'error' })
-    }
-
-    deriving = false
+    addToast({ message: 'Derivation temporarily disabled — use MCP tools (forge_prepare_derivation)', type: 'info' })
   }
 
   /**
@@ -1317,18 +1305,21 @@
 
           {#if !editing && selectedSource}
             {#if selectedSource.status === 'draft' || selectedSource.status === 'approved'}
-              <button
-                class="btn btn-derive"
-                onclick={deriveBullets}
-                disabled={deriving}
-              >
-                {#if deriving}
-                  <LoadingSpinner size="sm" />
-                  <span>Deriving...</span>
-                {:else}
-                  Derive Bullets
-                {/if}
-              </button>
+              {#if false}
+                <!-- Derive button hidden: server-side derivation disabled, use MCP tools -->
+                <button
+                  class="btn btn-derive"
+                  onclick={deriveBullets}
+                  disabled={deriving}
+                >
+                  {#if deriving}
+                    <LoadingSpinner size="sm" />
+                    <span>Deriving...</span>
+                  {:else}
+                    Derive Bullets
+                  {/if}
+                </button>
+              {/if}
             {/if}
 
             <button

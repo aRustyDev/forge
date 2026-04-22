@@ -82,10 +82,18 @@ jobs:
     environment: chrome-web-store
     if: startsWith(github.ref, 'refs/tags/v') && !inputs.skip_store_publish
     steps:
-      - name: Load 1Password secrets
+      - name: Load Forge metadata
         uses: aRustyDev/load-secrets-action@main
         with:
-          environment-id: ${{ secrets.OP_ENVIRONMENT_ID }}
+          environment-id: ${{ secrets.OP_FORGE_ENVIRONMENT_ID }}
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SVC_ACCT_TOKEN }}
+
+      - name: Load Chrome Web Store credentials
+        uses: aRustyDev/load-secrets-action@main
+        with:
+          environment-id: ${{ secrets.OP_CHROME_ENVIRONMENT_ID }}
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SVC_ACCT_TOKEN }}
@@ -111,10 +119,10 @@ jobs:
     environment: firefox-addons
     if: startsWith(github.ref, 'refs/tags/v') && !inputs.skip_store_publish
     steps:
-      - name: Load 1Password secrets
+      - name: Load Firefox Add-ons credentials
         uses: aRustyDev/load-secrets-action@main
         with:
-          environment-id: ${{ secrets.OP_ENVIRONMENT_ID }}
+          environment-id: ${{ secrets.OP_FIREFOX_ENVIRONMENT_ID }}
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SVC_ACCT_TOKEN }}

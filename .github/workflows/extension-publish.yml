@@ -172,12 +172,19 @@ jobs:
           echo "Upload status: $UPLOAD_STATUS"
 
           if [ "$UPLOAD_STATUS" = "FAILURE" ]; then
-            ERRORS=$(echo "$UPLOAD_RESPONSE" | jq -r '.itemError[]?.error_detail // empty')
-            if echo "$ERRORS" | grep -qi "already"; then
-              echo "::warning::Version already uploaded to Chrome Web Store — skipping."
-              echo "already_published=true" >> "$GITHUB_OUTPUT"
+            ERRORS=$(echo "$UPLOAD_RESPONSE" | jq -r '.itemError[]?.error_code // empty')
+            ERROR_DETAIL=$(echo "$UPLOAD_RESPONSE" | jq -r '.itemError[]?.error_detail // empty')
+
+            # Idempotent: version already uploaded or item in pending review
+            if echo "$ERRORS" | grep -qi "ITEM_NOT_UPDATABLE"; then
+              echo "::warning::Chrome item is in pending review — cannot update. Skipping."
               exit 0
             fi
+            if echo "$ERROR_DETAIL" | grep -qi "already"; then
+              echo "::warning::Version already uploaded to Chrome Web Store — skipping."
+              exit 0
+            fi
+
             echo "::error::Chrome upload failed"
             echo "$UPLOAD_RESPONSE" | jq .
             exit 1
@@ -263,7 +270,8 @@ jobs:
             --source-dir /tmp/firefox-ext \
             --api-key "$AMO_API_KEY" \
             --api-secret "$AMO_API_SECRET" \
-            --channel listed 2>&1) || true
+            --channel listed \
+            --amo-metadata '{"version": {"license": "MIT"}}' 2>&1) || true
 
           echo "$OUTPUT"
 

@@ -103,10 +103,14 @@ jobs:
         with:
           name: extension-packages
 
+      - name: Resolve Chrome zip path
+        id: chrome-zip
+        run: echo "path=$(ls forge-job-tools-chrome-v*.zip)" >> "$GITHUB_OUTPUT"
+
       - name: Upload to Chrome Web Store
         uses: mnao305/chrome-extension-upload@v5.0.0
         with:
-          file-path: forge-job-tools-chrome-v*.zip
+          file-path: ${{ steps.chrome-zip.outputs.path }}
           extension-id: ${{ env.CHROME_EXTENSION_ID }}
           client-id: ${{ env.CHROME_CLIENT_ID }}
           client-secret: ${{ env.CHROME_CLIENT_SECRET }}

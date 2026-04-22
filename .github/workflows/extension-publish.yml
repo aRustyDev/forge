@@ -266,7 +266,13 @@ jobs:
           unzip "$ZIP" -d /tmp/firefox-ext
 
           # web-ext sign exits non-zero if version already exists
-          echo '{"version": {"license": "MIT"}}' > /tmp/amo-metadata.json
+          cat > /tmp/amo-metadata.json << 'METAEOF'
+          {
+            "categories": {"firefox": ["other"]},
+            "summary": {"en-US": "Capture job listings and auto-fill applications with your self-hosted Forge server."},
+            "version": {"license": "MIT"}
+          }
+          METAEOF
           OUTPUT=$(web-ext sign \
             --source-dir /tmp/firefox-ext \
             --api-key "$AMO_API_KEY" \

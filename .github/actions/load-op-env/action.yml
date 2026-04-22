@@ -1,0 +1,37 @@
+name: 'Load 1Password Environment'
+description: 'Load secrets from a 1Password Environment into GitHub Actions env vars and outputs'
+inputs:
+  service-account-token:
+    description: '1Password Service Account token'
+    required: true
+  environment-id:
+    description: '1Password Environment ID (from Settings → IDs in the 1Password app)'
+    required: true
+  export-env:
+    description: 'Export variables to GITHUB_ENV (available to all subsequent steps)'
+    default: 'true'
+  mask-values:
+    description: 'Mask all secret values in logs (recommended for CI)'
+    default: 'true'
+outputs:
+  variables:
+    description: 'JSON object of all environment variables (name → value)'
+    value: ${{ steps.load.outputs.variables }}
+runs:
+  using: composite
+  steps:
+    - name: Install 1Password SDK
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        npm install --no-save @1password/sdk@0.4.1-beta.1 2>&1 | tail -1
+
+    - name: Load environment variables
+      id: load
+      shell: bash
+      env:
+        OP_SERVICE_ACCOUNT_TOKEN: ${{ inputs.service-account-token }}
+        OP_ENVIRONMENT_ID: ${{ inputs.environment-id }}
+        INPUT_EXPORT_ENV: ${{ inputs.export-env }}
+        INPUT_MASK_VALUES: ${{ inputs.mask-values }}
+      run: node ${{ github.action_path }}/load.mjs

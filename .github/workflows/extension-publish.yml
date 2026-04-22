@@ -266,12 +266,13 @@ jobs:
           unzip "$ZIP" -d /tmp/firefox-ext
 
           # web-ext sign exits non-zero if version already exists
+          echo '{"version": {"license": "MIT"}}' > /tmp/amo-metadata.json
           OUTPUT=$(web-ext sign \
             --source-dir /tmp/firefox-ext \
             --api-key "$AMO_API_KEY" \
             --api-secret "$AMO_API_SECRET" \
             --channel listed \
-            --amo-metadata '{"version": {"license": "MIT"}}' 2>&1) || true
+            --amo-metadata /tmp/amo-metadata.json 2>&1) || true
 
           echo "$OUTPUT"
 

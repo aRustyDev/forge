@@ -79,6 +79,7 @@ jobs:
   publish-chrome:
     needs: release
     runs-on: ubuntu-latest
+    environment: chrome-web-store
     if: startsWith(github.ref, 'refs/tags/v') && !inputs.skip_store_publish
     steps:
       - name: Download artifacts
@@ -99,6 +100,7 @@ jobs:
   publish-firefox:
     needs: release
     runs-on: ubuntu-latest
+    environment: firefox-addons
     if: startsWith(github.ref, 'refs/tags/v') && !inputs.skip_store_publish
     steps:
       - uses: actions/checkout@v4

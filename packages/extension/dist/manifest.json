@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Forge",
+  "version": "0.0.9",
+  "description": "Capture job descriptions and autofill applications into Forge.",
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_title": "Forge"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "clipboardWrite",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.linkedin.com/*",
+    "http://localhost:3000/*",
+    "*://*.myworkdayjobs.com/*",
+    "*://*.myworkday.com/*"
+  ],
+  "background": {
+    "service_worker": "service-worker-loader.js",
+    "type": "module"
+  }
+}

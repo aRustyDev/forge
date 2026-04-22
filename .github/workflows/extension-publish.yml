@@ -85,7 +85,7 @@ jobs:
       - name: Load Forge metadata
         uses: aRustyDev/load-secrets-action@main
         with:
-          environment-id: ${{ secrets.OP_FORGE_ENVIRONMENT_ID }}
+          environment-id: ${{ secrets.OP_ENVIRONMENT_ID_FORGE }}
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SVC_ACCT_TOKEN }}
@@ -93,7 +93,7 @@ jobs:
       - name: Load Chrome Web Store credentials
         uses: aRustyDev/load-secrets-action@main
         with:
-          environment-id: ${{ secrets.OP_CHROME_ENVIRONMENT_ID }}
+          environment-id: ${{ secrets.OP_ENVIRONMENT_ID_CHROME }}
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SVC_ACCT_TOKEN }}
@@ -122,7 +122,7 @@ jobs:
       - name: Load Firefox Add-ons credentials
         uses: aRustyDev/load-secrets-action@main
         with:
-          environment-id: ${{ secrets.OP_FIREFOX_ENVIRONMENT_ID }}
+          environment-id: ${{ secrets.OP_ENVIRONMENT_ID_FIREFOX }}
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SVC_ACCT_TOKEN }}

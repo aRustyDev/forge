@@ -6,8 +6,8 @@
 POST /sources
 {
   "title": "Cloud Forensics Platform Migration",
-  "description": "Led a team of 4 engineers to migrate Raytheon's cloud forensics platform from on-prem ELK to AWS OpenSearch. The migration took 6 months and reduced mean incident response time by 40%. Used Terraform for infrastructure, GitLab CI/CD for deployment automation, and built custom Python log parsers for format translation.",
-  "employer_id": "raytheon-uuid",
+  "description": "Led a team of 4 engineers to migrate a cloud forensics platform from on-prem ELK to AWS OpenSearch. The migration took 6 months and reduced mean incident response time by 40%. Used Terraform for infrastructure, GitLab CI/CD for deployment automation, and built custom Python log parsers for format translation.",
+  "employer_id": "acme-corp-uuid",
   "start_date": "2023-01-15",
   "end_date": "2023-07-15"
 }
@@ -54,7 +54,7 @@ Repeat for other archetype/domain/framing combinations as needed.
 
 ```
 POST /resumes
-{ "name": "AI Engineer - Anthropic", "target_role": "AI Engineer", "target_employer": "Anthropic", "archetype": "agentic-ai" }
+{ "name": "AI Engineer - Target Co", "target_role": "AI Engineer", "target_employer": "Target Co", "archetype": "agentic-ai" }
 
 POST /resumes/{resume-id}/perspectives
 { "perspective_id": "perspective-uuid", "section": "work_history", "position": 1 }
@@ -84,11 +84,11 @@ Returns:
     "bullet": {
       "id": "bullet-uuid",
       "content": "Led 4-engineer team migrating cloud forensics platform from ELK to AWS OpenSearch over 6 months",
-      "source_content_snapshot": "Led a team of 4 engineers to migrate Raytheon's...",
+      "source_content_snapshot": "Led a team of 4 engineers to migrate Acme Corp's...",
       "source": {
         "id": "source-uuid",
         "title": "Cloud Forensics Platform Migration",
-        "description": "Led a team of 4 engineers to migrate Raytheon's..."
+        "description": "Led a team of 4 engineers to migrate Acme Corp's..."
       }
     }
   }

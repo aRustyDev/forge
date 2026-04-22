@@ -88,3 +88,12 @@ packages/webui/test-results/
 packages/webui/.svelte-kit/
 packages/webui/build/
 telemetry/
+
+# Packaging artifacts
+/dist/
+
+# Git worktrees
+.claude/worktrees/
+
+# Personal data (should never exist in this repo)
+.beads/

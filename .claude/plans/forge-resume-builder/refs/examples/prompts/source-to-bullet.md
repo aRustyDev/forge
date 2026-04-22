@@ -30,7 +30,7 @@ Respond with a JSON object:
 ## Example Input
 
 ```
-Led a team of 4 engineers to migrate Raytheon's cloud forensics platform from
+Led a team of 4 engineers to migrate a cloud forensics platform from
 on-prem ELK to AWS OpenSearch. The migration took 6 months and reduced mean
 incident response time by 40%. Used Terraform for infrastructure, GitLab CI/CD
 for deployment automation, and built custom Python log parsers for format

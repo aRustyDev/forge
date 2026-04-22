@@ -6,10 +6,17 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      skip_store_publish:
-        description: 'Skip store publishing (build + release only)'
+      tag:
+        description: 'Tag to publish (e.g. v1.0.0). Uses latest tag if empty.'
+        type: string
+      skip_chrome:
+        description: 'Skip Chrome Web Store publish'
         type: boolean
-        default: true
+        default: false
+      skip_firefox:
+        description: 'Skip Firefox Add-ons publish'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -17,8 +24,40 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            if [ -z "$TAG" ]; then
+              echo "::error::No tag found. Push a tag or provide one via workflow_dispatch."
+              exit 1
+            fi
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building version $VERSION from tag $TAG"
+
+      - name: Verify manifest version matches tag
+        run: |
+          MANIFEST_VERSION=$(jq -r .version packages/extension/manifest.json)
+          if [ "$MANIFEST_VERSION" != "${{ steps.version.outputs.version }}" ]; then
+            echo "::error::Manifest version ($MANIFEST_VERSION) does not match tag (${{ steps.version.outputs.version }}). Bump the manifest before tagging."
+            exit 1
+          fi
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -33,20 +72,13 @@ jobs:
       - name: Build both browsers
         run: cd packages/extension && bun run build
 
-      - name: Package Chrome zip
+      - name: Package artifacts
         run: |
-          VERSION=$(jq -r .version packages/extension/manifest.json)
-          cd packages/extension/dist/chrome
-          zip -r ../../../../forge-job-tools-chrome-v${VERSION}.zip .
-
-      - name: Package Firefox zip
-        run: |
-          VERSION=$(jq -r .version packages/extension/manifest.firefox.json)
-          cd packages/extension/dist/firefox
-          zip -r ../../../../forge-job-tools-firefox-v${VERSION}.zip .
-
-      - name: Package source for AMO review
-        run: git archive HEAD --prefix=forge-source/ -o forge-job-tools-source.zip
+          VERSION="${{ steps.version.outputs.version }}"
+          cd packages/extension/dist/chrome && zip -r ../../../../forge-job-tools-chrome-v${VERSION}.zip .
+          cd ../../firefox && zip -r ../../../../forge-job-tools-firefox-v${VERSION}.zip .
+          cd ../../../..
+          git archive HEAD --prefix=forge-source/ -o forge-job-tools-source.zip
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -67,9 +99,10 @@ jobs:
         with:
           name: extension-packages
 
-      - name: Create GitHub Release
+      - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.build.outputs.tag }}
           files: |
             forge-job-tools-chrome-v*.zip
             forge-job-tools-firefox-v*.zip
@@ -77,10 +110,12 @@ jobs:
           generate_release_notes: true
 
   publish-chrome:
-    needs: release
+    needs: [build, release]
     runs-on: ubuntu-latest
     environment: chrome-web-store
-    if: startsWith(github.ref, 'refs/tags/v') && !inputs.skip_store_publish
+    if: >-
+      startsWith(github.ref, 'refs/tags/v')
+      && !inputs.skip_chrome
     steps:
       - name: Load Forge metadata
         uses: aRustyDev/load-secrets-action@main
@@ -103,25 +138,88 @@ jobs:
         with:
           name: extension-packages
 
-      - name: Resolve Chrome zip path
-        id: chrome-zip
-        run: echo "path=$(ls forge-job-tools-chrome-v*.zip)" >> "$GITHUB_OUTPUT"
-
       - name: Upload to Chrome Web Store
-        uses: mnao305/chrome-extension-upload@v5.0.0
-        with:
-          file-path: ${{ steps.chrome-zip.outputs.path }}
-          extension-id: ${{ env.CHROME_EXTENSION_ID }}
-          client-id: ${{ env.CHROME_CLIENT_ID }}
-          client-secret: ${{ env.CHROME_CLIENT_SECRET }}
-          refresh-token: ${{ env.CHROME_REFRESH_TOKEN }}
-          publish: true
+        id: upload
+        continue-on-error: true
+        run: |
+          ZIP="forge-job-tools-chrome-v${{ needs.build.outputs.version }}.zip"
+          if [ ! -f "$ZIP" ]; then
+            echo "::error::Chrome zip not found: $ZIP"
+            exit 1
+          fi
+
+          # Get access token
+          TOKEN_RESPONSE=$(curl -s -X POST \
+            -d "client_id=${CHROME_CLIENT_ID}&client_secret=${CHROME_CLIENT_SECRET}&refresh_token=${CHROME_REFRESH_TOKEN}&grant_type=refresh_token" \
+            https://oauth2.googleapis.com/token)
+          ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.access_token')
+
+          if [ "$ACCESS_TOKEN" = "null" ] || [ -z "$ACCESS_TOKEN" ]; then
+            echo "::error::Failed to get access token"
+            echo "$TOKEN_RESPONSE" | jq .
+            exit 1
+          fi
+
+          # Upload
+          UPLOAD_RESPONSE=$(curl -s -X PUT \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "x-goog-api-version: 2" \
+            -T "$ZIP" \
+            "https://www.googleapis.com/upload/chromewebstore/v1.1/items/${CHROME_EXTENSION_ID}")
+
+          UPLOAD_STATUS=$(echo "$UPLOAD_RESPONSE" | jq -r '.uploadState')
+          echo "Upload status: $UPLOAD_STATUS"
+
+          if [ "$UPLOAD_STATUS" = "FAILURE" ]; then
+            ERRORS=$(echo "$UPLOAD_RESPONSE" | jq -r '.itemError[]?.error_detail // empty')
+            if echo "$ERRORS" | grep -qi "already"; then
+              echo "::warning::Version already uploaded to Chrome Web Store — skipping."
+              echo "already_published=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::Chrome upload failed"
+            echo "$UPLOAD_RESPONSE" | jq .
+            exit 1
+          fi
+
+          echo "already_published=false" >> "$GITHUB_OUTPUT"
+
+          # Publish
+          PUBLISH_RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "x-goog-api-version: 2" \
+            -H "Content-Length: 0" \
+            "https://www.googleapis.com/chromewebstore/v1.1/items/${CHROME_EXTENSION_ID}/publish")
+
+          PUBLISH_STATUS=$(echo "$PUBLISH_RESPONSE" | jq -r '.status[0]')
+          echo "Publish status: $PUBLISH_STATUS"
+
+          if [ "$PUBLISH_STATUS" != "OK" ] && [ "$PUBLISH_STATUS" != "PUBLISHED_WITH_FRICTION_WARNING" ]; then
+            # Check if already published
+            if echo "$PUBLISH_RESPONSE" | jq -r '.statusDetail[]' | grep -qi "already"; then
+              echo "::warning::Version already published on Chrome Web Store — skipping."
+              exit 0
+            fi
+            echo "::error::Chrome publish failed"
+            echo "$PUBLISH_RESPONSE" | jq .
+            exit 1
+          fi
+
+          echo "Published to Chrome Web Store"
+
+      - name: Chrome publish result
+        if: steps.upload.outcome == 'failure'
+        run: |
+          echo "::error::Chrome Web Store publish failed. Use workflow_dispatch with skip_chrome=true to retry Firefox only."
+          exit 1
 
   publish-firefox:
-    needs: release
+    needs: [build, release]
     runs-on: ubuntu-latest
     environment: firefox-addons
-    if: startsWith(github.ref, 'refs/tags/v') && !inputs.skip_store_publish
+    if: >-
+      startsWith(github.ref, 'refs/tags/v')
+      && !inputs.skip_firefox
     steps:
       - name: Load Firefox Add-ons credentials
         uses: aRustyDev/load-secrets-action@main
@@ -144,11 +242,42 @@ jobs:
           name: extension-packages
 
       - name: Sign and upload to AMO
+        id: upload
+        continue-on-error: true
         run: |
+          VERSION="${{ needs.build.outputs.version }}"
+          ZIP="forge-job-tools-firefox-v${VERSION}.zip"
+          if [ ! -f "$ZIP" ]; then
+            echo "::error::Firefox zip not found: $ZIP"
+            exit 1
+          fi
+
           mkdir -p /tmp/firefox-ext
-          unzip forge-job-tools-firefox-v*.zip -d /tmp/firefox-ext
-          web-ext sign \
+          unzip "$ZIP" -d /tmp/firefox-ext
+
+          # web-ext sign exits non-zero if version already exists
+          OUTPUT=$(web-ext sign \
             --source-dir /tmp/firefox-ext \
-            --api-key ${{ env.AMO_API_KEY }} \
-            --api-secret ${{ env.AMO_API_SECRET }} \
-            --channel listed
+            --api-key "$AMO_API_KEY" \
+            --api-secret "$AMO_API_SECRET" \
+            --channel listed 2>&1) || true
+
+          echo "$OUTPUT"
+
+          if echo "$OUTPUT" | grep -qi "already exists\|Version already"; then
+            echo "::warning::Version already published on Firefox Add-ons — skipping."
+            exit 0
+          fi
+
+          if echo "$OUTPUT" | grep -qi "error\|failed\|FAIL"; then
+            echo "::error::Firefox AMO publish failed"
+            exit 1
+          fi
+
+          echo "Published to Firefox Add-ons"
+
+      - name: Firefox publish result
+        if: steps.upload.outcome == 'failure'
+        run: |
+          echo "::error::Firefox Add-ons publish failed. Use workflow_dispatch with skip_firefox=true to retry Chrome only."
+          exit 1

@@ -246,11 +246,13 @@ jobs:
         continue-on-error: true
         run: |
           VERSION="${{ needs.build.outputs.version }}"
-          ZIP="forge-job-tools-firefox-v${VERSION}.zip"
-          if [ ! -f "$ZIP" ]; then
-            echo "::error::Firefox zip not found: $ZIP"
+          ZIP=$(find . -name "forge-job-tools-firefox-v${VERSION}.zip" -print -quit)
+          if [ -z "$ZIP" ]; then
+            echo "::error::Firefox zip not found. Contents:"
+            ls -la
             exit 1
           fi
+          echo "Found: $ZIP"
 
           mkdir -p /tmp/firefox-ext
           unzip "$ZIP" -d /tmp/firefox-ext

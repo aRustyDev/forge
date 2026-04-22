@@ -1,5 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test'
 import { createTestDb, seedResume, seedResumeSection, seedResumeTemplate } from '../../db/__tests__/helpers'
+import { buildDefaultElm } from '../../storage/build-elm'
 import { TemplateService } from '../template-service'
 import type { Database } from 'bun:sqlite'
 
@@ -9,14 +10,14 @@ describe('TemplateService', () => {
 
   beforeEach(() => {
     db = createTestDb()
-    service = new TemplateService(db)
+    service = new TemplateService(buildDefaultElm(db))
   })
 
   afterEach(() => db.close())
 
   describe('create', () => {
-    test('creates template with valid sections', () => {
-      const result = service.create({
+    test('creates template with valid sections', async () => {
+      const result = await service.create({
         name: 'My Template',
         sections: [
           { title: 'Summary', entry_type: 'freeform', position: 0 },
@@ -31,8 +32,8 @@ describe('TemplateService', () => {
       }
     })
 
-    test('rejects empty name', () => {
-      const result = service.create({
+    test('rejects empty name', async () => {
+      const result = await service.create({
         name: '',
         sections: [{ title: 'Exp', entry_type: 'experience', position: 0 }],
       })
@@ -40,8 +41,8 @@ describe('TemplateService', () => {
       if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
     })
 
-    test('rejects empty sections array', () => {
-      const result = service.create({
+    test('rejects empty sections array', async () => {
+      const result = await service.create({
         name: 'Empty',
         sections: [],
       })
@@ -49,8 +50,8 @@ describe('TemplateService', () => {
       if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
     })
 
-    test('rejects invalid entry_type', () => {
-      const result = service.create({
+    test('rejects invalid entry_type', async () => {
+      const result = await service.create({
         name: 'Bad Type',
         sections: [{ title: 'Custom', entry_type: 'custom', position: 0 }],
       })
@@ -61,8 +62,8 @@ describe('TemplateService', () => {
       }
     })
 
-    test('rejects summary as entry_type', () => {
-      const result = service.create({
+    test('rejects summary as entry_type', async () => {
+      const result = await service.create({
         name: 'Bad Summary',
         sections: [{ title: 'Summary', entry_type: 'summary', position: 0 }],
       })
@@ -70,8 +71,8 @@ describe('TemplateService', () => {
       if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
     })
 
-    test('rejects section with empty title', () => {
-      const result = service.create({
+    test('rejects section with empty title', async () => {
+      const result = await service.create({
         name: 'Bad Title',
         sections: [{ title: '', entry_type: 'experience', position: 0 }],
       })
@@ -79,8 +80,8 @@ describe('TemplateService', () => {
       if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
     })
 
-    test('normalizes positions to sequential', () => {
-      const result = service.create({
+    test('normalizes positions to sequential', async () => {
+      const result = await service.create({
         name: 'Gap Positions',
         sections: [
           { title: 'A', entry_type: 'freeform', position: 5 },
@@ -94,8 +95,8 @@ describe('TemplateService', () => {
       }
     })
 
-    test('trims name and section titles', () => {
-      const result = service.create({
+    test('trims name and section titles', async () => {
+      const result = await service.create({
         name: '  Trimmed  ',
         sections: [{ title: '  Experience  ', entry_type: 'experience', position: 0 }],
       })
@@ -108,15 +109,15 @@ describe('TemplateService', () => {
   })
 
   describe('delete', () => {
-    test('deletes user template', () => {
+    test('deletes user template', async () => {
       const id = seedResumeTemplate(db, { name: 'Deletable' })
-      const result = service.delete(id)
+      const result = await service.delete(id)
       expect(result.ok).toBe(true)
     })
 
-    test('rejects deleting built-in template', () => {
+    test('rejects deleting built-in template', async () => {
       const id = seedResumeTemplate(db, { name: 'Built-in', isBuiltin: true })
-      const result = service.delete(id)
+      const result = await service.delete(id)
       expect(result.ok).toBe(false)
       if (!result.ok) {
         expect(result.error.code).toBe('VALIDATION_ERROR')
@@ -124,20 +125,20 @@ describe('TemplateService', () => {
       }
     })
 
-    test('returns NOT_FOUND for nonexistent template', () => {
-      const result = service.delete('nonexistent')
+    test('returns NOT_FOUND for nonexistent template', async () => {
+      const result = await service.delete('nonexistent')
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error.code).toBe('NOT_FOUND')
     })
   })
 
   describe('saveAsTemplate', () => {
-    test('creates template from resume sections', () => {
+    test('creates template from resume sections', async () => {
       const resumeId = seedResume(db)
       seedResumeSection(db, resumeId, 'Experience', 'experience', 0)
       seedResumeSection(db, resumeId, 'Skills', 'skills', 1)
 
-      const result = service.saveAsTemplate(resumeId, 'From Resume')
+      const result = await service.saveAsTemplate(resumeId, 'From Resume')
       expect(result.ok).toBe(true)
       if (result.ok) {
         expect(result.data.name).toBe('From Resume')
@@ -148,9 +149,9 @@ describe('TemplateService', () => {
       }
     })
 
-    test('returns VALIDATION_ERROR when resume has no sections', () => {
+    test('returns VALIDATION_ERROR when resume has no sections', async () => {
       const resumeId = seedResume(db)
-      const result = service.saveAsTemplate(resumeId, 'Empty Resume')
+      const result = await service.saveAsTemplate(resumeId, 'Empty Resume')
       expect(result.ok).toBe(false)
       if (!result.ok) {
         expect(result.error.code).toBe('VALIDATION_ERROR')
@@ -158,23 +159,23 @@ describe('TemplateService', () => {
       }
     })
 
-    test('returns VALIDATION_ERROR for empty name', () => {
+    test('returns VALIDATION_ERROR for empty name', async () => {
       const resumeId = seedResume(db)
       seedResumeSection(db, resumeId, 'Exp', 'experience', 0)
-      const result = service.saveAsTemplate(resumeId, '')
+      const result = await service.saveAsTemplate(resumeId, '')
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
     })
 
-    test('saveAsTemplate with nonexistent resumeId returns NOT_FOUND', () => {
-      const result = service.saveAsTemplate('nonexistent-resume-id', 'Ghost Template')
+    test('saveAsTemplate with nonexistent resumeId returns NOT_FOUND', async () => {
+      const result = await service.saveAsTemplate('nonexistent-resume-id', 'Ghost Template')
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error.code).toBe('NOT_FOUND')
     })
   })
 
   describe('createResumeFromTemplate', () => {
-    test('creates resume with sections from template', () => {
+    test('creates resume with sections from template', async () => {
       const templateId = seedResumeTemplate(db, {
         sections: [
           { title: 'Summary', entry_type: 'freeform', position: 0 },
@@ -183,7 +184,7 @@ describe('TemplateService', () => {
         ],
       })
 
-      const result = service.createResumeFromTemplate({
+      const result = await service.createResumeFromTemplate({
         name: 'New Resume',
         target_role: 'Engineer',
         target_employer: 'Acme',
@@ -206,8 +207,8 @@ describe('TemplateService', () => {
       }
     })
 
-    test('returns NOT_FOUND for nonexistent template', () => {
-      const result = service.createResumeFromTemplate({
+    test('returns NOT_FOUND for nonexistent template', async () => {
+      const result = await service.createResumeFromTemplate({
         name: 'Test',
         target_role: 'Engineer',
         target_employer: 'Acme',
@@ -218,9 +219,9 @@ describe('TemplateService', () => {
       if (!result.ok) expect(result.error.code).toBe('NOT_FOUND')
     })
 
-    test('validates resume input', () => {
+    test('validates resume input', async () => {
       const templateId = seedResumeTemplate(db)
-      const result = service.createResumeFromTemplate({
+      const result = await service.createResumeFromTemplate({
         name: '',
         target_role: 'Engineer',
         target_employer: 'Acme',
@@ -231,7 +232,7 @@ describe('TemplateService', () => {
       if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
     })
 
-    test('is atomic -- no orphaned resume on section creation failure', () => {
+    test('is atomic -- no orphaned resume on section creation failure', async () => {
       // This test verifies the transaction wrapping.
       // We can't easily force a section creation failure without mocking,
       // but we verify that the transaction is used by checking that both
@@ -239,7 +240,7 @@ describe('TemplateService', () => {
       const templateId = seedResumeTemplate(db, {
         sections: [{ title: 'Exp', entry_type: 'experience', position: 0 }],
       })
-      const result = service.createResumeFromTemplate({
+      const result = await service.createResumeFromTemplate({
         name: 'Atomic Test',
         target_role: 'Eng',
         target_employer: 'Corp',

@@ -4,34 +4,33 @@
  * Resume export methods delegate to ResumeService/resume-compiler for IR
  * compilation, then use the existing compileToMarkdown/compileToLatex functions.
  *
- * Data export collects entity data from repositories into a DataExportBundle.
+ * Data export collects entity data via EntityLifecycleManager into a
+ * DataExportBundle.
  *
  * Database dump shells out to `sqlite3 <dbPath> .dump`.
+ *
+ * Phase 1.4: uses EntityLifecycleManager
  */
 
 import type { Database } from 'bun:sqlite'
+import type { EntityLifecycleManager } from '../storage/lifecycle-manager'
 import type {
   DataExportBundle,
   ResumeDocument,
   Result,
 } from '../types'
-import { ResumeRepository } from '../db/repositories/resume-repository'
-import { BulletRepository } from '../db/repositories/bullet-repository'
-import { PerspectiveRepository } from '../db/repositories/perspective-repository'
-import * as SourceRepo from '../db/repositories/source-repository'
-import * as SkillRepo from '../db/repositories/skill-repository'
-import * as OrgRepo from '../db/repositories/organization-repository'
 import { compileResumeIR } from './resume-compiler'
 import { compileToLatex } from '../lib/latex-compiler'
 import { compileToMarkdown } from '../lib/markdown-compiler'
 import { sb2nov } from '../templates/sb2nov'
 
 export class ExportService {
-  constructor(private db: Database, private dbPath: string) {}
+  constructor(private db: Database, private dbPath: string, protected readonly elm: EntityLifecycleManager) {}
 
   // ── Resume Export Methods ─────────────────────────────────────────
 
   getJSON(resumeId: string): Result<ResumeDocument> {
+    // compileResumeIR stays sync until Phase 1.4.6 migrates it
     const ir = compileResumeIR(this.db, resumeId)
     if (!ir) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Resume ${resumeId} not found` } }
@@ -39,14 +38,17 @@ export class ExportService {
     return { ok: true, data: ir }
   }
 
-  getMarkdown(resumeId: string): Result<string> {
-    const resume = ResumeRepository.get(this.db, resumeId)
-    if (!resume) {
+  async getMarkdown(resumeId: string): Promise<Result<string>> {
+    const resumeResult = await this.elm.get('resumes', resumeId, {
+      includeLazy: ['markdown_override'],
+    })
+    if (!resumeResult.ok) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Resume ${resumeId} not found` } }
     }
+    const resume = resumeResult.value
 
     if (resume.markdown_override) {
-      return { ok: true, data: resume.markdown_override }
+      return { ok: true, data: resume.markdown_override as string }
     }
 
     const ir = compileResumeIR(this.db, resumeId)
@@ -57,14 +59,17 @@ export class ExportService {
     return { ok: true, data: compileToMarkdown(ir) }
   }
 
-  getLatex(resumeId: string): Result<string> {
-    const resume = ResumeRepository.get(this.db, resumeId)
-    if (!resume) {
+  async getLatex(resumeId: string): Promise<Result<string>> {
+    const resumeResult = await this.elm.get('resumes', resumeId, {
+      includeLazy: ['latex_override'],
+    })
+    if (!resumeResult.ok) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Resume ${resumeId} not found` } }
     }
+    const resume = resumeResult.value
 
     if (resume.latex_override) {
-      return { ok: true, data: resume.latex_override }
+      return { ok: true, data: resume.latex_override as string }
     }
 
     const ir = compileResumeIR(this.db, resumeId)
@@ -77,57 +82,64 @@ export class ExportService {
 
   // ── Data Export ───────────────────────────────────────────────────
 
-  exportData(entities: string[]): Result<DataExportBundle> {
+  /** listAll equivalent: elm.list with large limit, no where clause */
+  private async listAllRows(entityType: string): Promise<unknown[]> {
+    const result = await this.elm.list(entityType, {
+      limit: 100000,
+      orderBy: [{ field: 'created_at', direction: 'desc' }],
+    })
+    return result.ok ? result.value.rows : []
+  }
+
+  async exportData(entities: string[]): Promise<Result<DataExportBundle>> {
     const resolved: string[] = []
     const bundle: DataExportBundle = {
       forge_export: {
         version: '1.0',
         exported_at: new Date().toISOString(),
-        entities: resolved, // populated below; reflects only entities actually included
+        entities: resolved,
       },
     }
 
     for (const entity of entities) {
       switch (entity) {
         case 'sources':
-          bundle.sources = SourceRepo.listAll(this.db)
+          bundle.sources = await this.listAllRows('sources')
           resolved.push(entity)
           break
         case 'bullets':
-          bundle.bullets = BulletRepository.listAll(this.db)
+          bundle.bullets = await this.listAllRows('bullets')
           resolved.push(entity)
           break
         case 'perspectives':
-          bundle.perspectives = PerspectiveRepository.listAll(this.db)
+          bundle.perspectives = await this.listAllRows('perspectives')
           resolved.push(entity)
           break
         case 'skills':
-          bundle.skills = SkillRepo.list(this.db)
+          bundle.skills = await this.listAllRows('skills')
           resolved.push(entity)
           break
         case 'organizations':
-          bundle.organizations = OrgRepo.listAll(this.db)
+          bundle.organizations = await this.listAllRows('organizations')
           resolved.push(entity)
           break
         case 'summaries':
           try {
-            const rows = this.db.query('SELECT * FROM summaries ORDER BY created_at DESC').all()
-            bundle.summaries = rows
+            bundle.summaries = await this.listAllRows('summaries')
             resolved.push(entity)
           } catch {
-            // Table does not exist yet (Spec 2 / Phase 30 not implemented)
+            // Table may not exist
           }
           break
         case 'job_descriptions':
           try {
-            const rows = this.db.query('SELECT * FROM job_descriptions ORDER BY created_at DESC').all()
-            bundle.job_descriptions = rows
+            bundle.job_descriptions = await this.listAllRows('job_descriptions')
             resolved.push(entity)
           } catch {
-            // Table does not exist yet (Spec 4 / Phase 31 not implemented)
+            // Table may not exist
           }
           break
-        // Unknown entity names are silently ignored (no error, just excluded)
+        // Unknown entity names are silently ignored
       }
     }
 

@@ -1,7 +1,9 @@
 import type {
   CreateOrganization,
+  LocationModality,
   Organization,
   OrganizationFilter,
+  OrgLocation,
   PaginatedResult,
   PaginationParams,
   RequestFn,
@@ -9,6 +11,20 @@ import type {
   Result,
   UpdateOrganization,
 } from '../types'
+
+export interface CreateOrgLocation {
+  name: string
+  modality?: LocationModality
+  address_id?: string | null
+  is_headquarters?: boolean
+}
+
+export interface UpdateOrgLocation {
+  name?: string
+  modality?: LocationModality
+  address_id?: string | null
+  is_headquarters?: boolean
+}
 
 function toParams(
   filter?: object,
@@ -58,5 +74,23 @@ export class OrganizationsResource {
 
   delete(id: string): Promise<Result<void>> {
     return this.request<void>('DELETE', `/api/organizations/${id}`)
+  }
+
+  // ── Org Locations (formerly campuses) ─────────────────────────────
+
+  listLocations(orgId: string): Promise<Result<OrgLocation[]>> {
+    return this.request<OrgLocation[]>('GET', `/api/organizations/${orgId}/locations`)
+  }
+
+  createLocation(orgId: string, input: CreateOrgLocation): Promise<Result<OrgLocation>> {
+    return this.request<OrgLocation>('POST', `/api/organizations/${orgId}/locations`, input)
+  }
+
+  updateLocation(locationId: string, input: UpdateOrgLocation): Promise<Result<OrgLocation>> {
+    return this.request<OrgLocation>('PATCH', `/api/locations/${locationId}`, input)
+  }
+
+  deleteLocation(locationId: string): Promise<Result<void>> {
+    return this.request<void>('DELETE', `/api/locations/${locationId}`)
   }
 }

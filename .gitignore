@@ -5,14 +5,20 @@ data/*.db
 data/*.db-*
 data/*.backup*
 
+# Isolated Docker dev database (docker-compose mounts ./data-docker:/data)
+data-docker/
+
 # Environment
 .env
 .env.*
 !.env.example
 
 # Build output
-dist/
+!packages/core/src/storage/adapters/helix/db/dist/
 target/
+
+# Packaging artifacts
+/dist/
 
 # Dependencies
 node_modules/
@@ -51,6 +57,9 @@ CLAUDE.local.md
 # Tool results (large JSON files)
 .claude/projects/*/tool-results/
 
+# Git worktrees (isolated workspaces)
+.claude/worktrees/
+
 # Browser/cache data
 .playwright/
 .playwright-mcp/
@@ -88,12 +97,3 @@ packages/webui/test-results/
 packages/webui/.svelte-kit/
 packages/webui/build/
 telemetry/
-
-# Packaging artifacts
-/dist/
-
-# Git worktrees
-.claude/worktrees/
-
-# Personal data (should never exist in this repo)
-.beads/

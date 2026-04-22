@@ -13,9 +13,9 @@ export function registerListTools(server: McpServer, sdk: ForgeClient): void {
     'forge_list_resumes',
     'List all resumes with pagination. Returns resume summaries (id, name, target_role, target_employer, archetype, created_at, updated_at). Use forge://resume/{id} resource to get full resume with sections and entries.',
     {
-      offset: z.number().int().min(0).default(0)
+      offset: z.coerce.number().int().min(0).default(0)
         .describe('Pagination offset (default 0)'),
-      limit: z.number().int().min(1).max(100).default(20)
+      limit: z.coerce.number().int().min(1).max(100).default(20)
         .describe('Results per page (default 20, max 100)'),
     },
     async (params) => {

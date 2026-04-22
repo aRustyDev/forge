@@ -5,8 +5,6 @@ export interface FeatureFlags {
   jdResumeLinkage: boolean
   /** Phase 62: JD skill extraction SDK methods */
   jdSkillExtraction: boolean
-  /** SDK has reorderEntries method */
-  reorderEntries: boolean
   /** sdk.review resource is available */
   reviewAvailable: boolean
   /** sdk.integrity resource is available */
@@ -33,9 +31,6 @@ export function detectFeatures(sdk: ForgeClient): FeatureFlags {
       typeof (sdk.jobDescriptions as any).addSkill === 'function' &&
       typeof (sdk.jobDescriptions as any).removeSkill === 'function',
 
-    reorderEntries:
-      typeof (sdk.resumes as any).reorderEntries === 'function',
-
     reviewAvailable:
       typeof (sdk as any).review !== 'undefined' &&
       typeof (sdk as any).review?.pending === 'function',
@@ -59,9 +54,6 @@ export function detectFeatures(sdk: ForgeClient): FeatureFlags {
       'forge_extract_jd_skills, forge_tag_jd_skill, forge_untag_jd_skill (Phase 62)',
     )
   }
-  if (!flags.reorderEntries) {
-    flagged.push('forge_reorder_resume_entries (SDK missing reorderEntries — feature-flagged off)')
-  }
   if (!flags.reviewAvailable) {
     flagged.push('forge_review_pending (sdk.review not available)')
   }
@@ -69,7 +61,7 @@ export function detectFeatures(sdk: ForgeClient): FeatureFlags {
     flagged.push('forge_check_drift (sdk.integrity not available)')
   }
   if (!flags.notesAvailable) {
-    flagged.push('forge_create_note, forge_search_notes (sdk.notes not available)')
+    flagged.push('forge_create_note, forge_search_notes, forge_link_note, forge_unlink_note, forge_get_entity_notes (sdk.notes not available)')
   }
 
   if (flagged.length > 0) {

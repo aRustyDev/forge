@@ -3,123 +3,130 @@
  *
  * Returns counts and items in in_review status with
  * relevant context (source title, bullet content).
+ *
+ * Phase 1.4: uses EntityLifecycleManager
  */
 
-import type { Database } from 'bun:sqlite'
+import { storageErrorToForgeError } from '../storage/error-mapper'
+import type { EntityLifecycleManager } from '../storage/lifecycle-manager'
 import type { ReviewQueue, BulletReviewItem, PerspectiveReviewItem, Result } from '../types'
 
-interface BulletReviewRow {
-  id: string
-  content: string
-  source_content_snapshot: string
-  metrics: string | null
-  domain: string | null
-  status: string
-  rejection_reason: string | null
-  prompt_log_id: string | null
-  approved_at: string | null
-  approved_by: string | null
-  notes: string | null
-  created_at: string
-  source_title: string
-}
-
-interface PerspectiveReviewRow {
-  id: string
-  bullet_id: string
-  content: string
-  bullet_content_snapshot: string
-  target_archetype: string | null
-  domain: string | null
-  framing: string
-  status: string
-  rejection_reason: string | null
-  prompt_log_id: string | null
-  approved_at: string | null
-  approved_by: string | null
-  created_at: string
-  bullet_content: string
-  source_title: string
-}
-
 export class ReviewService {
-  constructor(private db: Database) {}
+  constructor(protected readonly elm: EntityLifecycleManager) {}
 
-  getPendingReview(): Result<ReviewQueue> {
-    // Pending bullets with source title via bullet_sources junction
-    const bulletRows = this.db
-      .query(
-        `SELECT b.*, s.title AS source_title
-         FROM bullets b
-         JOIN bullet_sources bs ON b.id = bs.bullet_id AND bs.is_primary = 1
-         JOIN sources s ON bs.source_id = s.id
-         WHERE b.status = 'in_review'
-         ORDER BY b.created_at DESC`,
-      )
-      .all() as BulletReviewRow[]
-
-    const bullets: BulletReviewItem[] = bulletRows.map((row) => ({
-      id: row.id,
-      content: row.content,
-      source_content_snapshot: row.source_content_snapshot,
-      technologies: [],
-      metrics: row.metrics,
-      domain: row.domain,
-      status: row.status as BulletReviewItem['status'],
-      rejection_reason: row.rejection_reason,
-      prompt_log_id: row.prompt_log_id,
-      approved_at: row.approved_at,
-      approved_by: row.approved_by,
-      notes: row.notes,
-      created_at: row.created_at,
-      source_title: row.source_title,
-    }))
-
-    // Hydrate technologies for each bullet.
-    // Phase 89: technologies are now backed by the bullet_skills + skills join.
-    for (const bullet of bullets) {
-      const techRows = this.db
-        .query(
-          `SELECT lower(trim(s.name)) AS technology
-           FROM bullet_skills bs
-           JOIN skills s ON s.id = bs.skill_id
-           WHERE bs.bullet_id = ?
-           ORDER BY technology`,
-        )
-        .all(bullet.id) as Array<{ technology: string }>
-      bullet.technologies = techRows.map((r) => r.technology)
+  async getPendingReview(): Promise<Result<ReviewQueue>> {
+    // Pending bullets via elm.list with status filter
+    const bulletResult = await this.elm.list('bullets', {
+      where: { status: 'in_review' },
+      orderBy: [{ field: 'created_at', direction: 'desc' }],
+      limit: 10000,
+    })
+    if (!bulletResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(bulletResult.error) }
     }
 
-    // Pending perspectives with bullet content and source title via junction
-    const perspectiveRows = this.db
-      .query(
-        `SELECT p.*, b.content AS bullet_content, s.title AS source_title
-         FROM perspectives p
-         JOIN bullets b ON p.bullet_id = b.id
-         JOIN bullet_sources bs ON b.id = bs.bullet_id AND bs.is_primary = 1
-         JOIN sources s ON bs.source_id = s.id
-         WHERE p.status = 'in_review'
-         ORDER BY p.created_at DESC`,
-      )
-      .all() as PerspectiveReviewRow[]
+    const bullets: BulletReviewItem[] = []
+    for (const row of bulletResult.value.rows) {
+      // Get primary source title via bullet_sources junction
+      const bsResult = await this.elm.list('bullet_sources', {
+        where: { bullet_id: row.id as string, is_primary: 1 },
+        limit: 1,
+      })
+      let sourceTitle = ''
+      if (bsResult.ok && bsResult.value.rows.length > 0) {
+        const sourceId = bsResult.value.rows[0].source_id as string
+        const srcResult = await this.elm.get('sources', sourceId)
+        if (srcResult.ok) {
+          sourceTitle = (srcResult.value.title as string) ?? ''
+        }
+      }
 
-    const perspectives: PerspectiveReviewItem[] = perspectiveRows.map((row) => ({
-      id: row.id,
-      bullet_id: row.bullet_id,
-      content: row.content,
-      bullet_content_snapshot: row.bullet_content_snapshot,
-      target_archetype: row.target_archetype,
-      domain: row.domain,
-      framing: row.framing as PerspectiveReviewItem['framing'],
-      status: row.status as PerspectiveReviewItem['status'],
-      rejection_reason: row.rejection_reason,
-      prompt_log_id: row.prompt_log_id,
-      approved_at: row.approved_at,
-      approved_by: row.approved_by,
-      created_at: row.created_at,
-      bullet_content: row.bullet_content,
-      source_title: row.source_title,
-    }))
+      // Hydrate technologies via bullet_skills + skills junction
+      const bskResult = await this.elm.list('bullet_skills', {
+        where: { bullet_id: row.id as string },
+        limit: 10000,
+      })
+      const technologies: string[] = []
+      if (bskResult.ok) {
+        for (const bsk of bskResult.value.rows) {
+          const skillResult = await this.elm.get('skills', bsk.skill_id as string)
+          if (skillResult.ok) {
+            technologies.push((skillResult.value.name as string).toLowerCase().trim())
+          }
+        }
+        technologies.sort()
+      }
+
+      bullets.push({
+        id: row.id as string,
+        content: row.content as string,
+        source_content_snapshot: row.source_content_snapshot as string,
+        technologies,
+        metrics: (row.metrics as string | null) ?? null,
+        domain: (row.domain as string | null) ?? null,
+        status: row.status as BulletReviewItem['status'],
+        rejection_reason: (row.rejection_reason as string | null) ?? null,
+        prompt_log_id: (row.prompt_log_id as string | null) ?? null,
+        approved_at: (row.approved_at as string | null) ?? null,
+        approved_by: (row.approved_by as string | null) ?? null,
+        created_at: row.created_at as string,
+        source_title: sourceTitle,
+      })
+    }
+
+    // Pending perspectives via elm.list with status filter
+    const perspResult = await this.elm.list('perspectives', {
+      where: { status: 'in_review' },
+      orderBy: [{ field: 'created_at', direction: 'desc' }],
+      limit: 10000,
+    })
+    if (!perspResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(perspResult.error) }
+    }
+
+    const perspectives: PerspectiveReviewItem[] = []
+    for (const row of perspResult.value.rows) {
+      // Get bullet content
+      let bulletContent = ''
+      let sourceTitle = ''
+      const bulletId = row.bullet_id as string
+      if (bulletId) {
+        const bulletResult2 = await this.elm.get('bullets', bulletId)
+        if (bulletResult2.ok) {
+          bulletContent = (bulletResult2.value.content as string) ?? ''
+        }
+        // Get primary source title via bullet → bullet_sources → source
+        const bsResult = await this.elm.list('bullet_sources', {
+          where: { bullet_id: bulletId, is_primary: 1 },
+          limit: 1,
+        })
+        if (bsResult.ok && bsResult.value.rows.length > 0) {
+          const sourceId = bsResult.value.rows[0].source_id as string
+          const srcResult = await this.elm.get('sources', sourceId)
+          if (srcResult.ok) {
+            sourceTitle = (srcResult.value.title as string) ?? ''
+          }
+        }
+      }
+
+      perspectives.push({
+        id: row.id as string,
+        bullet_id: bulletId,
+        content: row.content as string,
+        bullet_content_snapshot: row.bullet_content_snapshot as string,
+        target_archetype: (row.target_archetype as string | null) ?? null,
+        domain: (row.domain as string | null) ?? null,
+        framing: row.framing as PerspectiveReviewItem['framing'],
+        status: row.status as PerspectiveReviewItem['status'],
+        rejection_reason: (row.rejection_reason as string | null) ?? null,
+        prompt_log_id: (row.prompt_log_id as string | null) ?? null,
+        approved_at: (row.approved_at as string | null) ?? null,
+        approved_by: (row.approved_by as string | null) ?? null,
+        created_at: row.created_at as string,
+        bullet_content: bulletContent,
+        source_title: sourceTitle,
+      })
+    }
 
     return {
       ok: true,

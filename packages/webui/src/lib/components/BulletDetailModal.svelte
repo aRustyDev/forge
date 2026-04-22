@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { StatusBadge, LoadingSpinner, ConfirmDialog } from '$lib/components'
+  import { StatusBadge, LoadingSpinner, ConfirmDialog, EntityNotes } from '$lib/components'
   import DerivePerspectivesDialog from './DerivePerspectivesDialog.svelte'
   import type { Bullet, Skill, Source, Perspective } from '@forge/sdk'
 
@@ -26,7 +26,6 @@
 
   // Editable fields
   let editContent = $state('')
-  let editNotes = $state('')
   let editDomain = $state<string | null>(null)
 
   // Skill picker
@@ -86,7 +85,6 @@
     if (bulletRes.ok) {
       bullet = bulletRes.data as unknown as Bullet
       editContent = bulletRes.data.content
-      editNotes = (bulletRes.data as any).notes ?? ''
       editDomain = (bulletRes.data as any).domain
     } else {
       addToast({ message: friendlyError(bulletRes.error, 'Failed to load bullet'), type: 'error' })
@@ -111,7 +109,6 @@
 
     const res = await forge.bullets.update(bulletId, {
       content: editContent,
-      notes: editNotes || null,
       domain: editDomain,
     })
 
@@ -406,16 +403,7 @@
         </div>
 
         <!-- Notes -->
-        <div class="field-group">
-          <label class="field-label" for="bullet-notes">Notes</label>
-          <textarea
-            id="bullet-notes"
-            class="field-textarea"
-            bind:value={editNotes}
-            rows="3"
-            placeholder="Add notes..."
-          ></textarea>
-        </div>
+        <EntityNotes entityType="bullet" entityId={bulletId} />
 
         <!-- Perspectives -->
         <div class="field-group">

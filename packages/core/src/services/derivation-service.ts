@@ -10,19 +10,16 @@
  *
  * The AI work (LLM call) is performed by the MCP client between prepare and
  * commit.  This service does NOT invoke any AI CLI directly.
+ *
+ * Phase 1.5: All repository calls replaced with EntityLifecycleManager.
+ * Embedding is handled by entity-map afterCreate hooks on bullets/perspectives.
  */
 
 import type { Database } from 'bun:sqlite'
-import type { Result } from '../types'
-import type { Bullet } from '../db/repositories/bullet-repository'
-import type { Perspective, DerivePerspectiveInput } from '../types'
-import * as SourceRepo from '../db/repositories/source-repository'
-import { BulletRepository } from '../db/repositories/bullet-repository'
-import { PerspectiveRepository } from '../db/repositories/perspective-repository'
-import * as PromptLogRepo from '../db/repositories/prompt-log-repository'
-import * as ArchetypeRepo from '../db/repositories/archetype-repository'
-import * as DomainRepo from '../db/repositories/domain-repository'
-import * as PendingDerivationRepo from '../db/repositories/pending-derivation-repository'
+import { buildDefaultElm } from '../storage/build-elm'
+import { storageErrorToForgeError } from '../storage/error-mapper'
+import type { EntityLifecycleManager } from '../storage/lifecycle-manager'
+import type { Result, Bullet, Perspective, DerivePerspectiveInput } from '../types'
 import {
   renderSourceToBulletPrompt,
   renderBulletToPerspectivePrompt,
@@ -31,7 +28,6 @@ import {
   SOURCE_TO_BULLET_TEMPLATE_VERSION,
   BULLET_TO_PERSPECTIVE_TEMPLATE_VERSION,
 } from '../ai'
-import type { EmbeddingService } from './embedding-service'
 
 // ── Public types ────────────────────────────────────────────────────────────
 
@@ -78,21 +74,7 @@ const PERSPECTIVE_INSTRUCTIONS = `Respond with a JSON object:
 // ── Service ─────────────────────────────────────────────────────────────────
 
 export class DerivationService {
-  private embeddingService: EmbeddingService | null = null
-
-  constructor(private db: Database) {}
-
-  /**
-   * Set the embedding service for fire-and-forget hooks.
-   *
-   * NOTE (I6): Constructor injection would be preferred but requires careful
-   * ordering in createServices(). The setter pattern is used here because
-   * EmbeddingService initialization is async (model loading) and may complete
-   * after createServices(). This avoids circular dependency issues.
-   */
-  setEmbeddingService(svc: EmbeddingService): void {
-    this.embeddingService = svc
-  }
+  constructor(protected readonly elm: EntityLifecycleManager) {}
 
   // ── Bullet derivation ─────────────────────────────────────────────────────
 
@@ -108,10 +90,11 @@ export class DerivationService {
     clientId: string,
   ): Promise<Result<PrepareResult>> {
     // 1. Get source
-    const source = SourceRepo.get(this.db, sourceId)
-    if (!source) {
+    const sourceResult = await this.elm.get('sources', sourceId)
+    if (!sourceResult.ok) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Source ${sourceId} not found` } }
     }
+    const source = sourceResult.value
 
     // 2. Reject archived sources
     if (source.status === 'archived') {
@@ -122,8 +105,12 @@ export class DerivationService {
     }
 
     // 3. Check for existing unexpired lock
-    const existing = PendingDerivationRepo.findUnexpiredByEntity(this.db, 'source', sourceId)
-    if (existing) {
+    const now = new Date().toISOString()
+    const existingResult = await this.elm.list('pending_derivations', {
+      where: { entity_type: 'source', entity_id: sourceId, expires_at: { $gt: now } },
+      limit: 1,
+    })
+    if (existingResult.ok && existingResult.value.rows.length > 0) {
       return {
         ok: false,
         error: { code: 'CONFLICT', message: `Source ${sourceId} is already being derived` },
@@ -131,38 +118,40 @@ export class DerivationService {
     }
 
     // 4. Capture snapshot and render prompt
-    const snapshot = source.description
+    const snapshot = source.description as string
     const prompt = renderSourceToBulletPrompt(snapshot)
     const expiresAt = new Date(Date.now() + LOCK_TIMEOUT_MS).toISOString()
 
-    // 5. Create pending derivation row (exclusive lock via UNIQUE index)
-    let row: ReturnType<typeof PendingDerivationRepo.create>
-    try {
-      row = PendingDerivationRepo.create(this.db, {
-        entity_type: 'source',
-        entity_id: sourceId,
-        client_id: clientId,
-        prompt,
-        snapshot,
-        derivation_params: null,
-        expires_at: expiresAt,
-      })
-    } catch (err: unknown) {
-      // UNIQUE constraint violation — concurrent prepare
-      const msg = err instanceof Error ? err.message : String(err)
+    // 5. Create pending derivation row (UNIQUE INDEX on entity_type+entity_id
+    //    prevents concurrent prepares at the SQL level)
+    const createResult = await this.elm.create('pending_derivations', {
+      entity_type: 'source',
+      entity_id: sourceId,
+      client_id: clientId,
+      prompt,
+      snapshot,
+      derivation_params: null,
+      expires_at: expiresAt,
+    })
+
+    if (!createResult.ok) {
+      // UNIQUE constraint violation — concurrent prepare on same entity.
+      // The entity map doesn't know about the composite UNIQUE INDEX, so
+      // the adapter wraps the SQL error as ADAPTER_ERROR.
+      const msg = createResult.error.message ?? ''
       if (msg.includes('UNIQUE')) {
         return {
           ok: false,
           error: { code: 'CONFLICT', message: `Source ${sourceId} is already being derived` },
         }
       }
-      throw err
+      return { ok: false, error: storageErrorToForgeError(createResult.error) }
     }
 
     return {
       ok: true,
       data: {
-        derivation_id: row.id,
+        derivation_id: createResult.value.id,
         prompt,
         snapshot,
         instructions: BULLET_INSTRUCTIONS,
@@ -174,22 +163,27 @@ export class DerivationService {
   /**
    * Commit a bullet derivation with the LLM response.
    *
-   * Validates the input, writes bullets + prompt log atomically, and deletes
+   * Validates the input, writes bullets + prompt log, and deletes
    * the pending derivation row (releasing the lock).
+   *
+   * Embedding fires automatically via entity-map afterCreate hooks on bullets.
    */
   async commitBulletDerivation(
     derivationId: string,
     input: BulletCommitInput,
   ): Promise<Result<Bullet[]>> {
-    // 1. Look up pending row
-    const pending = PendingDerivationRepo.getById(this.db, derivationId)
-    if (!pending) {
+    // 1. Look up pending row (prompt and snapshot are lazy fields)
+    const pendingResult = await this.elm.get('pending_derivations', derivationId, {
+      includeLazy: ['prompt', 'snapshot'],
+    })
+    if (!pendingResult.ok) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Derivation ${derivationId} not found` } }
     }
+    const pending = pendingResult.value
 
     // 2. Check expiry
-    if (new Date(pending.expires_at) <= new Date()) {
-      PendingDerivationRepo.deleteById(this.db, derivationId)
+    if (new Date(pending.expires_at as string) <= new Date()) {
+      await this.elm.delete('pending_derivations', derivationId)
       return { ok: false, error: { code: 'GONE', message: `Derivation ${derivationId} has expired` } }
     }
 
@@ -207,56 +201,110 @@ export class DerivationService {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: `Validation failed: ${validation.error}` } }
     }
 
-    const sourceId = pending.entity_id
-    const snapshot = pending.snapshot
-    const prompt = pending.prompt
+    const sourceId = pending.entity_id as string
+    const snapshot = pending.snapshot as string
+    const prompt = pending.prompt as string
 
-    // 5. Transaction: write bullets + prompt logs + delete pending row
+    // 5. Sequential writes: create bullets + junctions + prompt logs.
+    //    No transaction wrapper — matches Phase 1.3 pattern. Entity-map
+    //    afterCreate hooks fire embedding for each bullet automatically.
     const bullets: Bullet[] = []
 
-    const txn = this.db.transaction(() => {
-      for (const item of validation.data.bullets) {
-        const bullet = BulletRepository.create(this.db, {
-          content: item.content,
-          source_content_snapshot: snapshot,
-          technologies: item.technologies,
-          metrics: item.metrics,
-          status: 'in_review',
-          source_ids: [{ id: sourceId, is_primary: true }],
-        })
+    // Bulk-load skills once for technology resolution (Phase 1.2 pattern)
+    const skillsResult = await this.elm.list('skills', { limit: 10000 })
+    const byLowerName = new Map<string, string>()
+    if (skillsResult.ok) {
+      for (const s of skillsResult.value.rows) {
+        if (typeof s.name === 'string' && typeof s.id === 'string') {
+          byLowerName.set(s.name.toLowerCase(), s.id)
+        }
+      }
+    }
 
-        PromptLogRepo.create(this.db, {
-          entity_type: 'bullet',
-          entity_id: bullet.id,
-          prompt_template: SOURCE_TO_BULLET_TEMPLATE_VERSION,
-          prompt_input: prompt,
-          raw_response: JSON.stringify(input),
-        })
+    for (const item of validation.data.bullets) {
+      // Create bullet
+      const bulletResult = await this.elm.create('bullets', {
+        content: item.content,
+        source_content_snapshot: snapshot,
+        metrics: item.metrics,
+        status: 'in_review',
+      })
+      if (!bulletResult.ok) {
+        return { ok: false, error: storageErrorToForgeError(bulletResult.error) }
+      }
+      const bulletId = bulletResult.value.id
 
+      // Create bullet_sources junction (primary source link)
+      await this.elm.create('bullet_sources', {
+        bullet_id: bulletId,
+        source_id: sourceId,
+        is_primary: true,
+      })
+
+      // Technology resolution: find-or-create skills + bullet_skills junctions
+      if (item.technologies && item.technologies.length > 0) {
+        const seenInThisCall = new Set<string>()
+        for (const tech of item.technologies) {
+          const normalized = tech.toLowerCase().trim()
+          if (normalized.length === 0) continue
+          if (seenInThisCall.has(normalized)) continue
+          seenInThisCall.add(normalized)
+
+          let skillId = byLowerName.get(normalized)
+          if (!skillId) {
+            const created = await this.elm.create('skills', {
+              name: normalized,
+              category: 'other',
+            })
+            if (created.ok) {
+              skillId = created.value.id
+              byLowerName.set(normalized, skillId)
+            }
+          }
+          if (skillId) {
+            // Idempotent: pre-check composite PK before create
+            const existing = await this.elm.count('bullet_skills', {
+              bullet_id: bulletId,
+              skill_id: skillId,
+            })
+            if (!existing.ok || existing.value === 0) {
+              await this.elm.create('bullet_skills', {
+                bullet_id: bulletId,
+                skill_id: skillId,
+              })
+            }
+          }
+        }
+      }
+
+      // Create prompt log
+      await this.elm.create('prompt_logs', {
+        entity_type: 'bullet',
+        entity_id: bulletId,
+        prompt_template: SOURCE_TO_BULLET_TEMPLATE_VERSION,
+        prompt_input: prompt,
+        raw_response: JSON.stringify(input),
+      })
+
+      // Fetch hydrated bullet for return (technologies added from input
+      // to match historical BulletRepository.create contract)
+      const fetched = await this.elm.get('bullets', bulletId)
+      if (fetched.ok) {
+        const bullet = fetched.value as unknown as Bullet
+        bullet.technologies = item.technologies
         bullets.push(bullet)
       }
+    }
 
-      // Release lock
-      PendingDerivationRepo.deleteById(this.db, derivationId)
+    // 6. Release lock
+    await this.elm.delete('pending_derivations', derivationId)
 
-      // Mark source as derived (update last_derived_at, restore previous status)
-      const source = SourceRepo.get(this.db, sourceId)
-      if (source) {
-        SourceRepo.releaseDerivingLock(this.db, sourceId, source.status as any, true)
-      }
-    })
-
-    txn()
-
-    // 6. Fire-and-forget embedding hooks
-    if (this.embeddingService) {
-      for (const bullet of bullets) {
-        queueMicrotask(() =>
-          this.embeddingService!.onBulletCreated(bullet).catch(err =>
-            console.error(`[DerivationService] Embedding hook failed for bullet ${bullet.id}:`, err)
-          )
-        )
-      }
+    // 7. Mark source as derived (update last_derived_at)
+    const sourceResult = await this.elm.get('sources', sourceId)
+    if (sourceResult.ok) {
+      await this.elm.update('sources', sourceId, {
+        last_derived_at: new Date().toISOString(),
+      })
     }
 
     return { ok: true, data: bullets }
@@ -276,10 +324,11 @@ export class DerivationService {
     clientId: string,
   ): Promise<Result<PrepareResult>> {
     // 1. Get bullet
-    const bullet = BulletRepository.get(this.db, bulletId)
-    if (!bullet) {
+    const bulletResult = await this.elm.get('bullets', bulletId)
+    if (!bulletResult.ok) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Bullet ${bulletId} not found` } }
     }
+    const bullet = bulletResult.value
 
     // 2. Reject archived bullets
     if (bullet.status === 'archived') {
@@ -300,8 +349,11 @@ export class DerivationService {
       }
     }
 
-    // 4. Validate archetype exists
-    const archetypeExists = ArchetypeRepo.getByName(this.db, params.archetype)
+    // 4. Validate archetype exists (case-insensitive lookup on small table)
+    const archetypesResult = await this.elm.list('archetypes', { limit: 1000 })
+    const archetypeExists = archetypesResult.ok && archetypesResult.value.rows.some(
+      (a) => (a.name as string).toLowerCase() === params.archetype.toLowerCase(),
+    )
     if (!archetypeExists) {
       return {
         ok: false,
@@ -312,8 +364,11 @@ export class DerivationService {
       }
     }
 
-    // 5. Validate domain exists
-    const domainExists = DomainRepo.getByName(this.db, params.domain)
+    // 5. Validate domain exists (case-insensitive lookup on small table)
+    const domainsResult = await this.elm.list('domains', { limit: 1000 })
+    const domainExists = domainsResult.ok && domainsResult.value.rows.some(
+      (d) => (d.name as string).toLowerCase() === params.domain.toLowerCase(),
+    )
     if (!domainExists) {
       return {
         ok: false,
@@ -325,8 +380,12 @@ export class DerivationService {
     }
 
     // 6. Check for existing unexpired lock
-    const existing = PendingDerivationRepo.findUnexpiredByEntity(this.db, 'bullet', bulletId)
-    if (existing) {
+    const now = new Date().toISOString()
+    const existingResult = await this.elm.list('pending_derivations', {
+      where: { entity_type: 'bullet', entity_id: bulletId, expires_at: { $gt: now } },
+      limit: 1,
+    })
+    if (existingResult.ok && existingResult.value.rows.length > 0) {
       return {
         ok: false,
         error: { code: 'CONFLICT', message: `Bullet ${bulletId} is already being derived` },
@@ -334,11 +393,11 @@ export class DerivationService {
     }
 
     // 7. Capture snapshot and render prompt
-    const snapshot = bullet.content
+    const snapshot = bullet.content as string
     const prompt = renderBulletToPerspectivePrompt(
       snapshot,
-      bullet.technologies,
-      bullet.metrics,
+      bullet.technologies as string[] ?? [],
+      bullet.metrics as string | null,
       params.archetype,
       params.domain,
       params.framing,
@@ -346,32 +405,31 @@ export class DerivationService {
     const expiresAt = new Date(Date.now() + LOCK_TIMEOUT_MS).toISOString()
 
     // 8. Create pending derivation row
-    let row: ReturnType<typeof PendingDerivationRepo.create>
-    try {
-      row = PendingDerivationRepo.create(this.db, {
-        entity_type: 'bullet',
-        entity_id: bulletId,
-        client_id: clientId,
-        prompt,
-        snapshot,
-        derivation_params: JSON.stringify(params),
-        expires_at: expiresAt,
-      })
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
+    const createResult = await this.elm.create('pending_derivations', {
+      entity_type: 'bullet',
+      entity_id: bulletId,
+      client_id: clientId,
+      prompt,
+      snapshot,
+      derivation_params: JSON.stringify(params),
+      expires_at: expiresAt,
+    })
+
+    if (!createResult.ok) {
+      const msg = createResult.error.message ?? ''
       if (msg.includes('UNIQUE')) {
         return {
           ok: false,
           error: { code: 'CONFLICT', message: `Bullet ${bulletId} is already being derived` },
         }
       }
-      throw err
+      return { ok: false, error: storageErrorToForgeError(createResult.error) }
     }
 
     return {
       ok: true,
       data: {
-        derivation_id: row.id,
+        derivation_id: createResult.value.id,
         prompt,
         snapshot,
         instructions: PERSPECTIVE_INSTRUCTIONS,
@@ -383,22 +441,27 @@ export class DerivationService {
   /**
    * Commit a perspective derivation with the LLM response.
    *
-   * Validates the input, writes the perspective + prompt log atomically, and
+   * Validates the input, writes the perspective + prompt log, and
    * deletes the pending derivation row.
+   *
+   * Embedding fires automatically via entity-map afterCreate hook on perspectives.
    */
   async commitPerspectiveDerivation(
     derivationId: string,
     input: PerspectiveCommitInput,
   ): Promise<Result<Perspective>> {
-    // 1. Look up pending row
-    const pending = PendingDerivationRepo.getById(this.db, derivationId)
-    if (!pending) {
+    // 1. Look up pending row (prompt and snapshot are lazy fields)
+    const pendingResult = await this.elm.get('pending_derivations', derivationId, {
+      includeLazy: ['prompt', 'snapshot'],
+    })
+    if (!pendingResult.ok) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Derivation ${derivationId} not found` } }
     }
+    const pending = pendingResult.value
 
     // 2. Check expiry
-    if (new Date(pending.expires_at) <= new Date()) {
-      PendingDerivationRepo.deleteById(this.db, derivationId)
+    if (new Date(pending.expires_at as string) <= new Date()) {
+      await this.elm.delete('pending_derivations', derivationId)
       return { ok: false, error: { code: 'GONE', message: `Derivation ${derivationId} has expired` } }
     }
 
@@ -416,52 +479,49 @@ export class DerivationService {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: `Validation failed: ${validation.error}` } }
     }
 
-    const bulletId = pending.entity_id
-    const snapshot = pending.snapshot
-    const prompt = pending.prompt
+    const bulletId = pending.entity_id as string
+    const snapshot = pending.snapshot as string
+    const prompt = pending.prompt as string
 
     // Parse derivation params
     const params: DerivePerspectiveInput = pending.derivation_params
-      ? JSON.parse(pending.derivation_params)
+      ? JSON.parse(pending.derivation_params as string)
       : { archetype: null, domain: null, framing: 'accomplishment' }
 
-    // 5. Transaction: write perspective + prompt log + delete pending row
-    let perspective!: Perspective
+    // 5. Sequential writes: create perspective + prompt log + delete lock.
+    //    Entity-map afterCreate hook fires embedding for the perspective.
+    const perspectiveResult = await this.elm.create('perspectives', {
+      bullet_id: bulletId,
+      content: validation.data.content,
+      bullet_content_snapshot: snapshot,
+      target_archetype: params.archetype,
+      domain: params.domain,
+      framing: params.framing,
+      status: 'in_review',
+    })
+    if (!perspectiveResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(perspectiveResult.error) }
+    }
+    const perspectiveId = perspectiveResult.value.id
 
-    const txn = this.db.transaction(() => {
-      perspective = PerspectiveRepository.create(this.db, {
-        bullet_id: bulletId,
-        content: validation.data.content,
-        bullet_content_snapshot: snapshot,
-        target_archetype: params.archetype,
-        domain: params.domain,
-        framing: params.framing,
-        status: 'in_review',
-      })
-
-      PromptLogRepo.create(this.db, {
-        entity_type: 'perspective',
-        entity_id: perspective.id,
-        prompt_template: BULLET_TO_PERSPECTIVE_TEMPLATE_VERSION,
-        prompt_input: prompt,
-        raw_response: JSON.stringify(input),
-      })
-
-      PendingDerivationRepo.deleteById(this.db, derivationId)
+    // Create prompt log
+    await this.elm.create('prompt_logs', {
+      entity_type: 'perspective',
+      entity_id: perspectiveId,
+      prompt_template: BULLET_TO_PERSPECTIVE_TEMPLATE_VERSION,
+      prompt_input: prompt,
+      raw_response: JSON.stringify(input),
     })
 
-    txn()
+    // Release lock
+    await this.elm.delete('pending_derivations', derivationId)
 
-    // 6. Fire-and-forget embedding hook
-    if (this.embeddingService) {
-      queueMicrotask(() =>
-        this.embeddingService!.onPerspectiveCreated(perspective).catch(err =>
-          console.error(`[DerivationService] Embedding hook failed for perspective ${perspective.id}:`, err)
-        )
-      )
+    // Fetch perspective to return full object
+    const fetched = await this.elm.get('perspectives', perspectiveId)
+    if (!fetched.ok) {
+      return { ok: false, error: storageErrorToForgeError(fetched.error) }
     }
-
-    return { ok: true, data: perspective }
+    return { ok: true, data: fetched.value as unknown as Perspective }
   }
 
   // ── Stale lock recovery ───────────────────────────────────────────────────
@@ -472,16 +532,26 @@ export class DerivationService {
    *
    * Returns the number of expired pending_derivations rows deleted.
    */
-  static recoverStaleLocks(db: Database, thresholdMs = 300_000): number {
+  static async recoverStaleLocks(
+    db: Database,
+    thresholdMs = 300_000,
+    elm?: EntityLifecycleManager,
+  ): Promise<number> {
+    const mgr = elm ?? buildDefaultElm(db)
+    const now = new Date().toISOString()
+
     // Delete expired pending_derivations rows
-    const deleted = PendingDerivationRepo.deleteExpired(db)
+    const deleteResult = await mgr.deleteWhere('pending_derivations', {
+      expires_at: { $lte: now },
+    })
+    const deleted = deleteResult.ok ? deleteResult.value : 0
 
     // Also reset sources stuck in legacy 'deriving' status (backward compat)
     const threshold = new Date(Date.now() - thresholdMs).toISOString()
-    db.run(
-      `UPDATE sources SET status = 'draft', updated_at = ?
-       WHERE status = 'deriving' AND updated_at < ?`,
-      [new Date().toISOString(), threshold],
+    await mgr.updateWhere(
+      'sources',
+      { status: 'deriving', updated_at: { $lt: threshold } },
+      { status: 'draft', updated_at: now },
     )
 
     return deleted

@@ -764,6 +764,20 @@ describe('Resource clients', () => {
       )
       expect(calledInit(fetchMock).method).toBe('DELETE')
     })
+
+    it('getNotesForEntity sends GET /api/notes/by-entity/:type/:id', async () => {
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(jsonResponse({ data: [] })),
+      )
+
+      const result = await client.notes.getNotesForEntity('source', 's1')
+
+      expect(calledUrl(fetchMock)).toBe(
+        'http://localhost:3000/api/notes/by-entity/source/s1',
+      )
+      expect(calledInit(fetchMock).method).toBe('GET')
+      expect(result.ok).toBe(true)
+    })
   })
 
   // -----------------------------------------------------------------------

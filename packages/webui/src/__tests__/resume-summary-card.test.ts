@@ -74,9 +74,11 @@ describe('ResumeSummaryCard component', () => {
     expect(content).toMatch(/handlePromoteSave[\s\S]+summary_id:\s*createResult\.data\.id[\s\S]+summary_override:\s*null/)
   })
 
-  test('Promote button only appears when in freeform-only state', () => {
-    // The promote action is gated by is_override && !summary_id
-    expect(content).toMatch(/is_override\s*&&\s*!summary\.summary_id/)
+  test('Promote button appears when override is active (States 3 and 4)', () => {
+    // Promote is available whenever there's an override — both freeform-only
+    // (no summary_id) and overridden template (has summary_id). You might want
+    // to save edited template text as a new reusable template in either case.
+    expect(content).toMatch(/summary\.is_override[\s\S]*Promote to Template/)
     expect(content).toContain('Promote to Template')
   })
 

@@ -3,9 +3,13 @@
  *
  * Handles CRUD validation, built-in protection on delete,
  * save-as-template from existing resumes, and create-resume-from-template.
+ *
+ * Phase 1.7: All repository calls replaced with EntityLifecycleManager.
+ * createResumeFromTemplate uses elm.transaction() for atomicity.
  */
 
-import type { Database } from 'bun:sqlite'
+import { storageErrorToForgeError } from '../storage/error-mapper'
+import type { EntityLifecycleManager } from '../storage/lifecycle-manager'
 import type {
   ResumeTemplate,
   CreateResumeTemplate,
@@ -15,8 +19,6 @@ import type {
   Result,
   CreateResume,
 } from '../types'
-import * as TemplateRepo from '../db/repositories/template-repository'
-import { ResumeRepository } from '../db/repositories/resume-repository'
 
 /** Valid entry_type values from the resume_sections CHECK constraint. */
 const VALID_ENTRY_TYPES = new Set([
@@ -24,38 +26,79 @@ const VALID_ENTRY_TYPES = new Set([
   'clearance', 'presentations', 'certifications', 'awards', 'freeform',
 ])
 
+/** Lazy fields needed for full template reads (sections is lazy json). */
+const TEMPLATE_LAZY = ['sections'] as const
+
+/**
+ * Normalize ELM row to ResumeTemplate type.
+ * - is_builtin: ELM returns boolean, type expects number (0|1)
+ * - sections: ELM deserializes lazy json to object automatically
+ */
+function toTemplate(row: Record<string, unknown>): ResumeTemplate {
+  return {
+    ...row,
+    is_builtin: row.is_builtin === true || row.is_builtin === 1 ? 1 : 0,
+  } as unknown as ResumeTemplate
+}
+
 export class TemplateService {
-  constructor(private db: Database) {}
+  constructor(protected readonly elm: EntityLifecycleManager) {}
 
   // -- CRUD -----------------------------------------------------------------
 
-  list(): Result<ResumeTemplate[]> {
-    return { ok: true, data: TemplateRepo.list(this.db) }
+  async list(): Promise<Result<ResumeTemplate[]>> {
+    const result = await this.elm.list('resume_templates', {
+      orderBy: [
+        { field: 'is_builtin', direction: 'desc' },
+        { field: 'name', direction: 'asc' },
+      ],
+      limit: 10000,
+      includeLazy: [...TEMPLATE_LAZY],
+    })
+    if (!result.ok) {
+      return { ok: false, error: storageErrorToForgeError(result.error) }
+    }
+    return { ok: true, data: result.value.rows.map(toTemplate) }
   }
 
-  get(id: string): Result<ResumeTemplate> {
-    const template = TemplateRepo.get(this.db, id)
-    if (!template) {
+  async get(id: string): Promise<Result<ResumeTemplate>> {
+    const result = await this.elm.get('resume_templates', id, {
+      includeLazy: [...TEMPLATE_LAZY],
+    })
+    if (!result.ok) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Template ${id} not found` } }
     }
-    return { ok: true, data: template }
+    return { ok: true, data: toTemplate(result.value) }
   }
 
-  create(input: CreateResumeTemplate): Result<ResumeTemplate> {
+  async create(input: CreateResumeTemplate): Promise<Result<ResumeTemplate>> {
     const validation = this.validateSections(input.name, input.sections)
     if (!validation.ok) return validation
 
-    const template = TemplateRepo.create(this.db, {
+    const createResult = await this.elm.create('resume_templates', {
       name: input.name.trim(),
-      description: input.description,
+      description: input.description ?? null,
       sections: this.normalizeSections(input.sections),
+      is_builtin: 0,
     })
-    return { ok: true, data: template }
+    if (!createResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(createResult.error) }
+    }
+
+    const fetched = await this.elm.get('resume_templates', createResult.value.id, {
+      includeLazy: [...TEMPLATE_LAZY],
+    })
+    if (!fetched.ok) {
+      return { ok: false, error: storageErrorToForgeError(fetched.error) }
+    }
+    return { ok: true, data: toTemplate(fetched.value) }
   }
 
-  update(id: string, patch: UpdateResumeTemplate): Result<ResumeTemplate> {
-    const existing = TemplateRepo.get(this.db, id)
-    if (!existing) {
+  async update(id: string, patch: UpdateResumeTemplate): Promise<Result<ResumeTemplate>> {
+    const existing = await this.elm.get('resume_templates', id, {
+      includeLazy: [...TEMPLATE_LAZY],
+    })
+    if (!existing.ok) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Template ${id} not found` } }
     }
 
@@ -67,66 +110,89 @@ export class TemplateService {
     // Validate sections if provided
     if (patch.sections !== undefined) {
       const validation = this.validateSections(
-        patch.name ?? existing.name,
+        patch.name ?? existing.value.name as string,
         patch.sections,
       )
       if (!validation.ok) return validation
       patch = { ...patch, sections: this.normalizeSections(patch.sections) }
     }
 
-    const updated = TemplateRepo.update(this.db, id, {
-      ...patch,
-      name: patch.name?.trim(),
+    const updateData: Record<string, unknown> = {}
+    if (patch.name !== undefined) updateData.name = patch.name.trim()
+    if (patch.description !== undefined) updateData.description = patch.description
+    if (patch.sections !== undefined) updateData.sections = patch.sections
+
+    if (Object.keys(updateData).length > 0) {
+      const updateResult = await this.elm.update('resume_templates', id, updateData)
+      if (!updateResult.ok) {
+        return { ok: false, error: storageErrorToForgeError(updateResult.error) }
+      }
+    }
+
+    const fetched = await this.elm.get('resume_templates', id, {
+      includeLazy: [...TEMPLATE_LAZY],
     })
-    if (!updated) {
+    if (!fetched.ok) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Template ${id} not found` } }
     }
-    return { ok: true, data: updated }
+    return { ok: true, data: toTemplate(fetched.value) }
   }
 
-  delete(id: string): Result<void> {
-    const template = TemplateRepo.get(this.db, id)
-    if (!template) {
+  async delete(id: string): Promise<Result<void>> {
+    const templateResult = await this.elm.get('resume_templates', id, {
+      includeLazy: [...TEMPLATE_LAZY],
+    })
+    if (!templateResult.ok) {
       return { ok: false, error: { code: 'NOT_FOUND', message: `Template ${id} not found` } }
     }
 
-    if (template.is_builtin) {
+    const template = templateResult.value
+    if (template.is_builtin === true || template.is_builtin === 1) {
       return {
         ok: false,
         error: { code: 'VALIDATION_ERROR', message: 'Built-in templates cannot be deleted' },
       }
     }
 
-    TemplateRepo.remove(this.db, id)
+    const delResult = await this.elm.delete('resume_templates', id)
+    if (!delResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(delResult.error) }
+    }
     return { ok: true, data: undefined }
   }
 
   // -- Save as Template -----------------------------------------------------
 
-  saveAsTemplate(
+  async saveAsTemplate(
     resumeId: string,
     name: string,
     description?: string,
-  ): Result<ResumeTemplate> {
+  ): Promise<Result<ResumeTemplate>> {
     if (!name || name.trim().length === 0) {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'Name must not be empty' } }
     }
 
-    const resume = ResumeRepository.get(this.db, resumeId)
-    if (!resume) return { ok: false, error: { code: 'NOT_FOUND', message: 'Resume not found' } }
+    const resumeResult = await this.elm.get('resumes', resumeId)
+    if (!resumeResult.ok) {
+      return { ok: false, error: { code: 'NOT_FOUND', message: 'Resume not found' } }
+    }
 
-    const sections = ResumeRepository.listSections(this.db, resumeId)
-    if (sections.length === 0) {
+    const sectionsResult = await this.elm.list('resume_sections', {
+      where: { resume_id: resumeId },
+      orderBy: [{ field: 'position', direction: 'asc' }],
+      limit: 100,
+    })
+    if (!sectionsResult.ok || sectionsResult.value.rows.length === 0) {
       return {
         ok: false,
         error: { code: 'VALIDATION_ERROR', message: 'Resume has no sections' },
       }
     }
 
-    const templateSections: TemplateSectionDef[] = sections.map(s => ({
-      title: s.title,
-      entry_type: s.entry_type,
-      position: s.position,
+    const templateSections: TemplateSectionDef[] = sectionsResult.value.rows.map((s) => ({
+      title: s.title as string,
+      entry_type: s.entry_type as string,
+      position: s.position as number,
     }))
 
     return this.create({ name: name.trim(), description, sections: templateSections })
@@ -137,19 +203,23 @@ export class TemplateService {
   /**
    * Create a resume with sections pre-populated from a template.
    *
-   * Uses db.transaction() for atomicity: if any step fails, the entire
+   * Uses elm.transaction() for atomicity: if any step fails, the entire
    * operation rolls back (no partial data -- no orphaned resume without
    * sections, no orphaned sections without a resume).
    */
-  createResumeFromTemplate(
+  async createResumeFromTemplate(
     input: CreateResume & { template_id: string },
-  ): Result<Resume> {
-    const template = TemplateRepo.get(this.db, input.template_id)
-    if (!template) {
+  ): Promise<Result<Resume>> {
+    // 1. Validate template exists (need sections, which are lazy)
+    const templateResult = await this.elm.get('resume_templates', input.template_id, {
+      includeLazy: [...TEMPLATE_LAZY],
+    })
+    if (!templateResult.ok) {
       return { ok: false, error: { code: 'NOT_FOUND', message: 'Template not found' } }
     }
+    const template = toTemplate(templateResult.value)
 
-    // Validate resume input
+    // 2. Validate resume input
     if (!input.name || input.name.trim().length === 0) {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'Name must not be empty' } }
     }
@@ -163,27 +233,50 @@ export class TemplateService {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'Archetype must not be empty' } }
     }
 
-    const txn = this.db.transaction(() => {
-      const resume = ResumeRepository.create(this.db, {
+    // 3. Atomic write: create resume + sections in transaction.
+    //    tx.create does NOT run applyDefaults — provide id and timestamps
+    //    explicitly. SQL-level defaults would fire for created_at/updated_at
+    //    but explicit is safer.
+    const resumeId = crypto.randomUUID()
+    const now = new Date().toISOString()
+
+    const txnResult = await this.elm.transaction(async (tx) => {
+      await tx.create('resumes', {
+        id: resumeId,
         name: input.name,
         target_role: input.target_role,
         target_employer: input.target_employer,
         archetype: input.archetype,
+        created_at: now,
+        updated_at: now,
       })
 
       for (const section of template.sections) {
-        ResumeRepository.createSection(this.db, resume.id, {
+        await tx.create('resume_sections', {
+          id: crypto.randomUUID(),
+          resume_id: resumeId,
           title: section.title,
           entry_type: section.entry_type,
           position: section.position,
+          created_at: now,
         })
       }
 
-      return resume
+      return resumeId
     })
 
-    const resume = txn()
-    return { ok: true, data: resume }
+    if (!txnResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(txnResult.error) }
+    }
+
+    // 4. Fetch the created resume
+    const fetched = await this.elm.get('resumes', resumeId, {
+      includeLazy: ['header', 'markdown_override', 'latex_override', 'summary_override'],
+    })
+    if (!fetched.ok) {
+      return { ok: false, error: storageErrorToForgeError(fetched.error) }
+    }
+    return { ok: true, data: fetched.value as unknown as Resume }
   }
 
   // -- Private helpers ------------------------------------------------------

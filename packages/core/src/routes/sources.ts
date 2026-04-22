@@ -45,12 +45,12 @@ export function sourceRoutes(services: Services, db: Database) {
       ...(body.project ?? {}),
       ...clearanceFlat,
     }
-    const result = services.sources.createSource(input)
+    const result = await services.sources.createSource(input)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: mapExtension(result.data) }, 201)
   })
 
-  app.get('/sources', (c) => {
+  app.get('/sources', async (c) => {
     const offset = Math.max(0, parseInt(c.req.query('offset') ?? '0', 10) || 0)
     const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') ?? '50', 10) || 50))
     const filter: Record<string, string> = {}
@@ -58,14 +58,15 @@ export function sourceRoutes(services: Services, db: Database) {
     if (c.req.query('organization_id')) filter.organization_id = c.req.query('organization_id')!
     if (c.req.query('status')) filter.status = c.req.query('status')!
     if (c.req.query('education_type')) filter.education_type = c.req.query('education_type')!
+    if (c.req.query('search')) filter.search = c.req.query('search')!
 
-    const result = services.sources.listSources(filter, offset, limit)
+    const result = await services.sources.listSources(filter, offset, limit)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data.map(mapExtension), pagination: result.pagination })
   })
 
-  app.get('/sources/:id', (c) => {
-    const result = services.sources.getSource(c.req.param('id'))
+  app.get('/sources/:id', async (c) => {
+    const result = await services.sources.getSource(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: mapExtension(result.data) })
   })
@@ -92,13 +93,13 @@ export function sourceRoutes(services: Services, db: Database) {
       ...(body.presentation ?? {}),
       ...clearanceFlat,
     }
-    const result = services.sources.updateSource(c.req.param('id'), input)
+    const result = await services.sources.updateSource(c.req.param('id'), input)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: mapExtension(result.data) })
   })
 
-  app.delete('/sources/:id', (c) => {
-    const result = services.sources.deleteSource(c.req.param('id'))
+  app.delete('/sources/:id', async (c) => {
+    const result = await services.sources.deleteSource(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })

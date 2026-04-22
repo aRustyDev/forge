@@ -13,9 +13,9 @@ import {
 describe('buildSkillsTreemapData', () => {
   it('groups skills by category', () => {
     const skills = [
-      { id: '1', name: 'Terraform', category: 'cloud', notes: null },
-      { id: '2', name: 'AWS', category: 'cloud', notes: null },
-      { id: '3', name: 'Python', category: 'languages', notes: null },
+      { id: '1', name: 'Terraform', category: 'cloud' },
+      { id: '2', name: 'AWS', category: 'cloud' },
+      { id: '3', name: 'Python', category: 'languages' },
     ]
     const bullets = [
       { id: 'b1', technologies: ['terraform', 'aws'] },
@@ -28,7 +28,7 @@ describe('buildSkillsTreemapData', () => {
   })
 
   it('sizes skills by bullet technology reference count', () => {
-    const skills = [{ id: '1', name: 'Python', category: 'languages', notes: null }]
+    const skills = [{ id: '1', name: 'Python', category: 'languages' }]
     const bullets = [
       { id: 'b1', technologies: ['python'] },
       { id: 'b2', technologies: ['python'] },
@@ -41,21 +41,21 @@ describe('buildSkillsTreemapData', () => {
   })
 
   it('assigns minimum value of 1 to skills with no references', () => {
-    const skills = [{ id: '1', name: 'Haskell', category: 'languages', notes: null }]
+    const skills = [{ id: '1', name: 'Haskell', category: 'languages' }]
     const data = buildSkillsTreemapData(skills as any, [])
     expect(data[0].children?.[0].value).toBe(1)
   })
 
   it('puts null-category skills under "uncategorized"', () => {
-    const skills = [{ id: '1', name: 'Misc', category: null, notes: null }]
+    const skills = [{ id: '1', name: 'Misc', category: null }]
     const data = buildSkillsTreemapData(skills as any, [])
     expect(data[0].name).toBe('uncategorized')
   })
 
   it('sorts categories and skills by value descending', () => {
     const skills = [
-      { id: '1', name: 'A', category: 'small', notes: null },
-      { id: '2', name: 'B', category: 'big', notes: null },
+      { id: '1', name: 'A', category: 'small' },
+      { id: '2', name: 'B', category: 'big' },
     ]
     const bullets = [
       { id: 'b1', technologies: ['b'] },
@@ -73,8 +73,8 @@ describe('buildSkillsTreemapData', () => {
 
   it('computes category value as sum of children', () => {
     const skills = [
-      { id: '1', name: 'A', category: 'cat', notes: null },
-      { id: '2', name: 'B', category: 'cat', notes: null },
+      { id: '1', name: 'A', category: 'cat' },
+      { id: '2', name: 'B', category: 'cat' },
     ]
     const bullets = [
       { id: 'b1', technologies: ['a'] },

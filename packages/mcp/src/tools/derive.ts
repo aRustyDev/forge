@@ -17,19 +17,22 @@ export function registerDerivationTools(server: McpServer, sdk: ForgeClient): vo
         .describe('Entity type to derive from: "source" produces bullets, "bullet" produces a perspective'),
       entity_id: z.string().uuid()
         .describe('UUID of the source or bullet to derive from'),
-      params: z.object({
-        archetype: z.string().optional().describe('Target archetype slug (e.g., "platform-engineer")'),
-        domain: z.string().optional().describe('Target domain slug (e.g., "infrastructure")'),
-        framing: z.string().optional().describe('Perspective framing: accomplishment, responsibility, or context'),
-      }).optional()
-        .describe('Optional derivation parameters (used for bullet→perspective derivations)'),
+      archetype: z.string().optional()
+        .describe('Target archetype slug (e.g., "platform-engineer"). Required for bullet→perspective.'),
+      domain: z.string().optional()
+        .describe('Target domain slug (e.g., "infrastructure"). Required for bullet→perspective.'),
+      framing: z.string().optional()
+        .describe('Perspective framing: accomplishment, responsibility, or context. Required for bullet→perspective.'),
     },
     async (params) => {
+      const derivParams = (params.archetype || params.domain || params.framing)
+        ? { archetype: params.archetype!, domain: params.domain!, framing: params.framing! }
+        : undefined
       const result = await sdk.derivations.prepare({
         entity_type: params.entity_type,
         entity_id: params.entity_id,
         client_id: 'mcp',
-        params: params.params as { archetype: string; domain: string; framing: string } | undefined,
+        params: derivParams,
       })
       return mapResult(result)
     },

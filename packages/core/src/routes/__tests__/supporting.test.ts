@@ -185,4 +185,49 @@ describe('Supporting Routes (Skills)', () => {
     const getRes = await apiRequest(ctx.app, 'GET', `/skills/${id}`)
     expect(getRes.status).toBe(404)
   })
+
+  // ── Merge ────────────────────────────────────────────────────────
+
+  test('POST /skills/:id/merge merges source into target', async () => {
+    const srcRes = await apiRequest(ctx.app, 'POST', '/skills', { name: 'CI/CD', category: 'methodology' })
+    const srcId = (await srcRes.json()).data.id
+    const tgtRes = await apiRequest(ctx.app, 'POST', '/skills', { name: 'CI/CD Pipelines', category: 'methodology' })
+    const tgtId = (await tgtRes.json()).data.id
+
+    const mergeRes = await apiRequest(ctx.app, 'POST', `/skills/${srcId}/merge`, { target_id: tgtId })
+    expect(mergeRes.status).toBe(200)
+    const body = await mergeRes.json()
+    expect(body.data.id).toBe(tgtId)
+    expect(body.data.name).toBe('CI/CD Pipelines')
+
+    // Source should be deleted
+    const srcGet = await apiRequest(ctx.app, 'GET', `/skills/${srcId}`)
+    expect(srcGet.status).toBe(404)
+  })
+
+  test('POST /skills/:id/merge returns 400 when merging skill into itself', async () => {
+    const res = await apiRequest(ctx.app, 'POST', '/skills', { name: 'SelfMerge', category: 'other' })
+    const id = (await res.json()).data.id
+
+    const mergeRes = await apiRequest(ctx.app, 'POST', `/skills/${id}/merge`, { target_id: id })
+    expect(mergeRes.status).toBe(400)
+  })
+
+  test('POST /skills/:id/merge returns 404 for unknown source', async () => {
+    const tgtRes = await apiRequest(ctx.app, 'POST', '/skills', { name: 'Target', category: 'other' })
+    const tgtId = (await tgtRes.json()).data.id
+
+    const mergeRes = await apiRequest(ctx.app, 'POST', '/skills/00000000-0000-0000-0000-000000000000/merge', {
+      target_id: tgtId,
+    })
+    expect(mergeRes.status).toBe(404)
+  })
+
+  test('POST /skills/:id/merge returns 400 without target_id', async () => {
+    const res = await apiRequest(ctx.app, 'POST', '/skills', { name: 'NoTarget', category: 'other' })
+    const id = (await res.json()).data.id
+
+    const mergeRes = await apiRequest(ctx.app, 'POST', `/skills/${id}/merge`, {})
+    expect(mergeRes.status).toBe(400)
+  })
 })

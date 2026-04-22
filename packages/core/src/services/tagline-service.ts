@@ -35,6 +35,8 @@
  */
 
 import type { Database } from 'bun:sqlite'
+import { buildDefaultElm } from '../storage/build-elm'
+import type { EntityLifecycleManager } from '../storage/lifecycle-manager'
 import type { Skill } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -292,56 +294,66 @@ export interface RegenerateResult {
  * null) if the resume exists but has no JDs linked — in that case the
  * `generated_tagline` column is set to NULL and the caller gets an empty
  * string plus `has_override` reflecting the current override state.
+ *
+ * Phase 1.4: uses EntityLifecycleManager. Optional elm parameter; builds
+ * a default one from db when not provided.
  */
-export function regenerateResumeTagline(
+export async function regenerateResumeTagline(
   db: Database,
   resumeId: string,
   options: GenerateTaglineOptions = {},
-): RegenerateResult | null {
+  elm?: EntityLifecycleManager,
+): Promise<RegenerateResult | null> {
+  const elmi = elm ?? buildDefaultElm(db)
+
   // Sanity check + existing override lookup
-  const resumeRow = db
-    .query(
-      'SELECT id, target_role, tagline_override FROM resumes WHERE id = ?',
-    )
-    .get(resumeId) as { id: string; target_role: string; tagline_override: string | null } | null
+  const resumeResult = await elmi.get('resumes', resumeId)
+  if (!resumeResult.ok) return null
+  const resumeRow = resumeResult.value as Record<string, unknown>
 
-  if (!resumeRow) return null
+  // Fetch raw_text for all linked JDs via the junction table
+  const jdrResult = await elmi.list('job_description_resumes', {
+    where: { resume_id: resumeId },
+    limit: 10000,
+  })
+  const jdTexts: string[] = []
+  if (jdrResult.ok) {
+    for (const jdr of jdrResult.value.rows) {
+      const jdResult = await elmi.get('job_descriptions', jdr.job_description_id as string)
+      if (jdResult.ok) {
+        const rawText = jdResult.value.raw_text as string | null
+        if (rawText && rawText.length > 0) {
+          jdTexts.push(rawText)
+        }
+      }
+    }
+  }
 
-  // Fetch raw_text for all linked JDs
-  const jdRows = db
-    .query(
-      `SELECT jd.raw_text
-       FROM job_description_resumes jdr
-       JOIN job_descriptions jd ON jd.id = jdr.job_description_id
-       WHERE jdr.resume_id = ?`,
-    )
-    .all(resumeId) as Array<{ raw_text: string | null }>
-
-  const jdTexts = jdRows.map((r) => r.raw_text ?? '').filter((t) => t.length > 0)
-
-  // Fetch all skills (used for the match boost)
-  const skillRows = db
-    .query('SELECT id, name, category, notes FROM skills')
-    .all() as Skill[]
+  // Fetch all skills (used for the match boost) — listAll equivalent
+  const skillResult = await elmi.list('skills', {
+    limit: 100000,
+    orderBy: [{ field: 'name', direction: 'asc' }],
+  })
+  const skillRows: Skill[] = skillResult.ok
+    ? (skillResult.value.rows as unknown as Skill[])
+    : []
 
   // Use the resume's target_role as the default prefix if none provided
-  const prefix = options.prefix ?? resumeRow.target_role ?? undefined
+  const targetRole = resumeRow.target_role as string | null
+  const prefix = options.prefix ?? targetRole ?? undefined
   const result = generateTagline(jdTexts, skillRows, { ...options, prefix })
 
   // Persist. Empty taglines are stored as NULL so the compiler's fallback
   // chain (tagline_override ?? generated_tagline ?? header ?? target_role)
   // works correctly when no JDs are linked.
-  db.run(
-    `UPDATE resumes
-     SET generated_tagline = ?,
-         updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-     WHERE id = ?`,
-    [result.tagline || null, resumeId],
-  )
+  await elmi.update('resumes', resumeId, {
+    generated_tagline: result.tagline || null,
+  })
 
+  const taglineOverride = resumeRow.tagline_override as string | null
   return {
     generated_tagline: result.tagline,
-    has_override: !!(resumeRow.tagline_override && resumeRow.tagline_override.trim().length > 0),
+    has_override: !!(taglineOverride && taglineOverride.trim().length > 0),
     keywords: result.keywords,
   }
 }

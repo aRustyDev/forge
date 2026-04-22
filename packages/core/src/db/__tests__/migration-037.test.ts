@@ -397,9 +397,10 @@ describe('Migration 037: qualifications (credentials + certifications)', () => {
 
       const cols = db.query('PRAGMA table_info(user_profile)').all() as Array<{ name: string }>
       const names = cols.map((c) => c.name)
+      // Post-migration 046: location/linkedin/github/website moved to addresses + profile_urls
       for (const required of [
-        'id', 'name', 'email', 'phone', 'location', 'linkedin', 'github',
-        'website', 'salary_minimum', 'salary_target', 'salary_stretch',
+        'id', 'name', 'email', 'phone', 'address_id',
+        'salary_minimum', 'salary_target', 'salary_stretch',
         'created_at', 'updated_at',
       ]) {
         expect(names).toContain(required)

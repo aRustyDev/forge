@@ -12,8 +12,8 @@ import { mapStatusCode } from './server'
 export function profileRoutes(services: Services) {
   const app = new Hono()
 
-  app.get('/profile', (c) => {
-    const result = services.profile.getProfile()
+  app.get('/profile', async (c) => {
+    const result = await services.profile.getProfile()
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
@@ -22,7 +22,7 @@ export function profileRoutes(services: Services) {
   // This is consistent with the existing pattern across all PATCH routes in the codebase.
   app.patch('/profile', async (c) => {
     const body = await c.req.json()
-    const result = services.profile.updateProfile(body)
+    const result = await services.profile.updateProfile(body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })

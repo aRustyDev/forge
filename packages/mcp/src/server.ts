@@ -68,12 +68,12 @@ export function createForgeServer(sdk: ForgeClient, flags: FeatureFlags): McpSer
   registerTier2JDTools(server, sdk, mapResult, flags)        // 1-4 tools (3 feature-flagged)
   registerTier2JDLinkageTools(server, sdk, mapResult, flags) // 0-2 tools (feature-flagged)
   registerTier2MonitoringTools(server, sdk, mapResult, flags) // 0-2 tools (feature-flagged)
-  registerTier2SearchTools(server, sdk, mapResult)           // 3 tools
+  registerTier2SearchTools(server, sdk, mapResult)           // 4 tools
   registerTier2QualificationsTools(server, sdk, mapResult)   // 8 tools
 
   // Tier 3: Refinement (up to 18 tools, some feature-flagged)
   registerTier3UpdateTools(server, sdk, mapResult)           // 5 tools
-  registerTier3AssemblyTools(server, sdk, mapResult, flags)  // 4-5 tools (1 feature-flagged)
+  registerTier3AssemblyTools(server, sdk, mapResult)          // 6 tools
   registerTier3WorkflowTools(server, sdk, mapResult)         // 5 tools
   registerTier3NoteTools(server, sdk, mapResult, flags)      // 0-2 tools (feature-flagged)
   registerTier3BulletTools(server, sdk, mapResult)            // 3 tools

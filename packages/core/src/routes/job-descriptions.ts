@@ -14,13 +14,13 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
 
   app.post('/job-descriptions', async (c) => {
     const body = await c.req.json()
-    const result = services.jobDescriptions.create(body)
+    const result = await services.jobDescriptions.create(body)
     if (!result.ok)
       return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
 
-  app.get('/job-descriptions', (c) => {
+  app.get('/job-descriptions', async (c) => {
     const offset = Math.max(
       0,
       parseInt(c.req.query('offset') ?? '0', 10) || 0,
@@ -34,14 +34,31 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
     if (c.req.query('organization_id'))
       filter.organization_id = c.req.query('organization_id')!
 
-    const result = services.jobDescriptions.list(filter, offset, limit)
+    const result = await services.jobDescriptions.list(filter, offset, limit)
     if (!result.ok)
       return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data, pagination: result.pagination })
   })
 
-  app.get('/job-descriptions/:id', (c) => {
-    const result = services.jobDescriptions.get(c.req.param('id'))
+  // Lookup by URL — must come before :id route
+  app.post('/job-descriptions/lookup-by-url', async (c) => {
+    const body = await c.req.json()
+    const url = body?.url
+    if (!url || typeof url !== 'string' || url.trim().length === 0) {
+      return c.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'URL must be a non-empty string' } },
+        400,
+      )
+    }
+    const result = await services.jobDescriptions.lookupByUrl(url)
+    if (!result.ok) {
+      return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    }
+    return c.json({ data: result.data })
+  })
+
+  app.get('/job-descriptions/:id', async (c) => {
+    const result = await services.jobDescriptions.get(c.req.param('id'))
     if (!result.ok)
       return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
@@ -49,14 +66,14 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
 
   app.patch('/job-descriptions/:id', async (c) => {
     const body = await c.req.json()
-    const result = services.jobDescriptions.update(c.req.param('id'), body)
+    const result = await services.jobDescriptions.update(c.req.param('id'), body)
     if (!result.ok)
       return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/job-descriptions/:id', (c) => {
-    const result = services.jobDescriptions.delete(c.req.param('id'))
+  app.delete('/job-descriptions/:id', async (c) => {
+    const result = await services.jobDescriptions.delete(c.req.param('id'))
     if (!result.ok)
       return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
@@ -126,11 +143,11 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
 
   // ── JD-Resume Linkage ─────────────────────────────────────────────
 
-  app.get('/job-descriptions/:id/resumes', (c) => {
+  app.get('/job-descriptions/:id/resumes', async (c) => {
     const jdId = c.req.param('id')
 
     // Verify JD exists
-    const jd = services.jobDescriptions.get(jdId)
+    const jd = await services.jobDescriptions.get(jdId)
     if (!jd.ok) return c.json({ error: jd.error }, mapStatusCode(jd.error.code))
 
     const rows = db
@@ -161,11 +178,11 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
     }
 
     // Verify JD exists
-    const jd = services.jobDescriptions.get(jdId)
+    const jd = await services.jobDescriptions.get(jdId)
     if (!jd.ok) return c.json({ error: jd.error }, mapStatusCode(jd.error.code))
 
     // Verify resume exists
-    const resume = services.resumes.getResume(resumeId)
+    const resume = await services.resumes.getResume(resumeId)
     if (!resume.ok) {
       return c.json(
         { error: { code: 'NOT_FOUND', message: `Resume ${resumeId} not found` } },
@@ -184,7 +201,7 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
     // Phase 92: regenerate the resume's tagline from all linked JDs. We do
     // this for both new links and re-links (200 path) so the caller can
     // see the current tagline in the response.
-    const tagline = regenerateResumeTagline(db, resumeId)
+    const tagline = await regenerateResumeTagline(db, resumeId)
 
     // Fetch the link data (whether just created or already existed)
     const link = db
@@ -204,7 +221,7 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
     return c.json({ data: link, tagline }, status as any)
   })
 
-  app.delete('/job-descriptions/:jdId/resumes/:resumeId', (c) => {
+  app.delete('/job-descriptions/:jdId/resumes/:resumeId', async (c) => {
     const { jdId, resumeId } = c.req.param()
 
     db.run(
@@ -216,14 +233,14 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
     // If none remain, the tagline is cleared to null.
     // The DELETE contract remains 204 — clients refetch the resume to see
     // the updated generated_tagline.
-    regenerateResumeTagline(db, resumeId)
+    await regenerateResumeTagline(db, resumeId)
 
     return c.body(null, 204)
   })
 
   // ── Contact reverse lookup ──────────────────────────────────────────
-  app.get('/job-descriptions/:id/contacts', (c) => {
-    const result = services.contacts.listByJobDescription(c.req.param('id'))
+  app.get('/job-descriptions/:id/contacts', async (c) => {
+    const result = await services.contacts.listByJobDescription(c.req.param('id'))
     if (!result.ok)
       return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
@@ -238,7 +255,7 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
     const { id } = c.req.param()
 
     // 1. Fetch the JD
-    const jdResult = services.jobDescriptions.get(id)
+    const jdResult = await services.jobDescriptions.get(id)
     if (!jdResult.ok) {
       return c.json({ error: jdResult.error }, mapStatusCode(jdResult.error.code))
     }
@@ -276,7 +293,7 @@ export function jobDescriptionRoutes(services: Services, db: Database) {
     matchedCategories.add('soft_skill')
 
     let existingSkills: Array<{ id: string; name: string; category: string }> = []
-    const allSkills = services.skills.list()
+    const allSkills = await services.skills.list()
     if (allSkills.ok) {
       existingSkills = allSkills.data
         .filter(s => s.category && matchedCategories.has(s.category))

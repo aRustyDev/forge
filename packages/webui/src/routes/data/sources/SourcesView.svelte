@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog, SplitPanel, ListPanelHeader, EmptyPanel } from '$lib/components'
+  import { StatusBadge, LoadingSpinner, EmptyState, ConfirmDialog, SplitPanel, ListPanelHeader, EmptyPanel, EntityNotes } from '$lib/components'
   import OrgCombobox from '$lib/components/OrgCombobox.svelte'
   import ViewToggle from '$lib/components/ViewToggle.svelte'
   import GenericKanban from '$lib/components/kanban/GenericKanban.svelte'
@@ -84,8 +84,6 @@
   let formTitle = $state('')
   let formDescription = $state('')
   let formSourceType = $state<string>('general')
-  let formNotes = $state('')
-
   // Role extension fields
   let formOrgId = $state<string | null>(null)
   let formStartDate = $state('')
@@ -294,7 +292,6 @@
     formTitle = source.title
     formDescription = source.description
     formSourceType = source.source_type
-    formNotes = source.notes ?? ''
     // Reset all extension fields
     formOrgId = null
     formStartDate = ''
@@ -375,7 +372,6 @@
     formTitle = ''
     formDescription = ''
     formSourceType = 'general'
-    formNotes = ''
     formOrgId = null
     formStartDate = ''
     formEndDate = ''
@@ -429,7 +425,6 @@
     const basePayload: Record<string, unknown> = {
       title: formTitle.trim(),
       description: formDescription.trim(),
-      notes: formNotes || undefined,
     }
 
     // Build extension payload based on source_type
@@ -1114,11 +1109,7 @@
         {/if}
 
         <!-- Notes (all types) -->
-        <div class="form-group">
-          <label for="source-notes">Notes</label>
-          <textarea id="source-notes" bind:value={formNotes} rows="3"
-                    placeholder="Internal notes about this source..."></textarea>
-        </div>
+        <EntityNotes entityType="source" entityId={selectedSource?.id} />
 
         <div class="editor-actions">
           <button

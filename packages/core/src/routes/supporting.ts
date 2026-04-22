@@ -15,47 +15,58 @@ export function supportingRoutes(services: Services, _db?: Database) {
   const app = new Hono()
 
   app.post('/skills', async (c) => {
-    const body = await c.req.json<{ name: string; category?: string; notes?: string | null }>()
-    const result = services.skills.create(body)
+    const body = await c.req.json<{ name: string; category?: string }>()
+    const result = await services.skills.create(body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
 
-  app.get('/skills', (c) => {
-    const filter: { category?: string; domain_id?: string } = {}
+  app.get('/skills', async (c) => {
+    const filter: { category?: string; domain_id?: string; search?: string } = {}
     if (c.req.query('category')) filter.category = c.req.query('category')!
     if (c.req.query('domain_id')) filter.domain_id = c.req.query('domain_id')!
-    const result = services.skills.list(filter)
+    if (c.req.query('search')) filter.search = c.req.query('search')!
+    const result = await services.skills.list(filter)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.get('/skills/:id', (c) => {
+  app.get('/skills/:id', async (c) => {
     const includeDomains = c.req.query('include') === 'domains'
     const result = includeDomains
-      ? services.skills.getWithDomains(c.req.param('id'))
-      : services.skills.get(c.req.param('id'))
+      ? await services.skills.getWithDomains(c.req.param('id'))
+      : await services.skills.get(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   app.patch('/skills/:id', async (c) => {
-    const body = await c.req.json<{ name?: string; category?: string; notes?: string | null }>()
-    const result = services.skills.update(c.req.param('id'), body)
+    const body = await c.req.json<{ name?: string; category?: string }>()
+    const result = await services.skills.update(c.req.param('id'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/skills/:id', (c) => {
-    const result = services.skills.delete(c.req.param('id'))
+  app.delete('/skills/:id', async (c) => {
+    const result = await services.skills.delete(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 
+  app.post('/skills/:id/merge', async (c) => {
+    const body = await c.req.json<{ target_id: string }>()
+    if (!body.target_id) {
+      return c.json({ error: { code: 'VALIDATION_ERROR', message: 'target_id is required' } }, 400)
+    }
+    const result = await services.skills.merge(c.req.param('id'), body.target_id)
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.json({ data: result.data })
+  })
+
   // ── Skill ↔ Domain junction ─────────────────────────────────────────
 
-  app.get('/skills/:id/domains', (c) => {
-    const result = services.skills.getDomains(c.req.param('id'))
+  app.get('/skills/:id/domains', async (c) => {
+    const result = await services.skills.getDomains(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
@@ -65,13 +76,13 @@ export function supportingRoutes(services: Services, _db?: Database) {
     if (!body.domain_id) {
       return c.json({ error: { code: 'VALIDATION_ERROR', message: 'domain_id is required' } }, 400)
     }
-    const result = services.skills.addDomain(c.req.param('id'), body.domain_id)
+    const result = await services.skills.addDomain(c.req.param('id'), body.domain_id)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 
-  app.delete('/skills/:id/domains/:domainId', (c) => {
-    const result = services.skills.removeDomain(c.req.param('id'), c.req.param('domainId'))
+  app.delete('/skills/:id/domains/:domainId', async (c) => {
+    const result = await services.skills.removeDomain(c.req.param('id'), c.req.param('domainId'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })

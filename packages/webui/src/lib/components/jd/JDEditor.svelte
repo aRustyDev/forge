@@ -5,7 +5,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { ConfirmDialog } from '$lib/components'
+  import { ConfirmDialog, EntityNotes } from '$lib/components'
   import JDSkillPicker from './JDSkillPicker.svelte'
   import JDSkillExtraction from './JDSkillExtraction.svelte'
   import JDLinkedResumes from './JDLinkedResumes.svelte'
@@ -39,7 +39,6 @@
   let salaryMax = $state<number | null>(null)
   let url = $state('')
   let rawText = $state('')
-  let notes = $state('')
 
   let jdSkills = $state<Skill[]>([])
   let saving = $state(false)
@@ -56,8 +55,7 @@
       salaryMin !== (jd.salary_min ?? null) ||
       salaryMax !== (jd.salary_max ?? null) ||
       url !== (jd.url ?? '') ||
-      rawText !== jd.raw_text ||
-      notes !== (jd.notes ?? '')
+      rawText !== jd.raw_text
     )
   })
 
@@ -73,7 +71,6 @@
       salaryMax = jd.salary_max ?? null
       url = jd.url ?? ''
       rawText = jd.raw_text
-      notes = jd.notes ?? ''
       loadSkills(jd.id)
     } else if (createMode) {
       title = ''
@@ -85,7 +82,6 @@
       salaryMax = null
       url = ''
       rawText = ''
-      notes = ''
       jdSkills = []
     }
   })
@@ -135,7 +131,6 @@
       salary_max: salaryMax ?? null,
       url: url.trim() || null,
       raw_text: rawText.trim(),
-      notes: notes.trim() || null,
     }
 
     if (createMode) {
@@ -272,10 +267,7 @@
     </div>
   {/if}
 
-  <div class="field">
-    <label for="jd-notes">Notes</label>
-    <textarea id="jd-notes" bind:value={notes} placeholder="Your private notes..." rows="4"></textarea>
-  </div>
+  <EntityNotes entityType="job_description" entityId={jd?.id} />
 
   <div class="actions">
     <button

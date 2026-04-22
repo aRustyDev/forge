@@ -52,21 +52,30 @@ export function registerAssemblyTools(server: McpServer, sdk: ForgeClient): void
   registerTool(
     server,
     'forge_add_resume_entry',
-    'Add an approved perspective to a resume section. Only approved perspectives can be added. Get section IDs from the forge://resume/{id} resource. After adding, re-read the resume resource to see the updated state.',
+    'Add an entry to a resume section. Provide EITHER perspective_id (for experience/project bullets — must be approved) OR source_id (for education entries, clearances, and other source-only records). Get section IDs from the forge://resume/{id} resource.',
     {
       resume_id: z.string().uuid()
         .describe('Resume UUID'),
       section_id: z.string().uuid()
         .describe('Section UUID (FK to resume_sections). Get from forge://resume/{id} resource.'),
-      perspective_id: z.string().uuid()
-        .describe('Perspective UUID (must have status "approved")'),
+      perspective_id: z.string().uuid().optional()
+        .describe('Perspective UUID (must have status "approved"). Use for experience/project entries.'),
+      source_id: z.string().uuid().optional()
+        .describe('Source UUID. Use for education, clearance, and other entries without perspectives.'),
       position: z.number().int().min(0).optional()
         .describe('Position within the section (0-indexed). Omit to append at end.'),
     },
     async (params) => {
+      if (!params.perspective_id && !params.source_id) {
+        return {
+          content: [{ type: 'text' as const, text: 'Validation failed: provide either perspective_id or source_id' }],
+          isError: true,
+        }
+      }
       const result = await sdk.resumes.addEntry(params.resume_id, {
         section_id: params.section_id,
         perspective_id: params.perspective_id,
+        source_id: params.source_id,
         position: params.position,
       })
       return mapResult(result)
@@ -90,7 +99,6 @@ export function registerAssemblyTools(server: McpServer, sdk: ForgeClient): void
         'education',
         'projects',
         'certifications',
-        'clearance',
         'presentations',
         'awards',
         'freeform',

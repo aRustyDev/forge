@@ -322,13 +322,12 @@ export function seedJobDescription(
     status?: string
     salaryRange?: string | null
     location?: string | null
-    notes?: string | null
   } = {},
 ): string {
   const id = testUuid()
   db.run(
-    `INSERT INTO job_descriptions (id, organization_id, title, url, raw_text, status, salary_range, location, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO job_descriptions (id, organization_id, title, url, raw_text, status, salary_range, location)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       opts.organizationId ?? null,
@@ -338,37 +337,44 @@ export function seedJobDescription(
       opts.status ?? 'discovered',
       opts.salaryRange ?? null,
       opts.location ?? null,
-      opts.notes ?? null,
     ],
   )
   return id
 }
 
-/** Seed a test user profile and return its ID */
+/** Seed a test user profile and return its ID.
+ *
+ * After migration 046, user_profile no longer has location/linkedin/github/website.
+ * Location is via address_id → addresses table; URLs are in profile_urls table.
+ */
 export function seedProfile(db: Database, opts: {
   name?: string
   email?: string | null
   phone?: string | null
-  location?: string | null
-  linkedin?: string | null
-  github?: string | null
-  website?: string | null
+  addressName?: string | null
 } = {}): string {
   const id = testUuid()
   // Delete any existing profile (single-row table)
   db.run('DELETE FROM user_profile')
+
+  let addressId: string | null = null
+  if (opts.addressName) {
+    addressId = testUuid()
+    db.run(
+      `INSERT INTO addresses (id, name, country_code) VALUES (?, ?, 'US')`,
+      [addressId, opts.addressName],
+    )
+  }
+
   db.run(
-    `INSERT INTO user_profile (id, name, email, phone, location, linkedin, github, website)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO user_profile (id, name, email, phone, address_id)
+     VALUES (?, ?, ?, ?, ?)`,
     [
       id,
       opts.name ?? 'Test User',
       opts.email ?? null,
       opts.phone ?? null,
-      opts.location ?? null,
-      opts.linkedin ?? null,
-      opts.github ?? null,
-      opts.website ?? null,
+      addressId,
     ]
   )
   return id

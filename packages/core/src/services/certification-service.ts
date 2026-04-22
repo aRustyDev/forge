@@ -1,21 +1,25 @@
 /**
- * CertificationService — business logic + validation over
- * CertificationRepository.
+ * CertificationService — business logic + validation over the integrity
+ * layer for certification entities.
  *
- * Introduced by Phase 85 T85.5 as part of the Qualifications track.
- * Updated by migration 041 (cert schema rework):
- *   - `name` → `short_name` + `long_name` (both required on create)
- *   - `issuer` (text) → `issuer_id` (org FK)
- *   - `education_source_id` dropped
- *   - Added `cert_id`, `credly_url`, `in_progress`
+ * Phase 1.2: uses EntityLifecycleManager instead of CertificationRepository.
  *
  * Responsibilities:
  *   - Validate required `short_name`/`long_name` fields (non-empty)
  *   - Validate `skill_id` on addSkill references an existing skill
- *   - Map repository results into the standard Result<T> envelope
+ *     (kept in the service so the historical "Skill X not found"
+ *     wording survives)
+ *   - Hydrate `certification_skills` into the `skills` array for
+ *     getWithSkills / listWithSkills (the ELM has no join)
+ *
+ * Unlike credentials, the `in_progress` boolean round-trips cleanly: the
+ * Certification type already declares `in_progress: boolean` and the
+ * entity map declares `boolean: true`, so the ELM's deserialization
+ * matches the type directly without conversion shims.
  */
 
-import type { Database } from 'bun:sqlite'
+import { storageErrorToForgeError } from '../storage/error-mapper'
+import type { EntityLifecycleManager } from '../storage/lifecycle-manager'
 import type {
   Certification,
   CertificationWithSkills,
@@ -24,12 +28,11 @@ import type {
   Skill,
   Result,
 } from '../types'
-import * as CertificationRepo from '../db/repositories/certification-repository'
 
 export class CertificationService {
-  constructor(private db: Database) {}
+  constructor(protected readonly elm: EntityLifecycleManager) {}
 
-  create(input: CreateCertification): Result<Certification> {
+  async create(input: CreateCertification): Promise<Result<Certification>> {
     if (!input.short_name || input.short_name.trim().length === 0) {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'short_name is required' } }
     }
@@ -37,116 +40,212 @@ export class CertificationService {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'long_name is required' } }
     }
 
-    const cert = CertificationRepo.create(this.db, {
-      ...input,
+    const createResult = await this.elm.create('certifications', {
       short_name: input.short_name.trim(),
       long_name: input.long_name.trim(),
+      cert_id: input.cert_id ?? null,
+      issuer_id: input.issuer_id ?? null,
+      date_earned: input.date_earned ?? null,
+      expiry_date: input.expiry_date ?? null,
+      credential_id: input.credential_id ?? null,
+      credential_url: input.credential_url ?? null,
+      credly_url: input.credly_url ?? null,
+      in_progress: input.in_progress ?? false,
     })
-    return { ok: true, data: cert }
-  }
-
-  get(id: string): Result<Certification> {
-    const cert = CertificationRepo.findById(this.db, id)
-    if (!cert) {
-      return { ok: false, error: { code: 'NOT_FOUND', message: `Certification ${id} not found` } }
+    if (!createResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(createResult.error) }
     }
-    return { ok: true, data: cert }
+    return this.fetchCert(createResult.value.id)
   }
 
-  getWithSkills(id: string): Result<CertificationWithSkills> {
-    const cert = CertificationRepo.findByIdWithSkills(this.db, id)
-    if (!cert) {
-      return { ok: false, error: { code: 'NOT_FOUND', message: `Certification ${id} not found` } }
+  async get(id: string): Promise<Result<Certification>> {
+    return this.fetchCert(id)
+  }
+
+  async getWithSkills(id: string): Promise<Result<CertificationWithSkills>> {
+    const certResult = await this.fetchCert(id)
+    if (!certResult.ok) return certResult
+    const skills = await this.fetchSkillsFor(id)
+    return { ok: true, data: { ...certResult.data, skills } }
+  }
+
+  async list(): Promise<Result<Certification[]>> {
+    const listResult = await this.elm.list('certifications', {
+      orderBy: [{ field: 'short_name', direction: 'asc' }],
+      limit: 10000,
+    })
+    if (!listResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(listResult.error) }
     }
-    return { ok: true, data: cert }
+    return {
+      ok: true,
+      data: listResult.value.rows as unknown as Certification[],
+    }
   }
 
-  list(): Result<Certification[]> {
-    return { ok: true, data: CertificationRepo.findAll(this.db) }
+  async listWithSkills(): Promise<Result<CertificationWithSkills[]>> {
+    const listResult = await this.elm.list('certifications', {
+      orderBy: [{ field: 'short_name', direction: 'asc' }],
+      limit: 10000,
+    })
+    if (!listResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(listResult.error) }
+    }
+
+    const hydrated: CertificationWithSkills[] = []
+    for (const row of listResult.value.rows) {
+      const cert = row as unknown as Certification
+      const skills = await this.fetchSkillsFor(cert.id)
+      hydrated.push({ ...cert, skills })
+    }
+    return { ok: true, data: hydrated }
   }
 
-  listWithSkills(): Result<CertificationWithSkills[]> {
-    return { ok: true, data: CertificationRepo.findAllWithSkills(this.db) }
-  }
-
-  update(id: string, input: UpdateCertification): Result<Certification> {
+  async update(id: string, input: UpdateCertification): Promise<Result<Certification>> {
     if (input.short_name !== undefined && input.short_name.trim().length === 0) {
-      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'short_name must not be empty' } }
+      return {
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'short_name must not be empty' },
+      }
     }
     if (input.long_name !== undefined && input.long_name.trim().length === 0) {
-      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'long_name must not be empty' } }
+      return {
+        ok: false,
+        error: { code: 'VALIDATION_ERROR', message: 'long_name must not be empty' },
+      }
     }
 
-    const updated = CertificationRepo.update(this.db, id, {
-      ...input,
-      ...(input.short_name !== undefined ? { short_name: input.short_name.trim() } : {}),
-      ...(input.long_name !== undefined ? { long_name: input.long_name.trim() } : {}),
-    })
-    if (!updated) {
-      return { ok: false, error: { code: 'NOT_FOUND', message: `Certification ${id} not found` } }
+    const patch: Record<string, unknown> = {}
+    if (input.short_name !== undefined) patch.short_name = input.short_name.trim()
+    if (input.long_name !== undefined) patch.long_name = input.long_name.trim()
+    if (input.cert_id !== undefined) patch.cert_id = input.cert_id
+    if (input.issuer_id !== undefined) patch.issuer_id = input.issuer_id
+    if (input.date_earned !== undefined) patch.date_earned = input.date_earned
+    if (input.expiry_date !== undefined) patch.expiry_date = input.expiry_date
+    if (input.credential_id !== undefined) patch.credential_id = input.credential_id
+    if (input.credential_url !== undefined) patch.credential_url = input.credential_url
+    if (input.credly_url !== undefined) patch.credly_url = input.credly_url
+    if (input.in_progress !== undefined) patch.in_progress = input.in_progress
+
+    const updateResult = await this.elm.update('certifications', id, patch)
+    if (!updateResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(updateResult.error) }
     }
-    return { ok: true, data: updated }
+    return this.fetchCert(id)
   }
 
-  delete(id: string): Result<void> {
-    const existing = CertificationRepo.findById(this.db, id)
-    if (!existing) {
-      return { ok: false, error: { code: 'NOT_FOUND', message: `Certification ${id} not found` } }
+  async delete(id: string): Promise<Result<void>> {
+    const delResult = await this.elm.delete('certifications', id)
+    if (!delResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(delResult.error) }
     }
-    CertificationRepo.del(this.db, id)
     return { ok: true, data: undefined }
   }
 
   // ── Skill junction ──────────────────────────────────────────────
 
-  addSkill(certId: string, skillId: string): Result<void> {
+  async addSkill(certId: string, skillId: string): Promise<Result<void>> {
     // Verify the certification exists
-    const cert = CertificationRepo.findById(this.db, certId)
-    if (!cert) {
+    const certResult = await this.elm.get('certifications', certId)
+    if (!certResult.ok) {
       return {
         ok: false,
         error: { code: 'NOT_FOUND', message: `Certification ${certId} not found` },
       }
     }
 
-    // Verify the skill exists
-    const skill = this.db
-      .query('SELECT id FROM skills WHERE id = ?')
-      .get(skillId) as { id: string } | null
-    if (!skill) {
+    // Verify the skill exists (historical test wording)
+    const skillResult = await this.elm.get('skills', skillId)
+    if (!skillResult.ok) {
       return {
         ok: false,
         error: { code: 'NOT_FOUND', message: `Skill ${skillId} not found` },
       }
     }
 
-    CertificationRepo.addSkill(this.db, certId, skillId)
+    // Idempotent add: pre-check existing pair.
+    const existing = await this.elm.count('certification_skills', {
+      certification_id: certId,
+      skill_id: skillId,
+    })
+    if (existing.ok && existing.value > 0) {
+      return { ok: true, data: undefined }
+    }
+
+    const createResult = await this.elm.create('certification_skills', {
+      certification_id: certId,
+      skill_id: skillId,
+    })
+    if (!createResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(createResult.error) }
+    }
     return { ok: true, data: undefined }
   }
 
-  removeSkill(certId: string, skillId: string): Result<void> {
-    // Verify the certification exists (idempotent removal doesn't need
-    // the skill to exist, but the cert should at least).
-    const cert = CertificationRepo.findById(this.db, certId)
-    if (!cert) {
+  async removeSkill(certId: string, skillId: string): Promise<Result<void>> {
+    // Verify the certification exists (the old semantics required the
+    // cert to exist even though the removal itself is idempotent).
+    const certResult = await this.elm.get('certifications', certId)
+    if (!certResult.ok) {
       return {
         ok: false,
         error: { code: 'NOT_FOUND', message: `Certification ${certId} not found` },
       }
     }
 
-    CertificationRepo.removeSkill(this.db, certId, skillId)
+    const delResult = await this.elm.deleteWhere('certification_skills', {
+      certification_id: certId,
+      skill_id: skillId,
+    })
+    if (!delResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(delResult.error) }
+    }
     return { ok: true, data: undefined }
   }
 
-  getSkills(certId: string): Result<Skill[]> {
-    const cert = CertificationRepo.findById(this.db, certId)
-    if (!cert) {
+  async getSkills(certId: string): Promise<Result<Skill[]>> {
+    const certResult = await this.elm.get('certifications', certId)
+    if (!certResult.ok) {
       return {
         ok: false,
         error: { code: 'NOT_FOUND', message: `Certification ${certId} not found` },
       }
     }
-    return { ok: true, data: CertificationRepo.getSkills(this.db, certId) }
+    const skills = await this.fetchSkillsFor(certId)
+    return { ok: true, data: skills }
+  }
+
+  // ── Internal helpers ─────────────────────────────────────────────
+
+  private async fetchCert(id: string): Promise<Result<Certification>> {
+    const result = await this.elm.get('certifications', id)
+    if (!result.ok) {
+      return { ok: false, error: storageErrorToForgeError(result.error) }
+    }
+    return { ok: true, data: result.value as unknown as Certification }
+  }
+
+  private async fetchSkillsFor(certId: string): Promise<Skill[]> {
+    const junctionResult = await this.elm.list('certification_skills', {
+      where: { certification_id: certId },
+      limit: 1000,
+    })
+    if (!junctionResult.ok) return []
+
+    const skills: Skill[] = []
+    for (const row of junctionResult.value.rows) {
+      const j = row as unknown as { certification_id: string; skill_id: string }
+      const s = await this.elm.get('skills', j.skill_id)
+      if (s.ok) {
+        const skill = s.value as Skill & { created_at?: string }
+        skills.push({
+          id: skill.id,
+          name: skill.name,
+          category: skill.category,
+        })
+      }
+    }
+    skills.sort((a, b) => a.name.localeCompare(b.name))
+    return skills
   }
 }

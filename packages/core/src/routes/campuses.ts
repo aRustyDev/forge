@@ -1,56 +1,93 @@
 /**
- * Campus & Alias routes — sub-resources for organizations.
+ * Org location & alias routes — sub-resources for organizations.
+ *
+ * Migration 047 renamed org_campuses → org_locations. Route paths are
+ * updated to /organizations/:orgId/locations but campus paths are kept
+ * as aliases for backward compatibility with existing SDK calls.
  */
 
 import { Hono } from 'hono'
 import type { Database } from 'bun:sqlite'
-import * as CampusRepo from '../db/repositories/campus-repository'
+import type { Services } from '../services'
+import { mapStatusCode } from './status-codes'
 
-export function campusRoutes(db: Database) {
+export function campusRoutes(services: Services, db: Database) {
   const app = new Hono()
 
-  // ── Campuses ──────────────────────────────────────────────────────
+  // ── Org Locations (formerly Campuses) ──────────────────────────────
 
-  app.get('/organizations/:orgId/campuses', (c) => {
-    const campuses = CampusRepo.listByOrg(db, c.req.param('orgId'))
-    return c.json({ data: campuses })
+  app.get('/organizations/:orgId/locations', async (c) => {
+    const result = await services.orgLocations.listByOrg(c.req.param('orgId'))
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.json({ data: result.data })
+  })
+
+  app.post('/organizations/:orgId/locations', async (c) => {
+    const body = await c.req.json()
+    const result = await services.orgLocations.create({
+      organization_id: c.req.param('orgId'),
+      name: body.name,
+      modality: body.modality,
+      address_id: body.address_id,
+      is_headquarters: body.is_headquarters,
+    })
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.json({ data: result.data }, 201)
+  })
+
+  app.patch('/locations/:id', async (c) => {
+    const body = await c.req.json()
+    const result = await services.orgLocations.update(c.req.param('id'), {
+      name: body.name,
+      modality: body.modality,
+      address_id: body.address_id,
+      is_headquarters: body.is_headquarters,
+    })
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.json({ data: result.data })
+  })
+
+  app.delete('/locations/:id', async (c) => {
+    const result = await services.orgLocations.delete(c.req.param('id'))
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.body(null, 204)
+  })
+
+  // Backward-compat aliases (old /campuses paths)
+  app.get('/organizations/:orgId/campuses', async (c) => {
+    const result = await services.orgLocations.listByOrg(c.req.param('orgId'))
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.json({ data: result.data })
   })
 
   app.post('/organizations/:orgId/campuses', async (c) => {
     const body = await c.req.json()
-    const campus = CampusRepo.create(db, {
+    const result = await services.orgLocations.create({
       organization_id: c.req.param('orgId'),
       name: body.name,
       modality: body.modality,
-      address: body.address,
-      city: body.city,
-      state: body.state,
-      zipcode: body.zipcode,
-      country: body.country,
-      is_headquarters: body.is_headquarters ? 1 : 0,
+      address_id: body.address_id,
+      is_headquarters: body.is_headquarters,
     })
-    return c.json({ data: campus }, 201)
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.json({ data: result.data }, 201)
   })
 
   app.patch('/campuses/:id', async (c) => {
     const body = await c.req.json()
-    const updated = CampusRepo.update(db, c.req.param('id'), {
+    const result = await services.orgLocations.update(c.req.param('id'), {
       name: body.name,
       modality: body.modality,
-      address: body.address,
-      city: body.city,
-      state: body.state,
-      zipcode: body.zipcode,
-      country: body.country,
-      is_headquarters: body.is_headquarters !== undefined ? (body.is_headquarters ? 1 : 0) : undefined,
+      address_id: body.address_id,
+      is_headquarters: body.is_headquarters,
     })
-    if (!updated) return c.json({ error: { code: 'NOT_FOUND', message: 'Campus not found' } }, 404)
-    return c.json({ data: updated })
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
+    return c.json({ data: result.data })
   })
 
-  app.delete('/campuses/:id', (c) => {
-    const deleted = CampusRepo.del(db, c.req.param('id'))
-    if (!deleted) return c.json({ error: { code: 'NOT_FOUND', message: 'Campus not found' } }, 404)
+  app.delete('/campuses/:id', async (c) => {
+    const result = await services.orgLocations.delete(c.req.param('id'))
+    if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 

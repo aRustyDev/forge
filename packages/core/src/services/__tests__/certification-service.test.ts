@@ -10,6 +10,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { Database } from 'bun:sqlite'
 import { createTestDb, seedSkill, testUuid } from '../../db/__tests__/helpers'
+import { buildDefaultElm } from '../../storage/build-elm'
 import { CertificationService } from '../certification-service'
 
 describe('CertificationService', () => {
@@ -18,7 +19,7 @@ describe('CertificationService', () => {
 
   beforeEach(() => {
     db = createTestDb()
-    service = new CertificationService(db)
+    service = new CertificationService(buildDefaultElm(db))
   })
 
   afterEach(() => {
@@ -30,13 +31,13 @@ describe('CertificationService', () => {
   // ────────────────────────────────────────────────────────────────
 
   describe('short_name / long_name validation', () => {
-    test('accepts non-empty short_name + long_name', () => {
-      const result = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+    test('accepts non-empty short_name + long_name', async () => {
+      const result = await service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(result.ok).toBe(true)
     })
 
-    test('rejects empty short_name', () => {
-      const result = service.create({ short_name: '', long_name: 'Something' })
+    test('rejects empty short_name', async () => {
+      const result = await service.create({ short_name: '', long_name: 'Something' })
       expect(result.ok).toBe(false)
       if (!result.ok) {
         expect(result.error.code).toBe('VALIDATION_ERROR')
@@ -44,13 +45,13 @@ describe('CertificationService', () => {
       }
     })
 
-    test('rejects whitespace-only short_name', () => {
-      const result = service.create({ short_name: '   ', long_name: 'Something' })
+    test('rejects whitespace-only short_name', async () => {
+      const result = await service.create({ short_name: '   ', long_name: 'Something' })
       expect(result.ok).toBe(false)
     })
 
-    test('rejects empty long_name', () => {
-      const result = service.create({ short_name: 'CISSP', long_name: '' })
+    test('rejects empty long_name', async () => {
+      const result = await service.create({ short_name: 'CISSP', long_name: '' })
       expect(result.ok).toBe(false)
       if (!result.ok) {
         expect(result.error.code).toBe('VALIDATION_ERROR')
@@ -58,38 +59,38 @@ describe('CertificationService', () => {
       }
     })
 
-    test('rejects whitespace-only long_name', () => {
-      const result = service.create({ short_name: 'CISSP', long_name: '   ' })
+    test('rejects whitespace-only long_name', async () => {
+      const result = await service.create({ short_name: 'CISSP', long_name: '   ' })
       expect(result.ok).toBe(false)
     })
 
-    test('trims short_name on create', () => {
-      const result = service.create({ short_name: '  PMP  ', long_name: 'Project Management Professional' })
+    test('trims short_name on create', async () => {
+      const result = await service.create({ short_name: '  PMP  ', long_name: 'Project Management Professional' })
       expect(result.ok).toBe(true)
       if (result.ok) expect(result.data.short_name).toBe('PMP')
     })
 
-    test('trims long_name on create', () => {
-      const result = service.create({ short_name: 'PMP', long_name: '  Project Management Professional  ' })
+    test('trims long_name on create', async () => {
+      const result = await service.create({ short_name: 'PMP', long_name: '  Project Management Professional  ' })
       expect(result.ok).toBe(true)
       if (result.ok) expect(result.data.long_name).toBe('Project Management Professional')
     })
 
-    test('update rejects empty short_name', () => {
-      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+    test('update rejects empty short_name', async () => {
+      const created = await service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
-      const result = service.update(created.data.id, { short_name: '' })
+      const result = await service.update(created.data.id, { short_name: '' })
       expect(result.ok).toBe(false)
     })
 
-    test('update rejects empty long_name', () => {
-      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+    test('update rejects empty long_name', async () => {
+      const created = await service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
-      const result = service.update(created.data.id, { long_name: '' })
+      const result = await service.update(created.data.id, { long_name: '' })
       expect(result.ok).toBe(false)
     })
   })
@@ -99,19 +100,19 @@ describe('CertificationService', () => {
   // ────────────────────────────────────────────────────────────────
 
   describe('addSkill validation', () => {
-    test('accepts valid certification + skill pair', () => {
-      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+    test('accepts valid certification + skill pair', async () => {
+      const created = await service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
       const skillId = seedSkill(db, { name: 'Security' })
-      const result = service.addSkill(created.data.id, skillId)
+      const result = await service.addSkill(created.data.id, skillId)
       expect(result.ok).toBe(true)
     })
 
-    test('rejects unknown certification id', () => {
+    test('rejects unknown certification id', async () => {
       const skillId = seedSkill(db, { name: 'Security' })
-      const result = service.addSkill(testUuid(), skillId)
+      const result = await service.addSkill(testUuid(), skillId)
       expect(result.ok).toBe(false)
       if (!result.ok) {
         expect(result.error.code).toBe('NOT_FOUND')
@@ -119,12 +120,12 @@ describe('CertificationService', () => {
       }
     })
 
-    test('rejects unknown skill id', () => {
-      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+    test('rejects unknown skill id', async () => {
+      const created = await service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
-      const result = service.addSkill(created.data.id, testUuid())
+      const result = await service.addSkill(created.data.id, testUuid())
       expect(result.ok).toBe(false)
       if (!result.ok) {
         expect(result.error.code).toBe('NOT_FOUND')
@@ -132,67 +133,67 @@ describe('CertificationService', () => {
       }
     })
 
-    test('idempotent — second addSkill for same pair is ok', () => {
-      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+    test('idempotent — second addSkill for same pair is ok', async () => {
+      const created = await service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
       const skillId = seedSkill(db, { name: 'Security' })
-      expect(service.addSkill(created.data.id, skillId).ok).toBe(true)
-      expect(service.addSkill(created.data.id, skillId).ok).toBe(true)
+      expect((await service.addSkill(created.data.id, skillId)).ok).toBe(true)
+      expect((await service.addSkill(created.data.id, skillId)).ok).toBe(true)
 
-      const skills = service.getSkills(created.data.id)
+      const skills = await service.getSkills(created.data.id)
       expect(skills.ok).toBe(true)
       if (skills.ok) expect(skills.data).toHaveLength(1)
     })
   })
 
   describe('removeSkill', () => {
-    test('removes a linked skill', () => {
-      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+    test('removes a linked skill', async () => {
+      const created = await service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
       const skillId = seedSkill(db, { name: 'Security' })
-      service.addSkill(created.data.id, skillId)
+      await service.addSkill(created.data.id, skillId)
 
-      const result = service.removeSkill(created.data.id, skillId)
+      const result = await service.removeSkill(created.data.id, skillId)
       expect(result.ok).toBe(true)
 
-      const skills = service.getSkills(created.data.id)
+      const skills = await service.getSkills(created.data.id)
       if (skills.ok) expect(skills.data).toHaveLength(0)
     })
 
-    test('rejects unknown certification id', () => {
+    test('rejects unknown certification id', async () => {
       const skillId = seedSkill(db, { name: 'Security' })
-      const result = service.removeSkill(testUuid(), skillId)
+      const result = await service.removeSkill(testUuid(), skillId)
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error.code).toBe('NOT_FOUND')
     })
 
-    test('idempotent — removing nonexistent link is ok', () => {
-      const created = service.create({ short_name: 'PMP', long_name: 'Project Management Professional' })
+    test('idempotent — removing nonexistent link is ok', async () => {
+      const created = await service.create({ short_name: 'PMP', long_name: 'Project Management Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
       const skillId = seedSkill(db, { name: 'PM' })
-      const result = service.removeSkill(created.data.id, skillId)
+      const result = await service.removeSkill(created.data.id, skillId)
       expect(result.ok).toBe(true)
     })
   })
 
   describe('getSkills()', () => {
-    test('returns linked skills', () => {
-      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+    test('returns linked skills', async () => {
+      const created = await service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
       const s1 = seedSkill(db, { name: 'Security' })
       const s2 = seedSkill(db, { name: 'Risk' })
-      service.addSkill(created.data.id, s1)
-      service.addSkill(created.data.id, s2)
+      await service.addSkill(created.data.id, s1)
+      await service.addSkill(created.data.id, s2)
 
-      const result = service.getSkills(created.data.id)
+      const result = await service.getSkills(created.data.id)
       expect(result.ok).toBe(true)
       if (result.ok) {
         expect(result.data).toHaveLength(2)
@@ -200,8 +201,8 @@ describe('CertificationService', () => {
       }
     })
 
-    test('rejects unknown certification id', () => {
-      const result = service.getSkills(testUuid())
+    test('rejects unknown certification id', async () => {
+      const result = await service.getSkills(testUuid())
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error.code).toBe('NOT_FOUND')
     })
@@ -212,27 +213,27 @@ describe('CertificationService', () => {
   // ────────────────────────────────────────────────────────────────
 
   describe('get() and getWithSkills()', () => {
-    test('get returns ok for existing cert', () => {
-      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+    test('get returns ok for existing cert', async () => {
+      const created = await service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       if (!created.ok) return
 
-      const result = service.get(created.data.id)
+      const result = await service.get(created.data.id)
       expect(result.ok).toBe(true)
     })
 
-    test('get returns NOT_FOUND for unknown id', () => {
-      const result = service.get(testUuid())
+    test('get returns NOT_FOUND for unknown id', async () => {
+      const result = await service.get(testUuid())
       expect(result.ok).toBe(false)
     })
 
-    test('getWithSkills returns hydrated cert', () => {
-      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+    test('getWithSkills returns hydrated cert', async () => {
+      const created = await service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       if (!created.ok) return
 
       const skillId = seedSkill(db, { name: 'Security' })
-      service.addSkill(created.data.id, skillId)
+      await service.addSkill(created.data.id, skillId)
 
-      const result = service.getWithSkills(created.data.id)
+      const result = await service.getWithSkills(created.data.id)
       expect(result.ok).toBe(true)
       if (result.ok) {
         expect(result.data.skills).toHaveLength(1)
@@ -240,35 +241,35 @@ describe('CertificationService', () => {
       }
     })
 
-    test('getWithSkills returns NOT_FOUND for unknown', () => {
-      const result = service.getWithSkills(testUuid())
+    test('getWithSkills returns NOT_FOUND for unknown', async () => {
+      const result = await service.getWithSkills(testUuid())
       expect(result.ok).toBe(false)
     })
   })
 
   describe('list() and listWithSkills()', () => {
-    test('list returns all certs', () => {
-      service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
-      service.create({ short_name: 'PMP', long_name: 'Project Management Professional' })
-      service.create({ short_name: 'AWS SA Pro', long_name: 'AWS Solutions Architect Professional' })
+    test('list returns all certs', async () => {
+      await service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+      await service.create({ short_name: 'PMP', long_name: 'Project Management Professional' })
+      await service.create({ short_name: 'AWS SA Pro', long_name: 'AWS Solutions Architect Professional' })
 
-      const result = service.list()
+      const result = await service.list()
       expect(result.ok).toBe(true)
       if (result.ok) expect(result.data).toHaveLength(3)
     })
 
-    test('listWithSkills hydrates skills arrays', () => {
-      const cissp = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
-      const pmp = service.create({ short_name: 'PMP', long_name: 'Project Management Professional' })
+    test('listWithSkills hydrates skills arrays', async () => {
+      const cissp = await service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+      const pmp = await service.create({ short_name: 'PMP', long_name: 'Project Management Professional' })
       expect(cissp.ok && pmp.ok).toBe(true)
       if (!(cissp.ok && pmp.ok)) return
 
       const sec = seedSkill(db, { name: 'Security' })
       const pm = seedSkill(db, { name: 'PM' })
-      service.addSkill(cissp.data.id, sec)
-      service.addSkill(pmp.data.id, pm)
+      await service.addSkill(cissp.data.id, sec)
+      await service.addSkill(pmp.data.id, pm)
 
-      const result = service.listWithSkills()
+      const result = await service.listWithSkills()
       expect(result.ok).toBe(true)
       if (result.ok) {
         const byName = Object.fromEntries(result.data.map((c) => [c.short_name, c]))
@@ -279,65 +280,65 @@ describe('CertificationService', () => {
   })
 
   describe('update()', () => {
-    test('updates issuer_id', () => {
+    test('updates issuer_id', async () => {
       const orgId = crypto.randomUUID()
       db.run('INSERT INTO organizations (id, name, org_type) VALUES (?, ?, ?)', [orgId, 'ISC2', 'company'])
 
-      const created = service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
+      const created = await service.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional' })
       if (!created.ok) return
 
-      const result = service.update(created.data.id, { issuer_id: orgId })
+      const result = await service.update(created.data.id, { issuer_id: orgId })
       expect(result.ok).toBe(true)
       if (result.ok) expect(result.data.issuer_id).toBe(orgId)
     })
 
-    test('returns NOT_FOUND for unknown id', () => {
-      const result = service.update(testUuid(), { short_name: 'Nope' })
+    test('returns NOT_FOUND for unknown id', async () => {
+      const result = await service.update(testUuid(), { short_name: 'Nope' })
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error.code).toBe('NOT_FOUND')
     })
 
-    test('trims short_name on update', () => {
-      const created = service.create({ short_name: 'Old', long_name: 'Old Long' })
+    test('trims short_name on update', async () => {
+      const created = await service.create({ short_name: 'Old', long_name: 'Old Long' })
       if (!created.ok) return
 
-      const result = service.update(created.data.id, { short_name: '  New  ' })
+      const result = await service.update(created.data.id, { short_name: '  New  ' })
       expect(result.ok).toBe(true)
       if (result.ok) expect(result.data.short_name).toBe('New')
     })
 
-    test('trims long_name on update', () => {
-      const created = service.create({ short_name: 'X', long_name: 'Old Long' })
+    test('trims long_name on update', async () => {
+      const created = await service.create({ short_name: 'X', long_name: 'Old Long' })
       if (!created.ok) return
 
-      const result = service.update(created.data.id, { long_name: '  New Long  ' })
+      const result = await service.update(created.data.id, { long_name: '  New Long  ' })
       expect(result.ok).toBe(true)
       if (result.ok) expect(result.data.long_name).toBe('New Long')
     })
   })
 
   describe('delete()', () => {
-    test('deletes existing', () => {
-      const created = service.create({ short_name: 'Temp', long_name: 'Temporary' })
+    test('deletes existing', async () => {
+      const created = await service.create({ short_name: 'Temp', long_name: 'Temporary' })
       if (!created.ok) return
 
-      expect(service.delete(created.data.id).ok).toBe(true)
-      expect(service.get(created.data.id).ok).toBe(false)
+      expect((await service.delete(created.data.id)).ok).toBe(true)
+      expect((await service.get(created.data.id)).ok).toBe(false)
     })
 
-    test('returns NOT_FOUND for unknown id', () => {
-      const result = service.delete(testUuid())
+    test('returns NOT_FOUND for unknown id', async () => {
+      const result = await service.delete(testUuid())
       expect(result.ok).toBe(false)
     })
 
-    test('cascade removes skill links on delete', () => {
-      const created = service.create({ short_name: 'Temp', long_name: 'Temporary' })
+    test('cascade removes skill links on delete', async () => {
+      const created = await service.create({ short_name: 'Temp', long_name: 'Temporary' })
       if (!created.ok) return
 
       const skillId = seedSkill(db, { name: 'Sec' })
-      service.addSkill(created.data.id, skillId)
+      await service.addSkill(created.data.id, skillId)
 
-      service.delete(created.data.id)
+      await service.delete(created.data.id)
 
       const count = db
         .query('SELECT COUNT(*) AS c FROM certification_skills WHERE certification_id = ?')

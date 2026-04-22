@@ -23,8 +23,6 @@ export function registerTier3UpdateTools(
         .describe('Quantifiable metrics (set null to clear)'),
       domain: z.string().nullable().optional()
         .describe('Domain slug (set null to clear)'),
-      notes: z.string().nullable().optional()
-        .describe('Notes (set null to clear)'),
     },
     async (params) => {
       const { bullet_id, ...input } = params
@@ -36,7 +34,7 @@ export function registerTier3UpdateTools(
   registerTool(
     server,
     'forge_update_perspective',
-    'Edit perspective content, domain, framing, or notes.',
+    'Edit perspective content, domain, or framing.',
     {
       perspective_id: z.string().describe('Perspective ID'),
       content: z.string().optional().describe('Updated perspective text'),
@@ -44,8 +42,6 @@ export function registerTier3UpdateTools(
         .describe('Domain slug (set null to clear)'),
       framing: z.enum(['accomplishment', 'responsibility', 'context']).optional()
         .describe('Perspective framing type'),
-      notes: z.string().nullable().optional()
-        .describe('Notes (set null to clear)'),
     },
     async (params) => {
       const { perspective_id, ...input } = params
@@ -63,8 +59,6 @@ export function registerTier3UpdateTools(
       entry_id: z.string().describe('Entry ID'),
       content: z.string().nullable().optional()
         .describe('Content override (null resets to perspective reference)'),
-      notes: z.string().nullable().optional()
-        .describe('Entry-level notes (set null to clear)'),
     },
     async (params) => {
       const { resume_id, entry_id, ...input } = params
@@ -84,8 +78,6 @@ export function registerTier3UpdateTools(
       source_id: z.string().describe('Source ID'),
       title: z.string().optional().describe('Updated title'),
       description: z.string().optional().describe('Updated description'),
-      notes: z.string().nullable().optional()
-        .describe('Notes (set null to clear)'),
       start_date: z.string().nullable().optional()
         .describe('Start date (set null to clear)'),
       end_date: z.string().nullable().optional()

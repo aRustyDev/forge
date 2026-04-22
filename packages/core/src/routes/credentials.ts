@@ -25,35 +25,35 @@ export function credentialRoutes(services: Services) {
 
   app.post('/credentials', async (c) => {
     const body = await c.req.json()
-    const result = services.credentials.create(body)
+    const result = await services.credentials.create(body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
 
-  app.get('/credentials', (c) => {
+  app.get('/credentials', async (c) => {
     const typeFilter = c.req.query('type')
     const result = typeFilter
-      ? services.credentials.findByType(typeFilter)
-      : services.credentials.list()
+      ? await services.credentials.findByType(typeFilter)
+      : await services.credentials.list()
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.get('/credentials/:id', (c) => {
-    const result = services.credentials.get(c.req.param('id'))
+  app.get('/credentials/:id', async (c) => {
+    const result = await services.credentials.get(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   app.patch('/credentials/:id', async (c) => {
     const body = await c.req.json()
-    const result = services.credentials.update(c.req.param('id'), body)
+    const result = await services.credentials.update(c.req.param('id'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/credentials/:id', (c) => {
-    const result = services.credentials.delete(c.req.param('id'))
+  app.delete('/credentials/:id', async (c) => {
+    const result = await services.credentials.delete(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })

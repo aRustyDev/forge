@@ -1,22 +1,81 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import type { Database } from 'bun:sqlite'
-import { join } from 'path'
 import { createTestDb, seedSource } from '../../db/__tests__/helpers'
-import { BulletRepository } from '../../db/repositories/bullet-repository'
-import * as PendingDerivationRepo from '../../db/repositories/pending-derivation-repository'
+import { buildDefaultElm } from '../../storage/build-elm'
 import { DerivationService } from '../derivation-service'
+import type { PendingDerivation } from '../../types'
 
-// ── helpers ─────────────────────────────────────────────────────────────────
+// ── helpers (replacing deleted repositories) ────────────────────────────────
 
 function seedApprovedBullet(db: Database, sourceId: string) {
-  return BulletRepository.create(db, {
-    content: 'Led 4-engineer team migrating cloud forensics platform',
-    source_content_snapshot: 'snapshot',
-    technologies: ['aws', 'opensearch'],
-    metrics: '4-engineer team',
-    status: 'approved',
-    source_ids: [{ id: sourceId, is_primary: true }],
-  })
+  const id = crypto.randomUUID()
+  const row = db
+    .query(
+      `INSERT INTO bullets (id, content, source_content_snapshot, metrics, domain, status)
+       VALUES (?, ?, ?, ?, ?, ?)
+       RETURNING *`,
+    )
+    .get(id, 'Led 4-engineer team migrating cloud forensics platform', 'snapshot', '4-engineer team', null, 'approved') as any
+
+  // Insert bullet_sources junction
+  db.run(
+    'INSERT INTO bullet_sources (bullet_id, source_id, is_primary) VALUES (?, ?, 1)',
+    [id, sourceId],
+  )
+
+  // Link technologies
+  for (const tech of ['aws', 'opensearch']) {
+    const existing = db.query('SELECT id FROM skills WHERE LOWER(name) = LOWER(?)').get(tech) as { id: string } | null
+    const skillId = existing?.id ?? (() => { const sid = crypto.randomUUID(); db.run('INSERT INTO skills (id, name, category) VALUES (?, ?, ?)', [sid, tech, 'other']); return sid })()
+    db.run('INSERT INTO bullet_skills (bullet_id, skill_id) VALUES (?, ?)', [id, skillId])
+  }
+
+  return { ...row, id, technologies: ['aws', 'opensearch'] }
+}
+
+function seedBulletWithStatus(db: Database, sourceId: string, content: string, status: string) {
+  const id = crypto.randomUUID()
+  const row = db
+    .query(
+      `INSERT INTO bullets (id, content, source_content_snapshot, metrics, domain, status)
+       VALUES (?, ?, ?, ?, ?, ?)
+       RETURNING *`,
+    )
+    .get(id, content, 'snapshot', null, null, status) as any
+
+  db.run(
+    'INSERT INTO bullet_sources (bullet_id, source_id, is_primary) VALUES (?, ?, 1)',
+    [id, sourceId],
+  )
+  return { ...row, id, technologies: [] }
+}
+
+function getPendingDerivation(db: Database, id: string): PendingDerivation | null {
+  return db.query('SELECT * FROM pending_derivations WHERE id = ?').get(id) as PendingDerivation | null
+}
+
+function createPendingDerivation(db: Database, input: {
+  entity_type: string; entity_id: string; client_id: string;
+  prompt: string; snapshot: string; derivation_params: string | null; expires_at: string;
+}): PendingDerivation {
+  return db
+    .query(
+      `INSERT INTO pending_derivations (entity_type, entity_id, client_id, prompt, snapshot, derivation_params, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       RETURNING *`,
+    )
+    .get(input.entity_type, input.entity_id, input.client_id, input.prompt, input.snapshot, input.derivation_params, input.expires_at) as PendingDerivation
+}
+
+function getBulletSources(db: Database, bulletId: string) {
+  return db
+    .query(
+      `SELECT s.id, s.title, bs.is_primary
+       FROM bullet_sources bs JOIN sources s ON bs.source_id = s.id
+       WHERE bs.bullet_id = ?
+       ORDER BY bs.is_primary DESC, s.title ASC`,
+    )
+    .all(bulletId) as Array<{ id: string; title: string; is_primary: number }>
 }
 
 // ── DerivationService: prepareBulletDerivation ───────────────────────────────
@@ -27,7 +86,7 @@ describe('DerivationService', () => {
 
   beforeEach(() => {
     db = createTestDb()
-    service = new DerivationService(db)
+    service = new DerivationService(buildDefaultElm(db))
   })
 
   afterEach(() => db.close())
@@ -56,7 +115,7 @@ describe('DerivationService', () => {
       expect(result.ok).toBe(true)
       if (!result.ok) return
 
-      const row = PendingDerivationRepo.getById(db, result.data.derivation_id)
+      const row = getPendingDerivation(db,result.data.derivation_id)
       expect(row).not.toBeNull()
       expect(row!.entity_type).toBe('source')
       expect(row!.entity_id).toBe(srcId)
@@ -113,13 +172,13 @@ describe('DerivationService', () => {
       expect(commit.data[0].status).toBe('in_review')
 
       // Verify bullet_sources junction row with is_primary=1
-      const sources = BulletRepository.getSources(db, commit.data[0].id)
+      const sources = getBulletSources(db,commit.data[0].id)
       expect(sources).toHaveLength(1)
       expect(sources[0].id).toBe(srcId)
       expect(sources[0].is_primary).toBe(1)
 
       // Pending row should be deleted
-      const pending = PendingDerivationRepo.getById(db, prepare.data.derivation_id)
+      const pending = getPendingDerivation(db,prepare.data.derivation_id)
       expect(pending).toBeNull()
     })
 
@@ -154,7 +213,7 @@ describe('DerivationService', () => {
 
       // Manually insert an expired pending derivation row
       const expiredAt = new Date(Date.now() - 60_000).toISOString()
-      const row = PendingDerivationRepo.create(db, {
+      const row = createPendingDerivation(db, {
         entity_type: 'source',
         entity_id: srcId,
         client_id: 'client-1',
@@ -172,7 +231,7 @@ describe('DerivationService', () => {
       expect(result.error.code).toBe('GONE')
 
       // Row should be cleaned up
-      const pending = PendingDerivationRepo.getById(db, row.id)
+      const pending = getPendingDerivation(db,row.id)
       expect(pending).toBeNull()
     })
 
@@ -240,7 +299,7 @@ describe('DerivationService', () => {
       expect(result.ok).toBe(true)
       if (!result.ok) return
 
-      const row = PendingDerivationRepo.getById(db, result.data.derivation_id)
+      const row = getPendingDerivation(db,result.data.derivation_id)
       expect(row).not.toBeNull()
       expect(row!.entity_type).toBe('bullet')
       expect(row!.entity_id).toBe(bullet.id)
@@ -265,14 +324,7 @@ describe('DerivationService', () => {
 
     test('returns VALIDATION_ERROR for non-approved bullet', async () => {
       const srcId = seedSource(db)
-      const bullet = BulletRepository.create(db, {
-        content: 'Draft bullet',
-        source_content_snapshot: 'snapshot',
-        technologies: [],
-        metrics: null,
-        status: 'draft',
-        source_ids: [{ id: srcId, is_primary: true }],
-      })
+      const bullet = seedBulletWithStatus(db, srcId, 'Draft bullet', 'draft')
 
       const result = await service.preparePerspectiveDerivation(
         bullet.id,
@@ -287,14 +339,7 @@ describe('DerivationService', () => {
 
     test('returns VALIDATION_ERROR for archived bullet', async () => {
       const srcId = seedSource(db)
-      const bullet = BulletRepository.create(db, {
-        content: 'Archived bullet',
-        source_content_snapshot: 'snapshot',
-        technologies: [],
-        metrics: null,
-        status: 'archived',
-        source_ids: [{ id: srcId, is_primary: true }],
-      })
+      const bullet = seedBulletWithStatus(db, srcId, 'Archived bullet', 'archived')
 
       const result = await service.preparePerspectiveDerivation(
         bullet.id,
@@ -389,7 +434,7 @@ describe('DerivationService', () => {
       expect(commit.data.framing).toBe('accomplishment')
 
       // Pending row should be deleted
-      const pending = PendingDerivationRepo.getById(db, prepare.data.derivation_id)
+      const pending = getPendingDerivation(db,prepare.data.derivation_id)
       expect(pending).toBeNull()
     })
 
@@ -408,7 +453,7 @@ describe('DerivationService', () => {
       const bullet = seedApprovedBullet(db, srcId)
 
       const expiredAt = new Date(Date.now() - 60_000).toISOString()
-      const row = PendingDerivationRepo.create(db, {
+      const row = createPendingDerivation(db, {
         entity_type: 'bullet',
         entity_id: bullet.id,
         client_id: 'client-1',
@@ -427,7 +472,7 @@ describe('DerivationService', () => {
       expect(result.error.code).toBe('GONE')
 
       // Row should be cleaned up
-      const pending = PendingDerivationRepo.getById(db, row.id)
+      const pending = getPendingDerivation(db,row.id)
       expect(pending).toBeNull()
     })
 
@@ -457,7 +502,7 @@ describe('DerivationService', () => {
 
       // Create a pending derivation for a source, not a bullet
       const futureAt = new Date(Date.now() + 120_000).toISOString()
-      const row = PendingDerivationRepo.create(db, {
+      const row = createPendingDerivation(db, {
         entity_type: 'source',
         entity_id: srcId,
         client_id: 'client-1',
@@ -480,11 +525,11 @@ describe('DerivationService', () => {
   // ── recoverStaleLocks ────────────────────────────────────────────────────
 
   describe('recoverStaleLocks', () => {
-    test('deletes expired pending_derivations rows', () => {
+    test('deletes expired pending_derivations rows', async () => {
       const srcId = seedSource(db, { status: 'approved' })
       const expiredAt = new Date(Date.now() - 60_000).toISOString()
 
-      PendingDerivationRepo.create(db, {
+      createPendingDerivation(db, {
         entity_type: 'source',
         entity_id: srcId,
         client_id: 'client-1',
@@ -494,7 +539,7 @@ describe('DerivationService', () => {
         expires_at: expiredAt,
       })
 
-      const count = DerivationService.recoverStaleLocks(db)
+      const count = await DerivationService.recoverStaleLocks(db)
       expect(count).toBeGreaterThanOrEqual(1)
 
       // The expired row should be gone
@@ -504,11 +549,11 @@ describe('DerivationService', () => {
       expect(rows).toHaveLength(0)
     })
 
-    test('does not delete non-expired pending_derivations rows', () => {
+    test('does not delete non-expired pending_derivations rows', async () => {
       const srcId = seedSource(db, { status: 'approved' })
       const futureAt = new Date(Date.now() + 120_000).toISOString()
 
-      PendingDerivationRepo.create(db, {
+      createPendingDerivation(db, {
         entity_type: 'source',
         entity_id: srcId,
         client_id: 'client-1',
@@ -518,7 +563,7 @@ describe('DerivationService', () => {
         expires_at: futureAt,
       })
 
-      const count = DerivationService.recoverStaleLocks(db)
+      const count = await DerivationService.recoverStaleLocks(db)
       expect(count).toBe(0)
 
       const rows = db
@@ -527,7 +572,7 @@ describe('DerivationService', () => {
       expect(rows).toHaveLength(1)
     })
 
-    test('still resets stale deriving sources for backward compat', () => {
+    test('still resets stale deriving sources for backward compat', async () => {
       // Old lock mechanism: source stuck in 'deriving' status
       const srcId = seedSource(db, { status: 'approved' })
       const oldTimestamp = new Date(Date.now() - 600_000).toISOString()
@@ -536,7 +581,7 @@ describe('DerivationService', () => {
         [oldTimestamp, srcId],
       )
 
-      DerivationService.recoverStaleLocks(db)
+      await DerivationService.recoverStaleLocks(db)
 
       const source = db.query('SELECT status FROM sources WHERE id = ?').get(srcId) as { status: string }
       expect(source.status).toBe('draft')

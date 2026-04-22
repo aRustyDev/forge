@@ -27,11 +27,11 @@ describe('nav', () => {
       expect((navigation[0] as NavItem).label).toBe('Dashboard')
     })
 
-    it('has Experience group with 4 children (Clearances removed in Phase 84)', () => {
+    it('has Experience group with 5 children (Presentations added)', () => {
       const exp = navigation[1]
       expect(isNavGroup(exp)).toBe(true)
       expect((exp as NavGroup).label).toBe('Experience')
-      expect((exp as NavGroup).children).toHaveLength(4)
+      expect((exp as NavGroup).children).toHaveLength(5)
     })
 
     it('has Qualifications group with 2 children (Phase 87)', () => {

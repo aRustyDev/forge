@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import type { Database } from 'bun:sqlite'
 import { AuditService } from '../audit-service'
 import { createTestDb, seedSource, seedBullet, seedPerspective } from '../../db/__tests__/helpers'
+import { buildDefaultElm } from '../../storage/build-elm'
 
 describe('AuditService', () => {
   let db: Database
@@ -9,19 +10,19 @@ describe('AuditService', () => {
 
   beforeEach(() => {
     db = createTestDb()
-    service = new AuditService(db)
+    service = new AuditService(buildDefaultElm(db))
   })
 
   afterEach(() => db.close())
 
   // ── traceChain ────────────────────────────────────────────────────
 
-  test('traceChain resolves primary source via junction', () => {
+  test('traceChain resolves primary source via junction', async () => {
     const srcId = seedSource(db, { description: 'Led cloud migration.' })
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId)
 
-    const result = service.traceChain(perspId)
+    const result = await service.traceChain(perspId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.perspective.id).toBe(perspId)
@@ -29,14 +30,14 @@ describe('AuditService', () => {
     expect(result.data.source.id).toBe(srcId)
   })
 
-  test('traceChain returns NOT_FOUND for missing perspective', () => {
-    const result = service.traceChain('nonexistent')
+  test('traceChain returns NOT_FOUND for missing perspective', async () => {
+    const result = await service.traceChain('nonexistent')
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
   })
 
-  test('traceChain returns NOT_FOUND when bullet is missing (broken chain)', () => {
+  test('traceChain returns NOT_FOUND when bullet is missing (broken chain)', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId)
@@ -47,14 +48,14 @@ describe('AuditService', () => {
     db.run('DELETE FROM bullets WHERE id = ?', [bulletId])
     db.run('PRAGMA foreign_keys = ON')
 
-    const result = service.traceChain(perspId)
+    const result = await service.traceChain(perspId)
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.message).toContain('Bullet')
     expect(result.error.message).toContain('not found')
   })
 
-  test('traceChain returns NOT_FOUND when no primary source', () => {
+  test('traceChain returns NOT_FOUND when no primary source', async () => {
     // Create a bullet with no source associations
     const bulletId = crypto.randomUUID()
     db.run(
@@ -63,7 +64,7 @@ describe('AuditService', () => {
     )
     const perspId = seedPerspective(db, bulletId)
 
-    const result = service.traceChain(perspId)
+    const result = await service.traceChain(perspId)
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.message).toContain('No primary source')
@@ -71,7 +72,7 @@ describe('AuditService', () => {
 
   // ── checkIntegrity ────────────────────────────────────────────────
 
-  test('checkIntegrity reports matching snapshots', () => {
+  test('checkIntegrity reports matching snapshots', async () => {
     const srcId = seedSource(db, { description: 'Led cloud migration.' })
     // Create bullet with matching snapshot
     const bulletId = crypto.randomUUID()
@@ -92,7 +93,7 @@ describe('AuditService', () => {
       [perspId, bulletId, 'Bullet content'],
     )
 
-    const result = service.checkIntegrity(perspId)
+    const result = await service.checkIntegrity(perspId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.bullet_snapshot_matches).toBe(true)
@@ -101,7 +102,7 @@ describe('AuditService', () => {
     expect(result.data.source_diff).toBeUndefined()
   })
 
-  test('checkIntegrity detects bullet content drift', () => {
+  test('checkIntegrity detects bullet content drift', async () => {
     const srcId = seedSource(db, { description: 'Original desc.' })
     const bulletId = crypto.randomUUID()
     db.run(
@@ -120,7 +121,7 @@ describe('AuditService', () => {
       [perspId, bulletId, 'Old bullet content'],
     )
 
-    const result = service.checkIntegrity(perspId)
+    const result = await service.checkIntegrity(perspId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.bullet_snapshot_matches).toBe(false)
@@ -129,7 +130,7 @@ describe('AuditService', () => {
     expect(result.data.bullet_diff!.current).toBe('Updated bullet content')
   })
 
-  test('checkIntegrity detects source description drift', () => {
+  test('checkIntegrity detects source description drift', async () => {
     const srcId = seedSource(db, { description: 'Updated description.' })
     const bulletId = crypto.randomUUID()
     db.run(
@@ -148,7 +149,7 @@ describe('AuditService', () => {
       [perspId, bulletId, 'Bullet content'],
     )
 
-    const result = service.checkIntegrity(perspId)
+    const result = await service.checkIntegrity(perspId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.source_snapshot_matches).toBe(false)
@@ -157,8 +158,8 @@ describe('AuditService', () => {
     expect(result.data.source_diff!.current).toBe('Updated description.')
   })
 
-  test('checkIntegrity returns NOT_FOUND for missing perspective', () => {
-    const result = service.checkIntegrity('nonexistent')
+  test('checkIntegrity returns NOT_FOUND for missing perspective', async () => {
+    const result = await service.checkIntegrity('nonexistent')
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')

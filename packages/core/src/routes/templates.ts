@@ -11,34 +11,34 @@ export function templateRoutes(services: Services) {
 
   // -- Template CRUD --------------------------------------------------------
 
-  app.get('/templates', (c) => {
-    const result = services.templates.list()
+  app.get('/templates', async (c) => {
+    const result = await services.templates.list()
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.get('/templates/:id', (c) => {
-    const result = services.templates.get(c.req.param('id'))
+  app.get('/templates/:id', async (c) => {
+    const result = await services.templates.get(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   app.post('/templates', async (c) => {
     const body = await c.req.json()
-    const result = services.templates.create(body)
+    const result = await services.templates.create(body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
 
   app.patch('/templates/:id', async (c) => {
     const body = await c.req.json()
-    const result = services.templates.update(c.req.param('id'), body)
+    const result = await services.templates.update(c.req.param('id'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/templates/:id', (c) => {
-    const result = services.templates.delete(c.req.param('id'))
+  app.delete('/templates/:id', async (c) => {
+    const result = await services.templates.delete(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })

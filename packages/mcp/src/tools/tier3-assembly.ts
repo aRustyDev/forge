@@ -1,6 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ForgeClient } from '@forge/sdk'
-import type { FeatureFlags } from '../utils/feature-flags'
 import { z } from 'zod'
 import { registerTool } from '../utils/register-tool'
 import { mapResult } from '../utils/error-mapper'
@@ -12,7 +11,6 @@ export function registerTier3AssemblyTools(
   server: McpServer,
   sdk: ForgeClient,
   respond: typeof mapResult,
-  flags: FeatureFlags,
 ): void {
   registerTool(
     server,
@@ -31,29 +29,43 @@ export function registerTier3AssemblyTools(
     },
   )
 
-  // Feature-flagged: reorderEntries not in SDK yet
-  if (flags.reorderEntries) {
-    registerTool(
-      server,
-      'forge_reorder_resume_entries',
-      'Reorder entries within a resume by specifying new positions.',
-      {
-        resume_id: z.string().describe('Resume ID'),
-        entries: z.array(z.object({
-          id: z.string().describe('Entry ID'),
-          position: z.number().describe('New position (0-based)'),
-        })).describe('Array of entry ID + position pairs'),
-      },
-      async (params) => {
-        // TODO: Remove `as any` once SDK exposes reorderEntries (see Phase 62)
-        const result = await (sdk.resumes as any).reorderEntries(
-          params.resume_id,
-          params.entries,
-        )
-        return respond(result)
-      },
-    )
-  }
+  registerTool(
+    server,
+    'forge_reorder_resume_entries',
+    'Reorder entries (bullets) within a resume section by specifying new positions. Use this to reorder bullets within an experience subheading or any other section.',
+    {
+      resume_id: z.string().describe('Resume ID'),
+      entries: z.array(z.object({
+        id: z.string().describe('Entry ID'),
+        section_id: z.string().describe('Section ID the entry belongs to'),
+        position: z.number().describe('New position (0-based)'),
+      })).describe('Array of entry ID + section_id + position tuples'),
+    },
+    async (params) => {
+      const result = await sdk.resumes.reorderEntries(
+        params.resume_id,
+        params.entries,
+      )
+      return respond(result)
+    },
+  )
+
+  registerTool(
+    server,
+    'forge_delete_resume_section',
+    'Delete a resume section and all its entries. Cascade-deletes entries and skills in the section. Use forge://resume/{id} resource to see current sections before deleting.',
+    {
+      resume_id: z.string().uuid().describe('Resume UUID'),
+      section_id: z.string().uuid().describe('Section UUID to delete'),
+    },
+    async (params) => {
+      const result = await sdk.resumes.deleteSection(
+        params.resume_id,
+        params.section_id,
+      )
+      return respond(result)
+    },
+  )
 
   registerTool(
     server,

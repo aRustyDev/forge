@@ -11,12 +11,12 @@ export function organizationRoutes(services: Services) {
 
   app.post('/organizations', async (c) => {
     const body = await c.req.json()
-    const result = services.organizations.create(body)
+    const result = await services.organizations.create(body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
 
-  app.get('/organizations', (c) => {
+  app.get('/organizations', async (c) => {
     const offset = Math.max(0, parseInt(c.req.query('offset') ?? '0', 10) || 0)
     const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') ?? '50', 10) || 50))
     const filter: Record<string, string | number> = {}
@@ -28,33 +28,33 @@ export function organizationRoutes(services: Services) {
     if (c.req.query('search')) filter.search = c.req.query('search')!
     if (c.req.query('status')) filter.status = c.req.query('status')!
 
-    const result = services.organizations.list(filter, offset, limit)
+    const result = await services.organizations.list(filter, offset, limit)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data, pagination: result.pagination })
   })
 
-  app.get('/organizations/:id', (c) => {
-    const result = services.organizations.get(c.req.param('id'))
+  app.get('/organizations/:id', async (c) => {
+    const result = await services.organizations.get(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   app.patch('/organizations/:id', async (c) => {
     const body = await c.req.json()
-    const result = services.organizations.update(c.req.param('id'), body)
+    const result = await services.organizations.update(c.req.param('id'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/organizations/:id', (c) => {
-    const result = services.organizations.delete(c.req.param('id'))
+  app.delete('/organizations/:id', async (c) => {
+    const result = await services.organizations.delete(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 
   // ── Contact reverse lookup ──────────────────────────────────────────
-  app.get('/organizations/:id/contacts', (c) => {
-    const result = services.contacts.listByOrganization(c.req.param('id'))
+  app.get('/organizations/:id/contacts', async (c) => {
+    const result = await services.contacts.listByOrganization(c.req.param('id'))
     if (!result.ok)
       return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })

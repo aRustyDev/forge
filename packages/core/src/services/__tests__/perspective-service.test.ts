@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import type { Database } from 'bun:sqlite'
 import { PerspectiveService } from '../perspective-service'
 import { createTestDb, seedSource, seedBullet, seedPerspective, seedResume, seedResumeEntry, seedResumeSection } from '../../db/__tests__/helpers'
+import { buildDefaultElm } from '../../storage/build-elm'
 
 describe('PerspectiveService', () => {
   let db: Database
@@ -9,26 +10,26 @@ describe('PerspectiveService', () => {
 
   beforeEach(() => {
     db = createTestDb()
-    service = new PerspectiveService(db)
+    service = new PerspectiveService(buildDefaultElm(db))
   })
 
   afterEach(() => db.close())
 
   // ── getPerspective ────────────────────────────────────────────────
 
-  test('getPerspective returns existing perspective', () => {
+  test('getPerspective returns existing perspective', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId)
 
-    const result = service.getPerspective(perspId)
+    const result = await service.getPerspective(perspId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.id).toBe(perspId)
   })
 
-  test('getPerspective returns NOT_FOUND for missing ID', () => {
-    const result = service.getPerspective('nonexistent')
+  test('getPerspective returns NOT_FOUND for missing ID', async () => {
+    const result = await service.getPerspective('nonexistent')
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
@@ -36,12 +37,12 @@ describe('PerspectiveService', () => {
 
   // ── getPerspectiveWithChain ───────────────────────────────────────
 
-  test('getPerspectiveWithChain returns full chain', () => {
+  test('getPerspectiveWithChain returns full chain', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId)
 
-    const result = service.getPerspectiveWithChain(perspId)
+    const result = await service.getPerspectiveWithChain(perspId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.id).toBe(perspId)
@@ -49,8 +50,8 @@ describe('PerspectiveService', () => {
     expect(result.data.source.id).toBe(srcId)
   })
 
-  test('getPerspectiveWithChain returns NOT_FOUND for missing ID', () => {
-    const result = service.getPerspectiveWithChain('nonexistent')
+  test('getPerspectiveWithChain returns NOT_FOUND for missing ID', async () => {
+    const result = await service.getPerspectiveWithChain('nonexistent')
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
@@ -58,39 +59,39 @@ describe('PerspectiveService', () => {
 
   // ── listPerspectives ──────────────────────────────────────────────
 
-  test('listPerspectives returns all perspectives', () => {
+  test('listPerspectives returns all perspectives', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     seedPerspective(db, bulletId)
     seedPerspective(db, bulletId, { domain: 'security' })
 
-    const result = service.listPerspectives()
+    const result = await service.listPerspectives()
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.length).toBe(2)
   })
 
-  test('listPerspectives filters by bullet_id', () => {
+  test('listPerspectives filters by bullet_id', async () => {
     const srcId = seedSource(db)
     const b1 = seedBullet(db, [{ id: srcId }])
     const b2 = seedBullet(db, [{ id: srcId }], { content: 'Other bullet' })
     seedPerspective(db, b1)
     seedPerspective(db, b2)
 
-    const result = service.listPerspectives({ bullet_id: b1 })
+    const result = await service.listPerspectives({ bullet_id: b1 })
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.length).toBe(1)
   })
 
-  test('listPerspectives filters by archetype and status', () => {
+  test('listPerspectives filters by archetype and status', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     seedPerspective(db, bulletId, { archetype: 'agentic-ai', status: 'approved' })
     seedPerspective(db, bulletId, { archetype: 'infrastructure', status: 'approved' })
     seedPerspective(db, bulletId, { archetype: 'agentic-ai', status: 'draft' })
 
-    const result = service.listPerspectives({ target_archetype: 'agentic-ai', status: 'approved' })
+    const result = await service.listPerspectives({ target_archetype: 'agentic-ai', status: 'approved' })
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.length).toBe(1)
@@ -98,30 +99,30 @@ describe('PerspectiveService', () => {
 
   // ── updatePerspective ─────────────────────────────────────────────
 
-  test('updatePerspective with valid content succeeds', () => {
+  test('updatePerspective with valid content succeeds', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId)
 
-    const result = service.updatePerspective(perspId, { content: 'Updated perspective' })
+    const result = await service.updatePerspective(perspId, { content: 'Updated perspective' })
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.content).toBe('Updated perspective')
   })
 
-  test('updatePerspective rejects empty content', () => {
+  test('updatePerspective rejects empty content', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId)
 
-    const result = service.updatePerspective(perspId, { content: '' })
+    const result = await service.updatePerspective(perspId, { content: '' })
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('VALIDATION_ERROR')
   })
 
-  test('updatePerspective returns NOT_FOUND for missing ID', () => {
-    const result = service.updatePerspective('nonexistent', { content: 'New' })
+  test('updatePerspective returns NOT_FOUND for missing ID', async () => {
+    const result = await service.updatePerspective('nonexistent', { content: 'New' })
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
@@ -129,26 +130,26 @@ describe('PerspectiveService', () => {
 
   // ── deletePerspective ─────────────────────────────────────────────
 
-  test('deletePerspective removes perspective', () => {
+  test('deletePerspective removes perspective', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId)
 
-    const result = service.deletePerspective(perspId)
+    const result = await service.deletePerspective(perspId)
     expect(result.ok).toBe(true)
 
-    const check = service.getPerspective(perspId)
+    const check = await service.getPerspective(perspId)
     expect(check.ok).toBe(false)
   })
 
-  test('deletePerspective returns NOT_FOUND for missing ID', () => {
-    const result = service.deletePerspective('nonexistent')
+  test('deletePerspective returns NOT_FOUND for missing ID', async () => {
+    const result = await service.deletePerspective('nonexistent')
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
   })
 
-  test('deletePerspective returns CONFLICT when in a resume', () => {
+  test('deletePerspective returns CONFLICT when in a resume', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId)
@@ -156,7 +157,7 @@ describe('PerspectiveService', () => {
     const secId = seedResumeSection(db, resumeId, 'Experience', 'experience')
     seedResumeEntry(db, secId, { perspectiveId: perspId })
 
-    const result = service.deletePerspective(perspId)
+    const result = await service.deletePerspective(perspId)
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('CONFLICT')
@@ -164,12 +165,12 @@ describe('PerspectiveService', () => {
 
   // ── Status transitions ────────────────────────────────────────────
 
-  test('approvePerspective transitions from in_review to approved', () => {
+  test('approvePerspective transitions from in_review to approved', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId, { status: 'in_review' })
 
-    const result = service.approvePerspective(perspId)
+    const result = await service.approvePerspective(perspId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.status).toBe('approved')
@@ -177,57 +178,57 @@ describe('PerspectiveService', () => {
     expect(result.data.approved_by).toBe('human')
   })
 
-  test('approvePerspective rejects transition from draft', () => {
+  test('approvePerspective rejects transition from draft', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId, { status: 'draft' })
 
-    const result = service.approvePerspective(perspId)
+    const result = await service.approvePerspective(perspId)
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('VALIDATION_ERROR')
   })
 
-  test('rejectPerspective transitions from in_review to rejected', () => {
+  test('rejectPerspective transitions from in_review to rejected', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId, { status: 'in_review' })
 
-    const result = service.rejectPerspective(perspId, 'Does not match domain')
+    const result = await service.rejectPerspective(perspId, 'Does not match domain')
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.status).toBe('rejected')
     expect(result.data.rejection_reason).toBe('Does not match domain')
   })
 
-  test('rejectPerspective requires non-empty reason', () => {
+  test('rejectPerspective requires non-empty reason', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId, { status: 'in_review' })
 
-    const result = service.rejectPerspective(perspId, '')
+    const result = await service.rejectPerspective(perspId, '')
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('VALIDATION_ERROR')
   })
 
-  test('reopenPerspective transitions from rejected to in_review', () => {
+  test('reopenPerspective transitions from rejected to in_review', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId, { status: 'in_review' })
 
     // First reject
-    service.rejectPerspective(perspId, 'reason')
+    await service.rejectPerspective(perspId, 'reason')
 
     // Then reopen
-    const result = service.reopenPerspective(perspId)
+    const result = await service.reopenPerspective(perspId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.status).toBe('in_review')
   })
 
-  test('approvePerspective returns NOT_FOUND for missing ID', () => {
-    const result = service.approvePerspective('nonexistent')
+  test('approvePerspective returns NOT_FOUND for missing ID', async () => {
+    const result = await service.approvePerspective('nonexistent')
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')

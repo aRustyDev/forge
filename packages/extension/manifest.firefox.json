@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Forge Job Tools",
+  "version": "1.0.0",
+  "description": "Capture job listings and auto-fill applications with your self-hosted Forge server.",
+  "homepage_url": "https://github.com/aRustyDev/forge",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "Forge",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "permissions": ["activeTab", "scripting", "clipboardWrite", "storage", "contextMenus"],
+  "host_permissions": ["*://*.linkedin.com/*", "http://localhost:3000/*", "*://*.myworkdayjobs.com/*", "*://*.myworkday.com/*"],
+  "background": {
+    "scripts": ["background.js"],
+    "type": "module"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "forge-extension@forge.local",
+      "strict_min_version": "128.0"
+    }
+  }
+}

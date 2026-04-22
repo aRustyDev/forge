@@ -12,12 +12,12 @@ export function bulletRoutes(services: Services, db: Database) {
 
   app.post('/bullets', async (c) => {
     const body = await c.req.json()
-    const result = services.bullets.createBullet(body)
+    const result = await services.bullets.createBullet(body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
 
-  app.get('/bullets', (c) => {
+  app.get('/bullets', async (c) => {
     const offset = Math.max(0, parseInt(c.req.query('offset') ?? '0', 10) || 0)
     const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') ?? '50', 10) || 50))
     const filter: Record<string, string> = {}
@@ -25,51 +25,51 @@ export function bulletRoutes(services: Services, db: Database) {
     if (c.req.query('status')) filter.status = c.req.query('status')!
     if (c.req.query('technology')) filter.technology = c.req.query('technology')!
 
-    const result = services.bullets.listBullets(filter, offset, limit)
+    const result = await services.bullets.listBullets(filter, offset, limit)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data, pagination: result.pagination })
   })
 
-  app.get('/bullets/:id', (c) => {
-    const result = services.bullets.getBullet(c.req.param('id'))
+  app.get('/bullets/:id', async (c) => {
+    const result = await services.bullets.getBullet(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   app.patch('/bullets/:id', async (c) => {
     const body = await c.req.json()
-    const result = services.bullets.updateBullet(c.req.param('id'), body)
+    const result = await services.bullets.updateBullet(c.req.param('id'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/bullets/:id', (c) => {
-    const result = services.bullets.deleteBullet(c.req.param('id'))
+  app.delete('/bullets/:id', async (c) => {
+    const result = await services.bullets.deleteBullet(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 
-  app.patch('/bullets/:id/approve', (c) => {
-    const result = services.bullets.approveBullet(c.req.param('id'))
+  app.patch('/bullets/:id/approve', async (c) => {
+    const result = await services.bullets.approveBullet(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   app.patch('/bullets/:id/reject', async (c) => {
     const body = await c.req.json<{ rejection_reason?: string }>()
-    const result = services.bullets.rejectBullet(c.req.param('id'), body.rejection_reason ?? '')
+    const result = await services.bullets.rejectBullet(c.req.param('id'), body.rejection_reason ?? '')
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.patch('/bullets/:id/reopen', (c) => {
-    const result = services.bullets.reopenBullet(c.req.param('id'))
+  app.patch('/bullets/:id/reopen', async (c) => {
+    const result = await services.bullets.reopenBullet(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.patch('/bullets/:id/submit', (c) => {
-    const result = services.bullets.submitBullet(c.req.param('id'))
+  app.patch('/bullets/:id/submit', async (c) => {
+    const result = await services.bullets.submitBullet(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })

@@ -1,0 +1,37 @@
+About Us
+
+Liberate builds AI agents to automate manual tasks for the $2.7T insurance industry. We started with voice — the hardest and most valuable channel in insurance — and are now expanding into full workflow automation across sales, servicing, and claims. Our long-term vision is to build reasoning agents capable of handling the entire spectrum of insurance carrier and broker operations. We've raised $72M to date, including a $50M Series B in October 2025, backed by top-tier venture firms.
+
+Location: Boston or Bay Area, hybrid preferred (2x/week in office)Reporting: VP Engineering, dotted line partnership with CPO, and Customer Success leadershipMission
+
+Make Liberate’s product measurably safer and compliant as we scale agentic workflows. Build security and compliance guardrails, engineering practices, and technical controls so we can ship fast without turning normal mistakes into P0 incidents or compliance failures.What You Will Do
+
+Product security and architecture
+
+Own product security end to end, including threat modeling, secure design reviews, and high risk architecture decisions.Build secure SDLC practices that engineers actually follow, including security requirements, CI checks, security test coverage, and safe defaults.Drive multi tenant and data boundary safety, including secrets handling, key management patterns, and blast radius reduction.Partner with Engineering leaders to make security part of how we build, not a separate lane.Influence roadmap tradeoffs with clear risk framing and concrete mitigations.
+
+Compliance and risk management 
+
+Own SOC 2 and related compliance programs end to end, including control design, implementation, and ongoing effectiveness.Ensure compliance requirements are translated into real technical controls and engineering workflows, not manual or checklist driven processes.Partner with Engineering, Product, and Ops to embed compliance controls into systems, CI pipelines, and defaults.Lead audits and external reviews with a strong internal posture, clear ownership, and minimal disruption to engineering teams.Use tools like Vanta as leverage, not as the job.
+
+Incident readiness and vulnerability management
+
+Lead product security incident readiness, including playbooks, tabletop exercises, escalation paths, postmortems, and durable fixes.Run vulnerability management for the product, including triage, prioritization, remediation, pen tests, and third party reviews.Own communication and coordination during security incidents, ensuring calm execution and clear accountability.
+
+What We Are Looking For
+
+Deep product security background in modern cloud systems, ideally multi tenant SaaS.Strong engineering chops. You can review designs, spot systemic risk, and drive pragmatic solutions.Experience building and owning security and compliance programs in high growth environments, including shift left security, developer enablement, and security architecture decisions.Calm operator during incidents, with crisp communication and high trust with engineering teams.Comfortable being the first dedicated product security hire and defining the role in partnership with Engineering and Product leadership.
+
+Experience
+
+8+ years in security engineering, product security, or platform security roles.4+ plus years owning security architecture or security programs for a production SaaS product.Demonstrated ownership of SOC 2 or similar compliance programs in a fast moving environment.Prior experience operating in an early stage or high growth company where security and compliance systems had to be built, not inherited.
+
+Success looks like
+
+SOC 2 and related compliance programs run predictably, with minimal fire drills.Fewer high severity security incidents and a smaller blast radius when issues happen.Security and compliance checks become defaults in the system, not heroics by individuals.Engineers ship faster because risk, security, and compliance expectations are clear by design.
+
+What You Own
+
+ Product securityThreat modeling and secure design reviews for new agent capabilities, tools, memory, tenant isolation, and data flows.Secure SDLC, including security requirements in PRDs, security gates in CI, and security regression tests.Secrets, keys, and tenant boundary safety, with automation to reduce blast radius and prevent common footguns. Compliance and governanceSOC 2 and related compliance frameworks, including control ownership, evidence quality, and audit readiness.Mapping compliance requirements to technical controls and operational practices.Continuous compliance posture, not point in time audits. Platform and cloud securityIAM, least privilege, production access, audit trails, logging, and secure defaults.Secure architecture for multi tenant services, network boundaries, data encryption, and key management.
+
+Security tooling and detection signals relevant to product risk.… more

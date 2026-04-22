@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import type { Database } from 'bun:sqlite'
 import { ResumeService } from '../resume-service'
 import { createTestDb, seedSource, seedBullet, seedPerspective, seedResume, seedResumeEntry, seedResumeSection, seedSkill } from '../../db/__tests__/helpers'
+import { buildDefaultElm } from '../../storage/build-elm'
 
 describe('ResumeService', () => {
   let db: Database
@@ -9,15 +10,15 @@ describe('ResumeService', () => {
 
   beforeEach(() => {
     db = createTestDb()
-    service = new ResumeService(db)
+    service = new ResumeService(db, buildDefaultElm(db))
   })
 
   afterEach(() => db.close())
 
   // ── createResume ──────────────────────────────────────────────────
 
-  test('createResume with valid input succeeds', () => {
-    const result = service.createResume({
+  test('createResume with valid input succeeds', async () => {
+    const result = await service.createResume({
       name: 'AI Engineer Resume',
       target_role: 'AI Engineer',
       target_employer: 'Anthropic',
@@ -29,8 +30,8 @@ describe('ResumeService', () => {
     expect(result.data.status).toBe('draft')
   })
 
-  test('createResume rejects empty name', () => {
-    const result = service.createResume({
+  test('createResume rejects empty name', async () => {
+    const result = await service.createResume({
       name: '',
       target_role: 'AI Engineer',
       target_employer: 'Anthropic',
@@ -41,8 +42,8 @@ describe('ResumeService', () => {
     expect(result.error.code).toBe('VALIDATION_ERROR')
   })
 
-  test('createResume rejects empty target_role', () => {
-    const result = service.createResume({
+  test('createResume rejects empty target_role', async () => {
+    const result = await service.createResume({
       name: 'Resume',
       target_role: '',
       target_employer: 'Anthropic',
@@ -53,8 +54,8 @@ describe('ResumeService', () => {
     expect(result.error.code).toBe('VALIDATION_ERROR')
   })
 
-  test('createResume rejects empty target_employer', () => {
-    const result = service.createResume({
+  test('createResume rejects empty target_employer', async () => {
+    const result = await service.createResume({
       name: 'Resume',
       target_role: 'AI Engineer',
       target_employer: '',
@@ -65,8 +66,8 @@ describe('ResumeService', () => {
     expect(result.error.code).toBe('VALIDATION_ERROR')
   })
 
-  test('createResume rejects empty archetype', () => {
-    const result = service.createResume({
+  test('createResume rejects empty archetype', async () => {
+    const result = await service.createResume({
       name: 'Resume',
       target_role: 'AI Engineer',
       target_employer: 'Anthropic',
@@ -79,7 +80,7 @@ describe('ResumeService', () => {
 
   // ── getResume ─────────────────────────────────────────────────────
 
-  test('getResume returns resume with entries', () => {
+  test('getResume returns resume with entries', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId)
@@ -87,7 +88,7 @@ describe('ResumeService', () => {
     const secId = seedResumeSection(db, resumeId, 'Experience', 'experience')
     seedResumeEntry(db, secId, { perspectiveId: perspId, position: 0 })
 
-    const result = service.getResume(resumeId)
+    const result = await service.getResume(resumeId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.id).toBe(resumeId)
@@ -97,8 +98,8 @@ describe('ResumeService', () => {
     expect(expSection!.entries).toHaveLength(1)
   })
 
-  test('getResume returns NOT_FOUND for missing ID', () => {
-    const result = service.getResume('nonexistent')
+  test('getResume returns NOT_FOUND for missing ID', async () => {
+    const result = await service.getResume('nonexistent')
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
@@ -106,23 +107,23 @@ describe('ResumeService', () => {
 
   // ── listResumes ───────────────────────────────────────────────────
 
-  test('listResumes returns all resumes', () => {
+  test('listResumes returns all resumes', async () => {
     seedResume(db, { name: 'Resume A' })
     seedResume(db, { name: 'Resume B' })
 
-    const result = service.listResumes()
+    const result = await service.listResumes()
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.length).toBe(2)
     expect(result.pagination.total).toBe(2)
   })
 
-  test('listResumes supports pagination', () => {
+  test('listResumes supports pagination', async () => {
     for (let i = 0; i < 5; i++) {
       seedResume(db, { name: `Resume ${i}` })
     }
 
-    const result = service.listResumes(0, 2)
+    const result = await service.listResumes(0, 2)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.length).toBe(2)
@@ -131,26 +132,26 @@ describe('ResumeService', () => {
 
   // ── updateResume ──────────────────────────────────────────────────
 
-  test('updateResume with valid input succeeds', () => {
+  test('updateResume with valid input succeeds', async () => {
     const resumeId = seedResume(db)
 
-    const result = service.updateResume(resumeId, { name: 'Updated Resume' })
+    const result = await service.updateResume(resumeId, { name: 'Updated Resume' })
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.name).toBe('Updated Resume')
   })
 
-  test('updateResume rejects empty name', () => {
+  test('updateResume rejects empty name', async () => {
     const resumeId = seedResume(db)
 
-    const result = service.updateResume(resumeId, { name: '' })
+    const result = await service.updateResume(resumeId, { name: '' })
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('VALIDATION_ERROR')
   })
 
-  test('updateResume returns NOT_FOUND for missing ID', () => {
-    const result = service.updateResume('nonexistent', { name: 'New' })
+  test('updateResume returns NOT_FOUND for missing ID', async () => {
+    const result = await service.updateResume('nonexistent', { name: 'New' })
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
@@ -158,18 +159,18 @@ describe('ResumeService', () => {
 
   // ── deleteResume ──────────────────────────────────────────────────
 
-  test('deleteResume removes resume', () => {
+  test('deleteResume removes resume', async () => {
     const resumeId = seedResume(db)
 
-    const result = service.deleteResume(resumeId)
+    const result = await service.deleteResume(resumeId)
     expect(result.ok).toBe(true)
 
-    const check = service.getResume(resumeId)
+    const check = await service.getResume(resumeId)
     expect(check.ok).toBe(false)
   })
 
-  test('deleteResume returns NOT_FOUND for missing ID', () => {
-    const result = service.deleteResume('nonexistent')
+  test('deleteResume returns NOT_FOUND for missing ID', async () => {
+    const result = await service.deleteResume('nonexistent')
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
@@ -177,14 +178,14 @@ describe('ResumeService', () => {
 
   // ── addEntry ──────────────────────────────────────────────────────
 
-  test('addEntry adds approved perspective to resume', () => {
+  test('addEntry adds approved perspective to resume', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId, { status: 'approved' })
     const resumeId = seedResume(db)
     const secId = seedResumeSection(db, resumeId, 'Experience', 'experience')
 
-    const result = service.addEntry(resumeId, {
+    const result = await service.addEntry(resumeId, {
       perspective_id: perspId,
       section_id: secId,
       position: 0,
@@ -195,14 +196,14 @@ describe('ResumeService', () => {
     expect(result.data.section_id).toBe(secId)
   })
 
-  test('addEntry rejects non-approved perspective', () => {
+  test('addEntry rejects non-approved perspective', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId, { status: 'draft' })
     const resumeId = seedResume(db)
     const secId = seedResumeSection(db, resumeId, 'Experience', 'experience')
 
-    const result = service.addEntry(resumeId, {
+    const result = await service.addEntry(resumeId, {
       perspective_id: perspId,
       section_id: secId,
       position: 0,
@@ -213,12 +214,12 @@ describe('ResumeService', () => {
     expect(result.error.message).toContain('approved')
   })
 
-  test('addEntry returns NOT_FOUND for missing resume', () => {
+  test('addEntry returns NOT_FOUND for missing resume', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId, { status: 'approved' })
 
-    const result = service.addEntry('nonexistent', {
+    const result = await service.addEntry('nonexistent', {
       perspective_id: perspId,
       section_id: 'some-section-id',
       position: 0,
@@ -228,11 +229,11 @@ describe('ResumeService', () => {
     expect(result.error.code).toBe('NOT_FOUND')
   })
 
-  test('addEntry returns NOT_FOUND for missing perspective', () => {
+  test('addEntry returns NOT_FOUND for missing perspective', async () => {
     const resumeId = seedResume(db)
     const secId = seedResumeSection(db, resumeId, 'Experience', 'experience')
 
-    const result = service.addEntry(resumeId, {
+    const result = await service.addEntry(resumeId, {
       perspective_id: 'nonexistent',
       section_id: secId,
       position: 0,
@@ -242,11 +243,11 @@ describe('ResumeService', () => {
     expect(result.error.code).toBe('NOT_FOUND')
   })
 
-  test('addEntry creates freeform entry without perspective', () => {
+  test('addEntry creates freeform entry without perspective', async () => {
     const resumeId = seedResume(db)
     const secId = seedResumeSection(db, resumeId, 'Summary', 'freeform')
 
-    const result = service.addEntry(resumeId, {
+    const result = await service.addEntry(resumeId, {
       section_id: secId,
       content: 'My freeform summary text',
       position: 0,
@@ -259,7 +260,7 @@ describe('ResumeService', () => {
 
   // ── removeEntry ───────────────────────────────────────────────────
 
-  test('removeEntry removes existing entry', () => {
+  test('removeEntry removes existing entry', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId)
@@ -267,21 +268,21 @@ describe('ResumeService', () => {
     const secId = seedResumeSection(db, resumeId, 'Experience', 'experience')
     const entryId = seedResumeEntry(db, secId, { perspectiveId: perspId })
 
-    const result = service.removeEntry(resumeId, entryId)
+    const result = await service.removeEntry(resumeId, entryId)
     expect(result.ok).toBe(true)
 
     // Verify it's gone
-    const check = service.getResume(resumeId)
+    const check = await service.getResume(resumeId)
     expect(check.ok).toBe(true)
     if (!check.ok) return
     const allEntries = check.data.sections.flatMap(s => s.entries)
     expect(allEntries).toHaveLength(0)
   })
 
-  test('removeEntry returns NOT_FOUND for missing entry', () => {
+  test('removeEntry returns NOT_FOUND for missing entry', async () => {
     const resumeId = seedResume(db)
 
-    const result = service.removeEntry(resumeId, 'nonexistent')
+    const result = await service.removeEntry(resumeId, 'nonexistent')
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
@@ -289,7 +290,7 @@ describe('ResumeService', () => {
 
   // ── reorderEntries ────────────────────────────────────────────────
 
-  test('reorderEntries updates positions', () => {
+  test('reorderEntries updates positions', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const p1 = seedPerspective(db, bulletId)
@@ -300,13 +301,13 @@ describe('ResumeService', () => {
     const e2 = seedResumeEntry(db, secId, { perspectiveId: p2, position: 1 })
 
     // Swap positions
-    const result = service.reorderEntries(resumeId, [
+    const result = await service.reorderEntries(resumeId, [
       { id: e1, section_id: secId, position: 1 },
       { id: e2, section_id: secId, position: 0 },
     ])
     expect(result.ok).toBe(true)
 
-    const check = service.getResume(resumeId)
+    const check = await service.getResume(resumeId)
     expect(check.ok).toBe(true)
     if (!check.ok) return
     const entries = check.data.sections[0].entries
@@ -314,14 +315,14 @@ describe('ResumeService', () => {
     expect(entries[1].id).toBe(e1)
   })
 
-  test('reorderEntries returns NOT_FOUND for missing resume', () => {
-    const result = service.reorderEntries('nonexistent', [])
+  test('reorderEntries returns NOT_FOUND for missing resume', async () => {
+    const result = await service.reorderEntries('nonexistent', [])
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
   })
 
-  test('reorderEntries rejects unknown entry ID', () => {
+  test('reorderEntries rejects unknown entry ID', async () => {
     const resumeId = seedResume(db)
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
@@ -329,7 +330,7 @@ describe('ResumeService', () => {
     const secId = seedResumeSection(db, resumeId, 'Experience', 'experience')
     seedResumeEntry(db, secId, { perspectiveId: perspId })
 
-    const result = service.reorderEntries(resumeId, [
+    const result = await service.reorderEntries(resumeId, [
       { id: 'nonexistent', section_id: secId, position: 0 },
     ])
     expect(result.ok).toBe(false)
@@ -340,7 +341,7 @@ describe('ResumeService', () => {
 
   // ── analyzeGaps ───────────────────────────────────────────────────
 
-  test('analyzeGaps identifies missing domain coverage', () => {
+  test('analyzeGaps identifies missing domain coverage', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId, {
@@ -352,7 +353,7 @@ describe('ResumeService', () => {
     const secId = seedResumeSection(db, resumeId, 'Experience', 'experience')
     seedResumeEntry(db, secId, { perspectiveId: perspId })
 
-    const result = service.analyzeGaps(resumeId)
+    const result = await service.analyzeGaps(resumeId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
@@ -363,7 +364,7 @@ describe('ResumeService', () => {
     expect(result.data.coverage_summary.domains_missing).toContain('leadership')
   })
 
-  test('analyzeGaps identifies thin coverage', () => {
+  test('analyzeGaps identifies thin coverage', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
 
@@ -404,7 +405,7 @@ describe('ResumeService', () => {
     seedResumeEntry(db, secId, { perspectiveId: p4 })
     seedResumeEntry(db, secId, { perspectiveId: p5 })
 
-    const result = service.analyzeGaps(resumeId)
+    const result = await service.analyzeGaps(resumeId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
@@ -414,14 +415,14 @@ describe('ResumeService', () => {
     expect(aiMlThin).toBeDefined()
   })
 
-  test('analyzeGaps identifies unused bullets', () => {
+  test('analyzeGaps identifies unused bullets', async () => {
     const srcId = seedSource(db)
     // Approved bullet with no perspective for 'agentic-ai'
     seedBullet(db, [{ id: srcId }], { status: 'approved' })
 
     const resumeId = seedResume(db, { archetype: 'agentic-ai' })
 
-    const result = service.analyzeGaps(resumeId)
+    const result = await service.analyzeGaps(resumeId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
@@ -429,13 +430,13 @@ describe('ResumeService', () => {
     expect(unusedGaps.length).toBeGreaterThanOrEqual(1)
   })
 
-  test('analyzeGaps unused bullets show source title from junction', () => {
+  test('analyzeGaps unused bullets show source title from junction', async () => {
     const srcId = seedSource(db, { title: 'Cloud Migration' })
     seedBullet(db, [{ id: srcId }], { status: 'approved' })
 
     const resumeId = seedResume(db, { archetype: 'agentic-ai' })
 
-    const result = service.analyzeGaps(resumeId)
+    const result = await service.analyzeGaps(resumeId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
@@ -446,28 +447,28 @@ describe('ResumeService', () => {
     }
   })
 
-  test('analyzeGaps returns NOT_FOUND for missing resume', () => {
-    const result = service.analyzeGaps('nonexistent')
+  test('analyzeGaps returns NOT_FOUND for missing resume', async () => {
+    const result = await service.analyzeGaps('nonexistent')
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
   })
 
-  test('analyzeGaps skips freeform entries (no crash on null perspective_id)', () => {
+  test('analyzeGaps skips freeform entries (no crash on null perspective_id)', async () => {
     const resumeId = seedResume(db, { archetype: 'agentic-ai' })
     const secId = seedResumeSection(db, resumeId, 'Summary', 'freeform')
     seedResumeEntry(db, secId, { content: 'My freeform summary' })
 
-    const result = service.analyzeGaps(resumeId)
+    const result = await service.analyzeGaps(resumeId)
     expect(result.ok).toBe(true)
   })
 
   // ── Section management ────────────────────────────────────────────
 
   describe('section management', () => {
-    test('createSection returns section entity', () => {
+    test('createSection returns section entity', async () => {
       const resumeId = seedResume(db)
-      const result = service.createSection(resumeId, {
+      const result = await service.createSection(resumeId, {
         title: 'Experience',
         entry_type: 'experience',
         position: 0,
@@ -479,8 +480,8 @@ describe('ResumeService', () => {
       expect(result.data.resume_id).toBe(resumeId)
     })
 
-    test('createSection returns NOT_FOUND for missing resume', () => {
-      const result = service.createSection('nonexistent', {
+    test('createSection returns NOT_FOUND for missing resume', async () => {
+      const result = await service.createSection('nonexistent', {
         title: 'Sec',
         entry_type: 'experience',
       })
@@ -489,12 +490,12 @@ describe('ResumeService', () => {
       expect(result.error.code).toBe('NOT_FOUND')
     })
 
-    test('listSections returns all sections ordered by position', () => {
+    test('listSections returns all sections ordered by position', async () => {
       const resumeId = seedResume(db)
-      service.createSection(resumeId, { title: 'Skills', entry_type: 'skills', position: 1 })
-      service.createSection(resumeId, { title: 'Summary', entry_type: 'freeform', position: 0 })
+      await service.createSection(resumeId, { title: 'Skills', entry_type: 'skills', position: 1 })
+      await service.createSection(resumeId, { title: 'Summary', entry_type: 'freeform', position: 0 })
 
-      const result = service.listSections(resumeId)
+      const result = await service.listSections(resumeId)
       expect(result.ok).toBe(true)
       if (!result.ok) return
       expect(result.data).toHaveLength(2)
@@ -502,57 +503,57 @@ describe('ResumeService', () => {
       expect(result.data[1].title).toBe('Skills')
     })
 
-    test('listSections returns NOT_FOUND for missing resume', () => {
-      const result = service.listSections('nonexistent')
+    test('listSections returns NOT_FOUND for missing resume', async () => {
+      const result = await service.listSections('nonexistent')
       expect(result.ok).toBe(false)
       if (result.ok) return
       expect(result.error.code).toBe('NOT_FOUND')
     })
 
-    test('updateSection changes title', () => {
+    test('updateSection changes title', async () => {
       const resumeId = seedResume(db)
-      const created = service.createSection(resumeId, { title: 'Old', entry_type: 'experience' })
+      const created = await service.createSection(resumeId, { title: 'Old', entry_type: 'experience' })
       if (!created.ok) throw new Error('setup failed')
 
-      const result = service.updateSection(resumeId, created.data.id, { title: 'New Title' })
+      const result = await service.updateSection(resumeId, created.data.id, { title: 'New Title' })
       expect(result.ok).toBe(true)
       if (!result.ok) return
       expect(result.data.title).toBe('New Title')
       expect(result.data.entry_type).toBe('experience')
     })
 
-    test('updateSection returns NOT_FOUND for wrong resume', () => {
+    test('updateSection returns NOT_FOUND for wrong resume', async () => {
       const resumeId = seedResume(db)
       const otherResumeId = seedResume(db)
-      const created = service.createSection(resumeId, { title: 'Sec', entry_type: 'experience' })
+      const created = await service.createSection(resumeId, { title: 'Sec', entry_type: 'experience' })
       if (!created.ok) throw new Error('setup failed')
 
-      const result = service.updateSection(otherResumeId, created.data.id, { title: 'Nope' })
+      const result = await service.updateSection(otherResumeId, created.data.id, { title: 'Nope' })
       expect(result.ok).toBe(false)
       if (result.ok) return
       expect(result.error.code).toBe('NOT_FOUND')
     })
 
-    test('deleteSection removes section', () => {
+    test('deleteSection removes section', async () => {
       const resumeId = seedResume(db)
-      const created = service.createSection(resumeId, { title: 'Del', entry_type: 'experience' })
+      const created = await service.createSection(resumeId, { title: 'Del', entry_type: 'experience' })
       if (!created.ok) throw new Error('setup failed')
 
-      const result = service.deleteSection(resumeId, created.data.id)
+      const result = await service.deleteSection(resumeId, created.data.id)
       expect(result.ok).toBe(true)
 
-      const check = service.listSections(resumeId)
+      const check = await service.listSections(resumeId)
       if (!check.ok) throw new Error('listSections failed')
       expect(check.data).toHaveLength(0)
     })
 
-    test('deleteSection returns NOT_FOUND for wrong resume', () => {
+    test('deleteSection returns NOT_FOUND for wrong resume', async () => {
       const resumeId = seedResume(db)
       const otherResumeId = seedResume(db)
-      const created = service.createSection(resumeId, { title: 'Sec', entry_type: 'experience' })
+      const created = await service.createSection(resumeId, { title: 'Sec', entry_type: 'experience' })
       if (!created.ok) throw new Error('setup failed')
 
-      const result = service.deleteSection(otherResumeId, created.data.id)
+      const result = await service.deleteSection(otherResumeId, created.data.id)
       expect(result.ok).toBe(false)
     })
   })
@@ -560,105 +561,105 @@ describe('ResumeService', () => {
   // ── Skills management ─────────────────────────────────────────────
 
   describe('skills management', () => {
-    test('addSkill adds skill to section', () => {
+    test('addSkill adds skill to section', async () => {
       const resumeId = seedResume(db)
       const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
       const skillId = seedSkill(db, { name: 'Python', category: 'language' })
 
-      const result = service.addSkill(resumeId, secId, skillId)
+      const result = await service.addSkill(resumeId, secId, skillId)
       expect(result.ok).toBe(true)
       if (!result.ok) return
       expect(result.data.skill_id).toBe(skillId)
     })
 
-    test('addSkill returns NOT_FOUND for wrong resume', () => {
+    test('addSkill returns NOT_FOUND for wrong resume', async () => {
       const resumeId = seedResume(db)
       const otherResumeId = seedResume(db)
       const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
       const skillId = seedSkill(db)
 
-      const result = service.addSkill(otherResumeId, secId, skillId)
+      const result = await service.addSkill(otherResumeId, secId, skillId)
       expect(result.ok).toBe(false)
       if (result.ok) return
       expect(result.error.code).toBe('NOT_FOUND')
     })
 
-    test('addSkill returns CONFLICT for duplicate', () => {
+    test('addSkill returns CONFLICT for duplicate', async () => {
       const resumeId = seedResume(db)
       const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
       const skillId = seedSkill(db, { name: 'Go' })
 
-      service.addSkill(resumeId, secId, skillId)
-      const result = service.addSkill(resumeId, secId, skillId)
+      await service.addSkill(resumeId, secId, skillId)
+      const result = await service.addSkill(resumeId, secId, skillId)
       expect(result.ok).toBe(false)
       if (result.ok) return
       expect(result.error.code).toBe('CONFLICT')
     })
 
-    test('removeSkill removes skill', () => {
+    test('removeSkill removes skill', async () => {
       const resumeId = seedResume(db)
       const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
       const skillId = seedSkill(db)
-      service.addSkill(resumeId, secId, skillId)
+      await service.addSkill(resumeId, secId, skillId)
 
-      const result = service.removeSkill(resumeId, secId, skillId)
+      const result = await service.removeSkill(resumeId, secId, skillId)
       expect(result.ok).toBe(true)
     })
 
-    test('removeSkill returns NOT_FOUND for missing skill', () => {
+    test('removeSkill returns NOT_FOUND for missing skill', async () => {
       const resumeId = seedResume(db)
       const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
 
-      const result = service.removeSkill(resumeId, secId, crypto.randomUUID())
+      const result = await service.removeSkill(resumeId, secId, crypto.randomUUID())
       expect(result.ok).toBe(false)
       if (result.ok) return
       expect(result.error.code).toBe('NOT_FOUND')
     })
 
-    test('listSkillsForSection returns skills', () => {
+    test('listSkillsForSection returns skills', async () => {
       const resumeId = seedResume(db)
       const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
       const s1 = seedSkill(db, { name: 'Python' })
       const s2 = seedSkill(db, { name: 'Go' })
-      service.addSkill(resumeId, secId, s1)
-      service.addSkill(resumeId, secId, s2)
+      await service.addSkill(resumeId, secId, s1)
+      await service.addSkill(resumeId, secId, s2)
 
-      const result = service.listSkillsForSection(resumeId, secId)
+      const result = await service.listSkillsForSection(resumeId, secId)
       expect(result.ok).toBe(true)
       if (!result.ok) return
       expect(result.data).toHaveLength(2)
     })
 
-    test('listSkillsForSection returns NOT_FOUND for wrong resume', () => {
+    test('listSkillsForSection returns NOT_FOUND for wrong resume', async () => {
       const resumeId = seedResume(db)
       const otherResumeId = seedResume(db)
       const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
 
-      const result = service.listSkillsForSection(otherResumeId, secId)
+      const result = await service.listSkillsForSection(otherResumeId, secId)
       expect(result.ok).toBe(false)
     })
 
-    test('reorderSkills updates positions', () => {
+    test('reorderSkills updates positions', async () => {
       const resumeId = seedResume(db)
       const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
       const s1 = seedSkill(db, { name: 'Python' })
       const s2 = seedSkill(db, { name: 'Go' })
-      service.addSkill(resumeId, secId, s1)
-      service.addSkill(resumeId, secId, s2)
+      await service.addSkill(resumeId, secId, s1)
+      await service.addSkill(resumeId, secId, s2)
 
-      const result = service.reorderSkills(resumeId, secId, [
+      const result = await service.reorderSkills(resumeId, secId, [
         { skill_id: s2, position: 0 },
         { skill_id: s1, position: 1 },
       ])
       expect(result.ok).toBe(true)
     })
 
-    test('reorderSkills returns NOT_FOUND for wrong resume', () => {
+    test('reorderSkills returns NOT_FOUND for wrong resume', async () => {
       const resumeId = seedResume(db)
       const otherResumeId = seedResume(db)
       const secId = seedResumeSection(db, resumeId, 'Skills', 'skills')
 
-      const result = service.reorderSkills(otherResumeId, secId, [])
+      const result = await service.reorderSkills(otherResumeId, secId, [])
       expect(result.ok).toBe(false)
     })
   })

@@ -1,0 +1,32 @@
+Agentic AI Engineer (R0233768)
+
+The Opportunity:
+
+We are looking for a highly skilled Agentic AI Engineer to join our team, specializing in building autonomous, goal-oriented AI systems. You will play a crucial role in shifting our AI strategy from passive LLM chatbots to proactive, multi-agent orchestrations.
+
+What You'll Work On:
+
+- Design and implement intelligent agent architectures that can reason, plan, and take actions using LangChain, LangGraph, and AutoGen.
+- Develop and deploy multi-agent systems using MCP (Model Context Protocol) and A2A (Agent-to-Agent) protocols to facilitate communication, tool usage, and collaborative task solving.
+- Build advanced RAG pipelines integrating unstructured data with Knowledge Graphs (KG) to enhance reasoning accuracy and context retention.
+- Fine-tune Small Language Models (SLMs) for specific domains and optimize them for edge device performance, including ONNX, GGML, or Ollama.
+- Develop evaluation frameworks to test agent reliability, safety, and performance, moving from prototype to production, including ReAct loops and human-in-the-loop.
+
+You Have:
+
+- 5+ years of experience in software development
+- 2+ years of experience with GenAI, LLMs, and agentic workflows
+- Experience with LangChain, LangGraph, AutoGen, or LlamaIndex
+- Experience with Model Context Protocol (MCP) for tool integration and A2A for agent-to-agent collaboration
+- Experience in RAG architecture and Knowledge Graphs, including Neo4j or NebulaGraph
+- Experience fine-tuning LLMs or SLMs using Hugging Face, PEFT, or LoRA
+- Knowledge of modern software design patterns, including microservice design or edge computing
+- Ability to obtain a Secret clearance
+- Bachelor's degree in a Computer Science or AI field
+
+Nice If You Have:
+
+- Experience deploying agentic systems in a production environment
+- Experience deploying agents on edge devices such as Android or local models
+- Experience integrating coding agents such as Cursor or Windsurf into an efficient development pipeline with measured results
+- Master's degree preferred; Doctorate a plus

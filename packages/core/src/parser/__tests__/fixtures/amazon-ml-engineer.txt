@@ -1,0 +1,22 @@
+Machine Learning Engineer II, Special Projects
+
+Amazon Special Projects team — focuses on creating entirely new products and services.
+
+Key job responsibilities
+
+- Ability to quickly learn state of the art technologies and algorithms in the field of Generative AI to participate in our journey to build the best LLMs.
+- Responsible for the development and maintenance of key platforms needed for developing, evaluating and deploying LLM for real-world applications.
+- Work with other team members to investigate design approaches, prototype new technology and evaluate technical feasibility.
+- Work closely with Applied scientists to process massive data, scale machine learning models while optimizing.
+- Experience in distributed model training
+
+Basic Qualifications
+
+- 2+ years of non-internship professional software development experience
+- 2+ years of non-internship design or architecture (design patterns, reliability and scaling) of new and existing systems experience
+- Experience programming with at least one software programming language
+
+Preferred Qualifications
+
+- 3+ years of full software development life cycle, including coding standards, code reviews, source control management, build processes, testing, and operations experience
+- Bachelor's degree in computer science or equivalent

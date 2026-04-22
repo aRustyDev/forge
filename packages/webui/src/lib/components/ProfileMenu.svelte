@@ -182,6 +182,18 @@
     <!-- Settings section -->
     <div class="menu-section">
       <span class="section-header">Settings</span>
+      <button class="menu-item menu-link" onclick={() => navigateTo('/settings/work-auth')}>
+        Work Authorization
+      </button>
+      <button class="menu-item menu-link" onclick={() => navigateTo('/settings/eeo')}>
+        EEO Disclosures
+      </button>
+      <button class="menu-item menu-link" onclick={() => navigateTo('/settings/extension')}>
+        Extension Config
+      </button>
+      <button class="menu-item menu-link" onclick={() => navigateTo('/settings/extension-logs')}>
+        Extension Logs
+      </button>
       <button class="menu-item menu-link" onclick={() => navigateTo('/config/privacy')}>
         Privacy
       </button>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
+  import { EntityNotes } from '$lib/components'
   import type { Organization } from '@forge/sdk'
 
   let { org, onclose, onupdate }: {
@@ -25,21 +26,10 @@
     excluded: 'Excluded',
   }
 
-  let notesValue = $state('')
-  let reputationValue = $state('')
-  let savingNotes = $state(false)
-  let savingReputation = $state(false)
   let removing = $state(false)
 
   let isTargeting = $derived(org ? TARGETING_STATUSES.includes(org.status ?? '') : false)
   let columnLabel = $derived(org ? (COLUMN_LABELS[org.status ?? ''] ?? 'Unknown') : '')
-
-  $effect(() => {
-    if (org) {
-      notesValue = org.notes ?? ''
-      reputationValue = org.reputation_notes ?? ''
-    }
-  })
 
   async function changeInterest(newStatus: string) {
     if (!org) return
@@ -50,30 +40,6 @@
     } else {
       addToast({ message: friendlyError(result.error), type: 'error' })
     }
-  }
-
-  async function saveNotes() {
-    if (!org) return
-    savingNotes = true
-    const result = await forge.organizations.update(org.id, { notes: notesValue || null })
-    if (result.ok) {
-      onupdate()
-    } else {
-      addToast({ message: friendlyError(result.error, 'Failed to save notes'), type: 'error' })
-    }
-    savingNotes = false
-  }
-
-  async function saveReputation() {
-    if (!org) return
-    savingReputation = true
-    const result = await forge.organizations.update(org.id, { reputation_notes: reputationValue || null })
-    if (result.ok) {
-      onupdate()
-    } else {
-      addToast({ message: friendlyError(result.error, 'Failed to save reputation notes'), type: 'error' })
-    }
-    savingReputation = false
   }
 
   async function removeFromPipeline() {
@@ -170,35 +136,7 @@
           {/if}
         </div>
 
-        <div class="field-group">
-          <label class="field-label" for="detail-notes">Notes</label>
-          <textarea
-            id="detail-notes"
-            class="detail-textarea"
-            bind:value={notesValue}
-            onblur={saveNotes}
-            rows="3"
-            placeholder="Add notes about this organization..."
-          ></textarea>
-          {#if savingNotes}
-            <span class="saving-indicator">Saving...</span>
-          {/if}
-        </div>
-
-        <div class="field-group">
-          <label class="field-label" for="detail-reputation">Reputation Notes</label>
-          <textarea
-            id="detail-reputation"
-            class="detail-textarea"
-            bind:value={reputationValue}
-            onblur={saveReputation}
-            rows="3"
-            placeholder="Reputation, red flags, culture notes..."
-          ></textarea>
-          {#if savingReputation}
-            <span class="saving-indicator">Saving...</span>
-          {/if}
-        </div>
+        <EntityNotes entityType="organization" entityId={org?.id} />
       </div>
 
       <div class="modal-footer">
@@ -394,32 +332,6 @@
 
   .detail-link:hover {
     text-decoration: underline;
-  }
-
-  .detail-textarea {
-    width: 100%;
-    padding: 0.5rem 0.65rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    background: var(--color-surface);
-    font-family: inherit;
-    line-height: var(--leading-normal);
-    resize: vertical;
-    min-height: 60px;
-  }
-
-  .detail-textarea:focus {
-    outline: none;
-    border-color: var(--color-border-focus);
-    box-shadow: 0 0 0 2px var(--color-primary-subtle);
-  }
-
-  .saving-indicator {
-    font-size: 0.68rem;
-    color: var(--color-primary);
-    font-style: italic;
   }
 
   .modal-footer {

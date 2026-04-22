@@ -107,6 +107,17 @@ export class ResumesResource {
     )
   }
 
+  reorderEntries(
+    resumeId: string,
+    entries: Array<{ id: string; section_id: string; position: number }>,
+  ): Promise<Result<void>> {
+    return this.request<void>(
+      'PATCH',
+      `/api/resumes/${resumeId}/entries/reorder`,
+      { entries },
+    )
+  }
+
   // -- Section methods --
 
   createSection(

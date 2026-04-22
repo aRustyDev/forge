@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte'
+  import { onMount, onDestroy, tick } from 'svelte'
   import { EditorView } from '@codemirror/view'
   import { EditorState, Compartment } from '@codemirror/state'
   import { basicSetup } from 'codemirror'
@@ -8,6 +8,7 @@
   import { markdown } from '@codemirror/lang-markdown'
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
+  import { generateMarkdownFromIR } from '$lib/resume-markdown'
   import OverrideBanner from './OverrideBanner.svelte'
   import DragNDropView from './DragNDropView.svelte'
   import type { ResumeDocument } from '@forge/sdk'
@@ -80,7 +81,7 @@
 
   // Content for display: override takes priority, otherwise generate from IR
   let displayContent = $derived(
-    currentOverride ?? (format === 'latex' ? generateLatexPlaceholder(ir) : generateMarkdown(ir))
+    currentOverride ?? (format === 'latex' ? generateLatexPlaceholder(ir) : generateMarkdownFromIR(ir))
   )
 
   // Dirty tracking: compare current editor buffer to displayContent
@@ -127,16 +128,31 @@
     editorView = undefined
   }
 
-  // Swap language and content when format changes
+  // Create, destroy, or reconfigure editor when format changes
   $effect(() => {
-    if (!editorView) return
     const _format = format  // track reactivity
-    if (_format === 'default') return
 
+    if (_format === 'default') {
+      destroyEditor()
+      return
+    }
+
+    // If no editor exists yet, create it after DOM renders
+    if (!editorView) {
+      // Wait for Svelte to flush the DOM so editorContainer is mounted
+      tick().then(() => {
+        if (!editorView && format !== 'default') {
+          createEditor()
+        }
+      })
+      return
+    }
+
+    // Editor exists — reconfigure language and content
     const lang = getLanguageExtension(_format)
     const content = _format === 'latex'
       ? (latexOverride ?? generateLatexPlaceholder(ir))
-      : (markdownOverride ?? generateMarkdown(ir))
+      : (markdownOverride ?? generateMarkdownFromIR(ir))
 
     editorView.dispatch({
       effects: languageCompartment.reconfigure(lang),
@@ -189,7 +205,7 @@
     if (!editorView) return
     const content = format === 'latex'
       ? (latexOverride ?? generateLatexPlaceholder(ir))
-      : (markdownOverride ?? generateMarkdown(ir))
+      : (markdownOverride ?? generateMarkdownFromIR(ir))
     editorView.dispatch({
       changes: {
         from: 0,
@@ -206,7 +222,7 @@
     try {
       const generated = format === 'latex'
         ? generateLatexPlaceholder(ir)
-        : generateMarkdown(ir)
+        : generateMarkdownFromIR(ir)
       editorView.dispatch({
         changes: {
           from: 0,
@@ -233,7 +249,7 @@
         if (editorView) {
           const generated = format === 'latex'
             ? generateLatexPlaceholder(ir)
-            : generateMarkdown(ir)
+            : generateMarkdownFromIR(ir)
           editorView.dispatch({
             changes: {
               from: 0,
@@ -333,72 +349,6 @@
     return lines.join('\n')
   }
 
-  function generateMarkdown(doc: ResumeDocument): string {
-    const lines: string[] = []
-    lines.push(`# ${doc.header.name}`)
-    if (doc.header.tagline) lines.push(`*${doc.header.tagline}*`)
-    if (doc.header.clearance) lines.push(`**${doc.header.clearance}**`)
-    const contact: string[] = []
-    if (doc.header.location) contact.push(doc.header.location)
-    if (doc.header.email) contact.push(doc.header.email)
-    if (doc.header.phone) contact.push(doc.header.phone)
-    if (doc.header.linkedin) contact.push(`[LinkedIn](${doc.header.linkedin})`)
-    if (doc.header.github) contact.push(`[GitHub](${doc.header.github})`)
-    if (doc.header.website) contact.push(`[Website](${doc.header.website})`)
-    if (contact.length > 0) lines.push(contact.join(' | '))
-    lines.push('')
-
-    for (const section of doc.sections) {
-      lines.push(`## ${section.title}`)
-      lines.push('')
-      for (const item of section.items) {
-        if (item.kind === 'experience_group') {
-          lines.push(`### ${item.organization}`)
-          for (const sub of item.subheadings) {
-            lines.push(`**${sub.title}** | ${sub.date_range}`)
-            lines.push('')
-            for (const b of sub.bullets) {
-              lines.push(`- ${b.content}`)
-            }
-            lines.push('')
-          }
-        } else if (item.kind === 'summary') {
-          lines.push(item.content)
-          lines.push('')
-        } else if (item.kind === 'education') {
-          lines.push(`**${item.institution}**${item.location ? ` | ${item.location}` : ''}`)
-          lines.push(`${item.degree} | ${item.date}`)
-          lines.push('')
-        } else if (item.kind === 'skill_group') {
-          for (const cat of item.categories) {
-            lines.push(`**${cat.label}:** ${cat.skills.join(', ')}`)
-          }
-          lines.push('')
-        } else if (item.kind === 'project') {
-          lines.push(`**${item.name}**${item.date ? ` | ${item.date}` : ''}`)
-          for (const b of item.bullets) {
-            lines.push(`- ${b.content}`)
-          }
-          lines.push('')
-        } else if (item.kind === 'clearance') {
-          lines.push(`- ${item.content}`)
-        } else if (item.kind === 'certification_group') {
-          for (const cat of item.categories) {
-            lines.push(`**${cat.label}:** ${cat.certs.map(c => c.name).join(', ')}`)
-          }
-          lines.push('')
-        } else if (item.kind === 'presentation') {
-          lines.push(`**${item.title}**${item.date ? ` | ${item.date}` : ''}`)
-          for (const b of item.bullets) {
-            lines.push(`- ${b.content}`)
-          }
-          lines.push('')
-        }
-      }
-    }
-
-    return lines.join('\n')
-  }
 </script>
 
 {#if format === 'default'}

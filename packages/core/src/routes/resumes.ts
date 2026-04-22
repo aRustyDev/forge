@@ -15,7 +15,7 @@ export function resumeRoutes(services: Services, db: Database) {
     const body = await c.req.json<CreateResume & { template_id?: string }>()
 
     if (body.template_id) {
-      const result = services.templates.createResumeFromTemplate({
+      const result = await services.templates.createResumeFromTemplate({
         ...body,
         template_id: body.template_id,
       })
@@ -23,42 +23,42 @@ export function resumeRoutes(services: Services, db: Database) {
       return c.json({ data: result.data }, 201)
     }
 
-    const result = services.resumes.createResume(body)
+    const result = await services.resumes.createResume(body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
 
-  app.get('/resumes', (c) => {
+  app.get('/resumes', async (c) => {
     const offset = Math.max(0, parseInt(c.req.query('offset') ?? '0', 10) || 0)
     const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') ?? '50', 10) || 50))
 
-    const result = services.resumes.listResumes(offset, limit)
+    const result = await services.resumes.listResumes(offset, limit)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data, pagination: result.pagination })
   })
 
-  app.get('/resumes/:id', (c) => {
-    const result = services.resumes.getResume(c.req.param('id'))
+  app.get('/resumes/:id', async (c) => {
+    const result = await services.resumes.getResume(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   app.patch('/resumes/:id', async (c) => {
     const body = await c.req.json<UpdateResume>()
-    const result = services.resumes.updateResume(c.req.param('id'), body)
+    const result = await services.resumes.updateResume(c.req.param('id'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/resumes/:id', (c) => {
-    const result = services.resumes.deleteResume(c.req.param('id'))
+  app.delete('/resumes/:id', async (c) => {
+    const result = await services.resumes.deleteResume(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 
   app.post('/resumes/:id/entries', async (c) => {
     const body = await c.req.json<AddResumeEntry>()
-    const result = services.resumes.addEntry(c.req.param('id'), body)
+    const result = await services.resumes.addEntry(c.req.param('id'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
@@ -66,20 +66,20 @@ export function resumeRoutes(services: Services, db: Database) {
   // Reorder must come before :entryId to avoid "reorder" matching as a param
   app.patch('/resumes/:id/entries/reorder', async (c) => {
     const body = await c.req.json<{ entries: Array<{ id: string; section_id: string; position: number }> }>()
-    const result = services.resumes.reorderEntries(c.req.param('id'), body.entries)
+    const result = await services.resumes.reorderEntries(c.req.param('id'), body.entries)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: null })
   })
 
   app.patch('/resumes/:id/entries/:entryId', async (c) => {
-    const body = await c.req.json<{ content?: string | null; section_id?: string; position?: number; notes?: string | null }>()
-    const result = services.resumes.updateEntry(c.req.param('id'), c.req.param('entryId'), body)
+    const body = await c.req.json<{ content?: string | null; section_id?: string; position?: number }>()
+    const result = await services.resumes.updateEntry(c.req.param('id'), c.req.param('entryId'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/resumes/:id/entries/:entryId', (c) => {
-    const result = services.resumes.removeEntry(c.req.param('id'), c.req.param('entryId'))
+  app.delete('/resumes/:id/entries/:entryId', async (c) => {
+    const result = await services.resumes.removeEntry(c.req.param('id'), c.req.param('entryId'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
@@ -88,26 +88,26 @@ export function resumeRoutes(services: Services, db: Database) {
 
   app.post('/resumes/:id/sections', async (c) => {
     const body = await c.req.json<{ title: string; entry_type: string; position?: number }>()
-    const result = services.resumes.createSection(c.req.param('id'), body)
+    const result = await services.resumes.createSection(c.req.param('id'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
 
-  app.get('/resumes/:id/sections', (c) => {
-    const result = services.resumes.listSections(c.req.param('id'))
+  app.get('/resumes/:id/sections', async (c) => {
+    const result = await services.resumes.listSections(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   app.patch('/resumes/:id/sections/:sectionId', async (c) => {
     const body = await c.req.json<{ title?: string; position?: number }>()
-    const result = services.resumes.updateSection(c.req.param('id'), c.req.param('sectionId'), body)
+    const result = await services.resumes.updateSection(c.req.param('id'), c.req.param('sectionId'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/resumes/:id/sections/:sectionId', (c) => {
-    const result = services.resumes.deleteSection(c.req.param('id'), c.req.param('sectionId'))
+  app.delete('/resumes/:id/sections/:sectionId', async (c) => {
+    const result = await services.resumes.deleteSection(c.req.param('id'), c.req.param('sectionId'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
@@ -116,26 +116,26 @@ export function resumeRoutes(services: Services, db: Database) {
 
   app.post('/resumes/:id/sections/:sectionId/skills', async (c) => {
     const body = await c.req.json<{ skill_id: string }>()
-    const result = services.resumes.addSkill(c.req.param('id'), c.req.param('sectionId'), body.skill_id)
+    const result = await services.resumes.addSkill(c.req.param('id'), c.req.param('sectionId'), body.skill_id)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
 
-  app.get('/resumes/:id/sections/:sectionId/skills', (c) => {
-    const result = services.resumes.listSkillsForSection(c.req.param('id'), c.req.param('sectionId'))
+  app.get('/resumes/:id/sections/:sectionId/skills', async (c) => {
+    const result = await services.resumes.listSkillsForSection(c.req.param('id'), c.req.param('sectionId'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/resumes/:id/sections/:sectionId/skills/:skillId', (c) => {
-    const result = services.resumes.removeSkill(c.req.param('id'), c.req.param('sectionId'), c.req.param('skillId'))
+  app.delete('/resumes/:id/sections/:sectionId/skills/:skillId', async (c) => {
+    const result = await services.resumes.removeSkill(c.req.param('id'), c.req.param('sectionId'), c.req.param('skillId'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 
   app.patch('/resumes/:id/sections/:sectionId/skills/reorder', async (c) => {
     const body = await c.req.json<{ skills: Array<{ skill_id: string; position: number }> }>()
-    const result = services.resumes.reorderSkills(c.req.param('id'), c.req.param('sectionId'), body.skills)
+    const result = await services.resumes.reorderSkills(c.req.param('id'), c.req.param('sectionId'), body.skills)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: null })
   })
@@ -144,19 +144,19 @@ export function resumeRoutes(services: Services, db: Database) {
 
   app.post('/resumes/:id/certifications', async (c) => {
     const body = await c.req.json<{ certification_id: string; section_id: string; position?: number }>()
-    const result = services.resumes.addCertification(c.req.param('id'), body)
+    const result = await services.resumes.addCertification(c.req.param('id'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
 
-  app.delete('/resumes/:id/certifications/:rcId', (c) => {
-    const result = services.resumes.removeCertification(c.req.param('id'), c.req.param('rcId'))
+  app.delete('/resumes/:id/certifications/:rcId', async (c) => {
+    const result = await services.resumes.removeCertification(c.req.param('id'), c.req.param('rcId'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 
-  app.get('/resumes/:id/certifications', (c) => {
-    const result = services.resumes.listCertificationsForResume(c.req.param('id'))
+  app.get('/resumes/:id/certifications', async (c) => {
+    const result = await services.resumes.listCertificationsForResume(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
@@ -165,7 +165,7 @@ export function resumeRoutes(services: Services, db: Database) {
 
   app.post('/resumes/:id/save-as-template', async (c) => {
     const body = await c.req.json<{ name: string; description?: string }>()
-    const result = services.templates.saveAsTemplate(
+    const result = await services.templates.saveAsTemplate(
       c.req.param('id'),
       body.name,
       body.description,
@@ -174,8 +174,8 @@ export function resumeRoutes(services: Services, db: Database) {
     return c.json({ data: result.data }, 201)
   })
 
-  app.get('/resumes/:id/gaps', (c) => {
-    const result = services.resumes.analyzeGaps(c.req.param('id'))
+  app.get('/resumes/:id/gaps', async (c) => {
+    const result = await services.resumes.analyzeGaps(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
@@ -192,21 +192,21 @@ export function resumeRoutes(services: Services, db: Database) {
 
   app.patch('/resumes/:id/header', async (c) => {
     const body = await c.req.json()
-    const result = services.resumes.updateHeader(c.req.param('id'), body)
+    const result = await services.resumes.updateHeader(c.req.param('id'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   app.patch('/resumes/:id/markdown-override', async (c) => {
     const body = await c.req.json<{ content: string | null }>()
-    const result = services.resumes.updateMarkdownOverride(c.req.param('id'), body.content)
+    const result = await services.resumes.updateMarkdownOverride(c.req.param('id'), body.content)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   app.patch('/resumes/:id/latex-override', async (c) => {
     const body = await c.req.json<{ content: string | null }>()
-    const result = services.resumes.updateLatexOverride(c.req.param('id'), body.content)
+    const result = await services.resumes.updateLatexOverride(c.req.param('id'), body.content)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
@@ -252,7 +252,7 @@ export function resumeRoutes(services: Services, db: Database) {
   /** Force a tagline regeneration from currently linked JDs. */
   app.post('/resumes/:id/tagline/regenerate', async (c) => {
     const { regenerateResumeTagline } = await import('../services/tagline-service')
-    const result = regenerateResumeTagline(db, c.req.param('id'))
+    const result = await regenerateResumeTagline(db, c.req.param('id'))
     if (!result) {
       return c.json(
         { error: { code: 'NOT_FOUND', message: 'Resume not found' } },
@@ -340,11 +340,11 @@ export function resumeRoutes(services: Services, db: Database) {
 
   // ── Linked JDs (reverse lookup) ──────────────────────────────────
 
-  app.get('/resumes/:id/job-descriptions', (c) => {
+  app.get('/resumes/:id/job-descriptions', async (c) => {
     const resumeId = c.req.param('id')
 
     // Verify resume exists
-    const resume = services.resumes.getResume(resumeId)
+    const resume = await services.resumes.getResume(resumeId)
     if (!resume.ok) return c.json({ error: resume.error }, mapStatusCode(resume.error.code))
 
     const rows = db
@@ -364,8 +364,8 @@ export function resumeRoutes(services: Services, db: Database) {
   })
 
   // ── Contact reverse lookup ──────────────────────────────────────────
-  app.get('/resumes/:id/contacts', (c) => {
-    const result = services.contacts.listByResume(c.req.param('id'))
+  app.get('/resumes/:id/contacts', async (c) => {
+    const result = await services.contacts.listByResume(c.req.param('id'))
     if (!result.ok)
       return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })

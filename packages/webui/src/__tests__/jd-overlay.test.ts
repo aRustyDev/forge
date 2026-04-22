@@ -111,10 +111,6 @@ describe('JD overlay: primitive (JDOverlayModal.svelte)', () => {
     expect(content).toContain('jd-overlay-skills-error')
   })
 
-  test('hides notes section when notes empty', () => {
-    expect(content).toMatch(/\{#if\s+displayNotes\}/)
-  })
-
   test('raw_text rendered with pre-wrap (no innerHTML)', () => {
     expect(content).toContain('white-space: pre-wrap')
     expect(content).not.toContain('{@html')

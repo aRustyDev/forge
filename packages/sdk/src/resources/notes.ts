@@ -69,4 +69,14 @@ export class NotesResource {
       `/api/notes/${noteId}/references/${entityType}/${entityId}`,
     )
   }
+
+  getNotesForEntity(
+    entityType: string,
+    entityId: string,
+  ): Promise<Result<UserNote[]>> {
+    return this.request<UserNote[]>(
+      'GET',
+      `/api/notes/by-entity/${entityType}/${entityId}`,
+    )
+  }
 }

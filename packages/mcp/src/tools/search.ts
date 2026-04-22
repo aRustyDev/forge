@@ -19,9 +19,9 @@ export function registerSearchTools(server: McpServer, sdk: ForgeClient): void {
         .describe('Filter by source status'),
       search: z.string().optional()
         .describe('Full-text search on title + description'),
-      offset: z.number().int().min(0).default(0)
+      offset: z.coerce.number().int().min(0).default(0)
         .describe('Pagination offset (default 0)'),
-      limit: z.number().int().min(1).max(100).default(20)
+      limit: z.coerce.number().int().min(1).max(100).default(20)
         .describe('Results per page (default 20, max 100)'),
     },
     async (params) => {
@@ -45,9 +45,9 @@ export function registerSearchTools(server: McpServer, sdk: ForgeClient): void {
         .describe('Filter by source ID'),
       search: z.string().optional()
         .describe('Full-text search on bullet content'),
-      offset: z.number().int().min(0).default(0)
+      offset: z.coerce.number().int().min(0).default(0)
         .describe('Pagination offset (default 0)'),
-      limit: z.number().int().min(1).max(100).default(20)
+      limit: z.coerce.number().int().min(1).max(100).default(20)
         .describe('Results per page (default 20, max 100)'),
     },
     async (params) => {
@@ -73,9 +73,9 @@ export function registerSearchTools(server: McpServer, sdk: ForgeClient): void {
         .describe('Filter by perspective status'),
       search: z.string().optional()
         .describe('Full-text search on perspective content'),
-      offset: z.number().int().min(0).default(0)
+      offset: z.coerce.number().int().min(0).default(0)
         .describe('Pagination offset (default 0)'),
-      limit: z.number().int().min(1).max(100).default(20)
+      limit: z.coerce.number().int().min(1).max(100).default(20)
         .describe('Results per page (default 20, max 100)'),
     },
     async (params) => {

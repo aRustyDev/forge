@@ -3,6 +3,7 @@
   import { marked } from 'marked'
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
+  import { generateMarkdownFromIR } from '$lib/resume-markdown'
   import { LoadingSpinner } from '$lib/components'
 
   import type { ResumeDocument } from '@forge/sdk'
@@ -115,7 +116,7 @@
   }
 
   function getMarkdownHtml(): string {
-    const content = ir.markdown_override ?? '*No markdown content available.*'
+    const content = (ir as any).markdown_override ?? generateMarkdownFromIR(ir)
     return marked.parse(content, { async: false }) as string
   }
 

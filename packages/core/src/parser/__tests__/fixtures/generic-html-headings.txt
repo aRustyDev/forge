@@ -1,0 +1,13 @@
+<h2>About Us</h2>
+We build tools for developers.
+
+<h3>Key Responsibilities</h3>
+- Architect cloud infrastructure
+- Implement CI/CD pipelines
+
+<h3>Requirements</h3>
+- 5+ years AWS experience
+- Terraform expertise
+
+<h4>Nice to Have</h4>
+- Kubernetes certification

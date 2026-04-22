@@ -1,18 +1,24 @@
 /**
  * DomainService — business logic for domain entities.
  *
- * Validates input, enforces delete-protection when referenced
- * by perspectives or archetype_domains.
+ * Phase 1.1: uses EntityLifecycleManager instead of DomainRepository.
+ *
+ * Validates input, enforces delete-protection when referenced by
+ * perspectives or archetype_domains. The integrity layer handles
+ * uniqueness and basic type checks; this service keeps the regex
+ * format check for domain slugs and the perspective/archetype delete
+ * pre-check (perspectives.domain is a text field, not an FK, so the
+ * integrity layer cannot enforce it).
  */
 
-import type { Database } from 'bun:sqlite'
-import type { Domain, Result, PaginatedResult } from '../types'
-import * as DomainRepo from '../db/repositories/domain-repository'
+import { storageErrorToForgeError } from '../storage/error-mapper'
+import type { EntityLifecycleManager } from '../storage/lifecycle-manager'
+import type { Domain, Result, PaginatedResult, CreateDomainInput, DomainWithUsage } from '../types'
 
 export class DomainService {
-  constructor(private db: Database) {}
+  constructor(protected readonly elm: EntityLifecycleManager) {}
 
-  create(input: DomainRepo.CreateDomainInput): Result<Domain> {
+  async create(input: CreateDomainInput): Promise<Result<Domain>> {
     if (!input.name || input.name.trim().length === 0) {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'Name must not be empty' } }
     }
@@ -26,36 +32,62 @@ export class DomainService {
         },
       }
     }
-    try {
-      const domain = DomainRepo.create(this.db, input)
-      return { ok: true, data: domain }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err)
-      if (message.includes('UNIQUE constraint')) {
-        return { ok: false, error: { code: 'CONFLICT', message: `Domain '${input.name}' already exists` } }
-      }
-      throw err
+
+    const createResult = await this.elm.create('domains', { ...input })
+    if (!createResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(createResult.error) }
     }
+
+    const fetched = await this.elm.get('domains', createResult.value.id)
+    if (!fetched.ok) {
+      return { ok: false, error: storageErrorToForgeError(fetched.error) }
+    }
+    return { ok: true, data: fetched.value as unknown as Domain }
   }
 
-  get(id: string): Result<Domain> {
-    const domain = DomainRepo.get(this.db, id)
-    if (!domain) {
-      return { ok: false, error: { code: 'NOT_FOUND', message: `Domain ${id} not found` } }
+  async get(id: string): Promise<Result<Domain>> {
+    const result = await this.elm.get('domains', id)
+    if (!result.ok) {
+      return { ok: false, error: storageErrorToForgeError(result.error) }
     }
-    return { ok: true, data: domain }
+    return { ok: true, data: result.value as unknown as Domain }
   }
 
-  list(offset?: number, limit?: number): PaginatedResult<Domain> {
-    const result = DomainRepo.list(this.db, offset, limit)
+  async list(offset?: number, limit?: number): Promise<PaginatedResult<DomainWithUsage>> {
+    const listResult = await this.elm.list('domains', {
+      offset,
+      limit,
+      orderBy: [{ field: 'name', direction: 'asc' }],
+    })
+    if (!listResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(listResult.error) }
+    }
+
+    // Enrich each row with perspective_count + archetype_count. The old
+    // repository did this with a single SQL JOIN; here we trade per-row
+    // COUNT queries for backend independence. Domain lists are tiny
+    // (< 50 rows), so the extra round-trips are acceptable. If this ever
+    // becomes a hot path, add a named query.
+    const enriched: DomainWithUsage[] = []
+    for (const row of listResult.value.rows) {
+      const d = row as unknown as Domain
+      const perspCount = await this.elm.count('perspectives', { domain: d.name })
+      const archCount = await this.elm.count('archetype_domains', { domain_id: d.id })
+      enriched.push({
+        ...d,
+        perspective_count: perspCount.ok ? perspCount.value : 0,
+        archetype_count: archCount.ok ? archCount.value : 0,
+      })
+    }
+
     return {
       ok: true,
-      data: result.data,
-      pagination: { total: result.total, offset: offset ?? 0, limit: limit ?? 50 },
+      data: enriched,
+      pagination: { total: listResult.value.total, offset: offset ?? 0, limit: limit ?? 50 },
     }
   }
 
-  update(id: string, input: Partial<DomainRepo.CreateDomainInput>): Result<Domain> {
+  async update(id: string, input: Partial<CreateDomainInput>): Promise<Result<Domain>> {
     if (input.name !== undefined && input.name.trim().length === 0) {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'Name must not be empty' } }
     }
@@ -66,48 +98,61 @@ export class DomainService {
       }
     }
 
-    try {
-      const domain = DomainRepo.update(this.db, id, input)
-      if (!domain) {
-        return { ok: false, error: { code: 'NOT_FOUND', message: `Domain ${id} not found` } }
-      }
-      return { ok: true, data: domain }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err)
-      if (message.includes('UNIQUE constraint')) {
-        return { ok: false, error: { code: 'CONFLICT', message: `Domain '${input.name}' already exists` } }
-      }
-      throw err
+    const updateResult = await this.elm.update('domains', id, { ...input })
+    if (!updateResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(updateResult.error) }
     }
+
+    const fetched = await this.elm.get('domains', id)
+    if (!fetched.ok) {
+      return { ok: false, error: storageErrorToForgeError(fetched.error) }
+    }
+    return { ok: true, data: fetched.value as unknown as Domain }
   }
 
-  delete(id: string): Result<void> {
-    const domain = DomainRepo.get(this.db, id)
-    if (!domain) {
-      return { ok: false, error: { code: 'NOT_FOUND', message: `Domain ${id} not found` } }
+  async delete(id: string): Promise<Result<void>> {
+    // Fetch to get the domain's name (needed for the perspective check)
+    // and to surface NOT_FOUND if the id is unknown.
+    const domainResult = await this.elm.get('domains', id)
+    if (!domainResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(domainResult.error) }
     }
+    const domain = domainResult.value as unknown as Domain
 
-    const refs = DomainRepo.countReferences(this.db, id)
-    if (refs.perspective_count > 0) {
+    // Perspectives reference domains by name (text column), so the
+    // integrity layer cannot enforce this. Keep the manual check.
+    const perspCount = await this.elm.count('perspectives', { domain: domain.name })
+    if (perspCount.ok && perspCount.value > 0) {
       return {
         ok: false,
         error: {
           code: 'CONFLICT',
-          message: `Cannot delete domain '${domain.name}': referenced by ${refs.perspective_count} perspective(s)`,
-        },
-      }
-    }
-    if (refs.archetype_count > 0) {
-      return {
-        ok: false,
-        error: {
-          code: 'CONFLICT',
-          message: `Cannot delete domain '${domain.name}': associated with ${refs.archetype_count} archetype(s)`,
+          message: `Cannot delete domain '${domain.name}': referenced by ${perspCount.value} perspective(s)`,
         },
       }
     }
 
-    DomainRepo.del(this.db, id)
+    // The entity map declares `archetype_domains` as a CASCADE child of
+    // `domains`, so an unguarded delete would silently tear down the
+    // junction rows. We intentionally keep the pre-check to preserve the
+    // long-standing "block delete when archetypes reference this domain"
+    // semantics. skill_domains is also a cascade child but is not checked
+    // here — the historical service did not check it either.
+    const archCount = await this.elm.count('archetype_domains', { domain_id: id })
+    if (archCount.ok && archCount.value > 0) {
+      return {
+        ok: false,
+        error: {
+          code: 'CONFLICT',
+          message: `Cannot delete domain '${domain.name}': associated with ${archCount.value} archetype(s)`,
+        },
+      }
+    }
+
+    const delResult = await this.elm.delete('domains', id)
+    if (!delResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(delResult.error) }
+    }
     return { ok: true, data: undefined }
   }
 }

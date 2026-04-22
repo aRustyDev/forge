@@ -3,9 +3,16 @@
  *
  * createServices(db) is called once at server startup. Route handlers
  * receive the returned object via closure.
+ *
+ * Phase 1.8: All services receive a shared EntityLifecycleManager (ELM).
+ * Only ResumeService and ExportService retain a `db` parameter for raw
+ * SQL queries that will become named queries in Phase 2.
  */
 
 import type { Database } from 'bun:sqlite'
+import { buildDefaultElm } from '../storage/build-elm'
+import type { EntityLifecycleManager } from '../storage/lifecycle-manager'
+import type { EntityMapDeps } from '../storage/entity-map'
 import { SourceService } from './source-service'
 import { BulletService } from './bullet-service'
 import { PerspectiveService } from './perspective-service'
@@ -29,9 +36,20 @@ import { RoleTypeService } from './role-type-service'
 import { SkillService } from './skill-service'
 import { CredentialService } from './credential-service'
 import { CertificationService } from './certification-service'
+import { OrgLocationService } from './org-location-service'
 import { EmbeddingService } from './embedding-service'
+import { AddressService } from './address-service'
+import { AnswerBankService } from './answer-bank-service'
+import { ExtensionConfigService } from './extension-config-service'
+import { ExtensionLogService } from './extension-log-service'
 
 export interface Services {
+  /**
+   * Entity lifecycle manager — the storage integrity layer.
+   * Exposed on the Services object so routes/tests can call through it
+   * directly if needed; most consumers should go through a service.
+   */
+  elm: EntityLifecycleManager
   sources: SourceService
   bullets: BulletService
   perspectives: PerspectiveService
@@ -55,38 +73,62 @@ export interface Services {
   skills: SkillService
   credentials: CredentialService
   certifications: CertificationService
-  embedding?: EmbeddingService  // Optional: async-initialized, injected post-createServices()
+  orgLocations: OrgLocationService
+  addresses: AddressService
+  answerBank: AnswerBankService
+  extensionConfig: ExtensionConfigService
+  extensionLogs: ExtensionLogService
+  embedding?: EmbeddingService // Optional: async-initialized, injected post-createServices()
 }
 
+// Re-export for backwards compatibility with any callers that imported
+// from `services/index.ts` before Phase 1.0.
+export { buildDefaultElm } from '../storage/build-elm'
+
 /**
- * Create all services with shared database connection.
- * DerivationService uses DB-level locking (pending_derivations table) — no in-memory Set needed.
+ * Create all services with shared database connection and a shared
+ * EntityLifecycleManager.
+ *
+ * DerivationService uses DB-level locking (pending_derivations table) — no
+ * in-memory Set needed.
  */
-export function createServices(db: Database, dbPath: string): Services {
+export function createServices(
+  db: Database,
+  dbPath: string,
+  entityMapDeps: EntityMapDeps = {},
+): Services {
+  const elm = buildDefaultElm(db, entityMapDeps)
+
   return {
-    sources: new SourceService(db),
-    bullets: new BulletService(db),
-    perspectives: new PerspectiveService(db),
-    derivation: new DerivationService(db),
-    resumes: new ResumeService(db),
-    audit: new AuditService(db),
-    review: new ReviewService(db),
-    organizations: new OrganizationService(db),
-    notes: new NoteService(db),
-    integrity: new IntegrityService(db),
-    domains: new DomainService(db),
-    archetypes: new ArchetypeService(db),
-    profile: new ProfileService(db),
-    jobDescriptions: new JobDescriptionService(db),
-    templates: new TemplateService(db),
-    export: new ExportService(db, dbPath),
-    summaries: new SummaryService(db),
-    contacts: new ContactService(db),
-    industries: new IndustryService(db),
-    roleTypes: new RoleTypeService(db),
-    skills: new SkillService(db),
-    credentials: new CredentialService(db),
-    certifications: new CertificationService(db),
+    elm,
+    sources: new SourceService(elm),
+    bullets: new BulletService(elm),
+    perspectives: new PerspectiveService(elm),
+    derivation: new DerivationService(elm),
+    resumes: new ResumeService(db, elm),
+    audit: new AuditService(elm),
+    review: new ReviewService(elm),
+    organizations: new OrganizationService(elm),
+    notes: new NoteService(elm),
+    integrity: new IntegrityService(elm),
+    domains: new DomainService(elm),
+    archetypes: new ArchetypeService(elm),
+    profile: new ProfileService(elm),
+    jobDescriptions: new JobDescriptionService(elm),
+    templates: new TemplateService(elm),
+    export: new ExportService(db, dbPath, elm),
+    summaries: new SummaryService(elm),
+    contacts: new ContactService(elm),
+    industries: new IndustryService(elm),
+    roleTypes: new RoleTypeService(elm),
+    skills: new SkillService(elm),
+    credentials: new CredentialService(elm),
+    certifications: new CertificationService(elm),
+    orgLocations: new OrgLocationService(elm),
+    addresses: new AddressService(elm),
+    answerBank: new AnswerBankService(elm),
+    extensionConfig: new ExtensionConfigService(db),
+    extensionLogs: new ExtensionLogService(elm),
   }
 }
 
@@ -114,4 +156,8 @@ export { RoleTypeService } from './role-type-service'
 export { SkillService } from './skill-service'
 export { CredentialService } from './credential-service'
 export { CertificationService } from './certification-service'
+export { OrgLocationService } from './org-location-service'
 export { EmbeddingService } from './embedding-service'
+export { AnswerBankService } from './answer-bank-service'
+export { ExtensionConfigService } from './extension-config-service'
+export { ExtensionLogService } from './extension-log-service'

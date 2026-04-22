@@ -13,9 +13,9 @@ import {
 describe('buildSkillsSunburstData', () => {
   it('groups skills by category', () => {
     const skills = [
-      { id: '1', name: 'Terraform', category: 'cloud', notes: null },
-      { id: '2', name: 'AWS', category: 'cloud', notes: null },
-      { id: '3', name: 'Python', category: 'languages', notes: null },
+      { id: '1', name: 'Terraform', category: 'cloud' },
+      { id: '2', name: 'AWS', category: 'cloud' },
+      { id: '3', name: 'Python', category: 'languages' },
     ]
     const bullets = [
       { id: 'b1', technologies: ['terraform', 'aws'] },
@@ -28,7 +28,7 @@ describe('buildSkillsSunburstData', () => {
   })
 
   it('assigns minimum value of 1 to unused skills', () => {
-    const skills = [{ id: '1', name: 'Haskell', category: 'languages', notes: null }]
+    const skills = [{ id: '1', name: 'Haskell', category: 'languages' }]
     const bullets: any[] = []
     const data = buildSkillsSunburstData(skills as any, bullets)
 
@@ -36,7 +36,7 @@ describe('buildSkillsSunburstData', () => {
   })
 
   it('counts bullet technology references correctly', () => {
-    const skills = [{ id: '1', name: 'Python', category: 'languages', notes: null }]
+    const skills = [{ id: '1', name: 'Python', category: 'languages' }]
     const bullets = [
       { id: 'b1', technologies: ['python'] },
       { id: 'b2', technologies: ['python', 'rust'] },
@@ -49,7 +49,7 @@ describe('buildSkillsSunburstData', () => {
   })
 
   it('handles skills with null category as "uncategorized"', () => {
-    const skills = [{ id: '1', name: 'Misc', category: null, notes: null }]
+    const skills = [{ id: '1', name: 'Misc', category: null }]
     const data = buildSkillsSunburstData(skills as any, [])
     expect(data[0].name).toBe('uncategorized')
   })
@@ -60,7 +60,7 @@ describe('buildSkillsSunburstData', () => {
   })
 
   it('case-insensitive technology matching', () => {
-    const skills = [{ id: '1', name: 'Python', category: 'languages', notes: null }]
+    const skills = [{ id: '1', name: 'Python', category: 'languages' }]
     const bullets = [
       { id: 'b1', technologies: ['PYTHON'] },
       { id: 'b2', technologies: ['python'] },

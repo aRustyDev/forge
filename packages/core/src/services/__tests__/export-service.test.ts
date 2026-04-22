@@ -11,6 +11,7 @@ import {
   seedResumeEntry,
   seedOrganization,
 } from '../../db/__tests__/helpers'
+import { buildDefaultElm } from '../../storage/build-elm'
 
 describe('ExportService', () => {
   let db: Database
@@ -18,7 +19,7 @@ describe('ExportService', () => {
 
   beforeEach(() => {
     db = createTestDb()
-    service = new ExportService(db, ':memory:')
+    service = new ExportService(db, ':memory:', buildDefaultElm(db))
   })
 
   afterEach(() => db.close())
@@ -45,32 +46,32 @@ describe('ExportService', () => {
 
   // ── getMarkdown ───────────────────────────────────────────────────
 
-  test('getMarkdown returns markdown_override when set', () => {
+  test('getMarkdown returns markdown_override when set', async () => {
     const resumeId = seedResume(db)
     db.run(
       `UPDATE resumes SET markdown_override = ? WHERE id = ?`,
       ['# My Custom Resume', resumeId],
     )
 
-    const result = service.getMarkdown(resumeId)
+    const result = await service.getMarkdown(resumeId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data).toBe('# My Custom Resume')
   })
 
-  test('getMarkdown compiles from IR when no override', () => {
+  test('getMarkdown compiles from IR when no override', async () => {
     const resumeId = seedResume(db)
     seedResumeSection(db, resumeId, 'Experience', 'experience')
 
-    const result = service.getMarkdown(resumeId)
+    const result = await service.getMarkdown(resumeId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(typeof result.data).toBe('string')
     expect(result.data.length).toBeGreaterThan(0)
   })
 
-  test('getMarkdown returns NOT_FOUND for missing resume', () => {
-    const result = service.getMarkdown('nonexistent')
+  test('getMarkdown returns NOT_FOUND for missing resume', async () => {
+    const result = await service.getMarkdown('nonexistent')
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
@@ -78,32 +79,32 @@ describe('ExportService', () => {
 
   // ── getLatex ──────────────────────────────────────────────────────
 
-  test('getLatex returns latex_override when set', () => {
+  test('getLatex returns latex_override when set', async () => {
     const resumeId = seedResume(db)
     db.run(
       `UPDATE resumes SET latex_override = ? WHERE id = ?`,
       ['\\documentclass{article}', resumeId],
     )
 
-    const result = service.getLatex(resumeId)
+    const result = await service.getLatex(resumeId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data).toBe('\\documentclass{article}')
   })
 
-  test('getLatex compiles from IR when no override', () => {
+  test('getLatex compiles from IR when no override', async () => {
     const resumeId = seedResume(db)
     seedResumeSection(db, resumeId, 'Experience', 'experience')
 
-    const result = service.getLatex(resumeId)
+    const result = await service.getLatex(resumeId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(typeof result.data).toBe('string')
     expect(result.data.length).toBeGreaterThan(0)
   })
 
-  test('getLatex returns NOT_FOUND for missing resume', () => {
-    const result = service.getLatex('nonexistent')
+  test('getLatex returns NOT_FOUND for missing resume', async () => {
+    const result = await service.getLatex('nonexistent')
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('NOT_FOUND')
@@ -111,41 +112,41 @@ describe('ExportService', () => {
 
   // ── exportData ────────────────────────────────────────────────────
 
-  test('exportData returns sources', () => {
+  test('exportData returns sources', async () => {
     seedSource(db)
     seedSource(db, { title: 'Source 2' })
 
-    const result = service.exportData(['sources'])
+    const result = await service.exportData(['sources'])
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.sources).toHaveLength(2)
     expect(result.data.forge_export.entities).toEqual(['sources'])
   })
 
-  test('exportData returns bullets', () => {
+  test('exportData returns bullets', async () => {
     const sourceId = seedSource(db)
     seedBullet(db, [{ id: sourceId }])
 
-    const result = service.exportData(['bullets'])
+    const result = await service.exportData(['bullets'])
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.bullets).toHaveLength(1)
     expect(result.data.forge_export.entities).toEqual(['bullets'])
   })
 
-  test('exportData returns perspectives', () => {
+  test('exportData returns perspectives', async () => {
     const sourceId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: sourceId }])
     seedPerspective(db, bulletId)
 
-    const result = service.exportData(['perspectives'])
+    const result = await service.exportData(['perspectives'])
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.perspectives).toHaveLength(1)
     expect(result.data.forge_export.entities).toEqual(['perspectives'])
   })
 
-  test('exportData returns skills', () => {
+  test('exportData returns skills', async () => {
     db.run("INSERT INTO skills (id, name, category) VALUES (?, ?, ?)", [
       crypto.randomUUID(), 'TypeScript', 'language',
     ])
@@ -153,56 +154,56 @@ describe('ExportService', () => {
       crypto.randomUUID(), 'Python', 'language',
     ])
 
-    const result = service.exportData(['skills'])
+    const result = await service.exportData(['skills'])
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.skills).toHaveLength(2)
     expect(result.data.forge_export.entities).toEqual(['skills'])
   })
 
-  test('exportData returns organizations', () => {
+  test('exportData returns organizations', async () => {
     seedOrganization(db, { name: 'Org 1' })
     seedOrganization(db, { name: 'Org 2' })
 
-    const result = service.exportData(['organizations'])
+    const result = await service.exportData(['organizations'])
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.organizations).toHaveLength(2)
     expect(result.data.forge_export.entities).toEqual(['organizations'])
   })
 
-  test('exportData ignores unknown entity names', () => {
-    const result = service.exportData(['bogus'])
+  test('exportData ignores unknown entity names', async () => {
+    const result = await service.exportData(['bogus'])
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.forge_export.entities).toEqual([])
   })
 
-  test('exportData resolved entities reflects actual content', () => {
+  test('exportData resolved entities reflects actual content', async () => {
     seedSource(db)
-    const result = service.exportData(['sources', 'bogus'])
+    const result = await service.exportData(['sources', 'bogus'])
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.forge_export.entities).toEqual(['sources'])
     expect(result.data.sources).toHaveLength(1)
   })
 
-  test('exportData handles missing summaries table gracefully', () => {
+  test('exportData handles missing summaries table gracefully', async () => {
     // summaries table may or may not exist depending on migrations
     // Either way, calling with 'summaries' should not throw
-    const result = service.exportData(['summaries'])
+    const result = await service.exportData(['summaries'])
     expect(result.ok).toBe(true)
   })
 
-  test('exportData handles missing job_descriptions table gracefully', () => {
+  test('exportData handles missing job_descriptions table gracefully', async () => {
     // job_descriptions table may or may not exist depending on migrations
     // Either way, calling with 'job_descriptions' should not throw
-    const result = service.exportData(['job_descriptions'])
+    const result = await service.exportData(['job_descriptions'])
     expect(result.ok).toBe(true)
   })
 
-  test('exportData metadata envelope has version and timestamp', () => {
-    const result = service.exportData([])
+  test('exportData metadata envelope has version and timestamp', async () => {
+    const result = await service.exportData([])
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.forge_export.version).toBe('1.0')

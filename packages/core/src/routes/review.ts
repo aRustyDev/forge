@@ -9,8 +9,8 @@ import { mapStatusCode } from './server'
 export function reviewRoutes(services: Services) {
   const app = new Hono()
 
-  app.get('/review/pending', (c) => {
-    const result = services.review.getPendingReview()
+  app.get('/review/pending', async (c) => {
+    const result = await services.review.getPendingReview()
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })

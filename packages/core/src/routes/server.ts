@@ -37,6 +37,9 @@ import { credentialRoutes } from './credentials'
 import { certificationRoutes } from './certifications'
 import { alignmentRoutes } from './alignment'
 import { derivationRoutes } from './derivations'
+import { addressRoutes } from './addresses'
+import { answerBankRoutes } from './answer-bank'
+import { extensionRoutes } from './extension'
 
 /** Map error codes to HTTP status codes. */
 // Re-export for backward compatibility — prefer importing from './status-codes' directly
@@ -62,9 +65,21 @@ export function createApp(services: Services, db: Database) {
   app.use(
     '*',
     cors({
-      origin: process.env.NODE_ENV === 'production'
-        ? '*'  // same-origin in production (served from same server)
-        : ['http://localhost:5173', 'http://127.0.0.1:5173'],
+      origin: (origin) => {
+        // Production: same-origin (served from same server)
+        if (process.env.NODE_ENV === 'production') {
+          return '*'
+        }
+        // Development: allow webui + Chrome/Firefox extension origins
+        if (!origin) return undefined
+        const allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173']
+        if (allowedOrigins.includes(origin)) return origin
+        // Browser extension origins: chrome-extension:// or moz-extension://
+        if (origin.startsWith('chrome-extension://') || origin.startsWith('moz-extension://')) {
+          return origin
+        }
+        return undefined
+      },
     }),
   )
 
@@ -120,8 +135,8 @@ export function createApp(services: Services, db: Database) {
   app.route('/', templateRoutes(services))
   app.route('/', profileRoutes(services))
   app.route('/', summaryRoutes(services))
-  app.route('/', campusRoutes(db))
-  app.route('/', exportRoutes(services, db))
+  app.route('/', campusRoutes(services, db))
+  app.route('/', exportRoutes(services))
   app.route('/', contactRoutes(services, db))
   app.route('/', industryRoutes(services))
   app.route('/', roleTypeRoutes(services))
@@ -129,6 +144,9 @@ export function createApp(services: Services, db: Database) {
   app.route('/', certificationRoutes(services))
   app.route('/', alignmentRoutes(services))
   app.route('/', derivationRoutes(services))
+  app.route('/', addressRoutes(services))
+  app.route('/', answerBankRoutes(services))
+  app.route('/', extensionRoutes(services))
 
   // ── Global error handler ───────────────────────────────────────────
 

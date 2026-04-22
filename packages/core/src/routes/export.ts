@@ -6,10 +6,8 @@ import { Hono } from 'hono'
 import type { Services } from '../services'
 import { mapStatusCode } from './server'
 import { slugify } from '../lib/slugify'
-import { ResumeRepository } from '../db/repositories/resume-repository'
-import type { Database } from 'bun:sqlite'
 
-export function exportRoutes(services: Services, db: Database) {
+export function exportRoutes(services: Services) {
   const app = new Hono()
 
   // ── Resume Export ──────────────────────────────────────────────────
@@ -26,15 +24,15 @@ export function exportRoutes(services: Services, db: Database) {
     }
 
     // Look up the resume to get the name for the filename
-    const resume = ResumeRepository.get(db, id)
-    if (!resume) {
+    const resumeResult = await services.resumes.getResume(id)
+    if (!resumeResult.ok) {
       return c.json(
         { error: { code: 'NOT_FOUND', message: `Resume ${id} not found` } },
         404,
       )
     }
 
-    const slug = slugify(resume.name)
+    const slug = slugify(resumeResult.data.name)
     const date = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
 
     switch (format) {
@@ -47,7 +45,7 @@ export function exportRoutes(services: Services, db: Database) {
       }
 
       case 'markdown': {
-        const result = services.export.getMarkdown(id)
+        const result = await services.export.getMarkdown(id)
         if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
         return new Response(result.data, {
           status: 200,
@@ -59,7 +57,7 @@ export function exportRoutes(services: Services, db: Database) {
       }
 
       case 'latex': {
-        const result = services.export.getLatex(id)
+        const result = await services.export.getLatex(id)
         if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
         return new Response(result.data, {
           status: 200,
@@ -94,7 +92,7 @@ export function exportRoutes(services: Services, db: Database) {
 
   // ── Data Export ────────────────────────────────────────────────────
 
-  app.get('/export/data', (c) => {
+  app.get('/export/data', async (c) => {
     const entitiesParam = c.req.query('entities')
     if (!entitiesParam) {
       return c.json(
@@ -111,7 +109,7 @@ export function exportRoutes(services: Services, db: Database) {
       )
     }
 
-    const result = services.export.exportData(entities)
+    const result = await services.export.exportData(entities)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
 
     const date = new Date().toISOString().slice(0, 10)

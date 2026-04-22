@@ -68,8 +68,8 @@ export {
   CLEARANCE_ACCESS_PROGRAM_LABELS,
 } from './types'
 
-// Organization tags, campuses, aliases
-export type { OrgTag, OrgCampus, OrgAlias, CampusModality } from './types'
+// Organization tags, locations, aliases
+export type { OrgTag, OrgLocation, OrgCampus, OrgAlias, LocationModality, CampusModality } from './types'
 
 // Rich response types
 export type {
@@ -309,3 +309,12 @@ export { ExportResource } from './resources/export'
 export { ContactsResource } from './resources/contacts'
 export { AlignmentResource } from './resources/alignment'
 export { DerivationsResource } from './resources/derivations'
+export { AnswerBankResource } from './resources/answer-bank'
+export { ExtensionConfigResource } from './resources/extension-config'
+export { ExtensionLogsResource } from './resources/extension-logs'
+
+// Answer bank types (extension M6)
+export type { AnswerBankEntry, UpsertAnswer } from './types'
+
+// Extension infrastructure types (M7)
+export type { ExtensionConfig, ExtensionLog, CreateExtensionLog, ExtensionLogFilter } from './types'

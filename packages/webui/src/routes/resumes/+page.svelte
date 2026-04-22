@@ -5,7 +5,7 @@
   import { addToast } from '$lib/stores/toast.svelte'
   import type { Resume, ResumeWithEntries, ResumeEntry, Perspective, GapAnalysis, ResumeDocument, Archetype, ResumeTemplate } from '@forge/sdk'
   import { debugState } from '$lib/debug.svelte'
-  import { FormatToggle, ResumePreview, ResumeEditor } from '$lib/components/resume'
+  import { FormatToggle, ResumePreview, ResumeEditor, ResumeViewPanel } from '$lib/components/resume'
   import SkillsPicker from '$lib/components/resume/SkillsPicker.svelte'
   import SourcePicker from '$lib/components/resume/SourcePicker.svelte'
   import ResumeLinkedJDs from '$lib/components/resume/ResumeLinkedJDs.svelte'
@@ -1061,68 +1061,66 @@
         {/if}
 
         <!-- View Mode Tabs -->
-        <div class="view-tabs-container">
-          <div class="view-header">
+        <ResumeViewPanel>
+          {#snippet header()}
             <TabBar tabs={VIEW_TABS} active={activeViewTab} onchange={(v) => activeViewTab = v as ViewTab} />
             <FormatToggle value={activeFormat} onChange={(f) => activeFormat = f} />
-          </div>
+          {/snippet}
 
-          <div class="view-content">
-            {#if irLoading}
-              <div class="loading-container">
-                <LoadingSpinner message="Compiling resume..." />
-              </div>
-            {:else if irError}
-              <div class="view-error">
-                <p>{irError}</p>
-                <button class="btn btn-secondary" onclick={() => selectedResumeId && loadIR(selectedResumeId)}>
-                  Retry
-                </button>
-              </div>
-            {:else if ir}
-              {#if activeViewTab === 'editor'}
-                <ResumeEditor
-                  resumeId={selectedResumeId}
-                  {ir}
-                  format={activeFormat}
-                  latexOverride={resumeDetail.latex_override ?? null}
-                  latexOverrideUpdatedAt={resumeDetail.latex_override_updated_at ?? null}
-                  markdownOverride={resumeDetail.markdown_override ?? null}
-                  markdownOverrideUpdatedAt={resumeDetail.markdown_override_updated_at ?? null}
-                  resumeUpdatedAt={resumeDetail.updated_at}
-                  onOverrideChange={refreshSelectedResume}
-                  onUpdate={handleIRUpdate}
-                  onAddEntry={(sectionId, entryType, sourceId, sourceLabel) => openPicker(sectionId, entryType, sourceId, sourceLabel)}
-                  onAddSection={handleAddSection}
-                  onDeleteSection={handleDeleteSection}
-                  onRenameSection={handleRenameSection}
-                  onMoveSection={handleMoveSection}
-                  onRemoveEntry={async (entryId) => {
-                    await removeEntry(entryId)
-                    if (selectedResumeId) await loadIR(selectedResumeId)
-                  }}
-                  onRemoveCertification={async (rcId) => {
-                    if (!selectedResumeId) return
-                    const result = await forge.resumes.removeCertification(selectedResumeId, rcId)
-                    if (result.ok) await loadIR(selectedResumeId)
-                    else addToast({ message: friendlyError(result.error), type: 'error' })
-                  }}
-                  onUpdateSummary={async (update) => {
-                    if (!selectedResumeId) return
-                    const result = await forge.resumes.update(selectedResumeId, update)
-                    if (result.ok) {
-                      await loadIR(selectedResumeId)
-                    } else {
-                      addToast({ message: friendlyError(result.error), type: 'error' })
-                    }
-                  }}
-                />
-              {:else}
-                <ResumePreview resumeId={selectedResumeId} {ir} format={activeFormat} />
-              {/if}
+          {#if irLoading}
+            <div class="loading-container">
+              <LoadingSpinner message="Compiling resume..." />
+            </div>
+          {:else if irError}
+            <div class="view-error">
+              <p>{irError}</p>
+              <button class="btn btn-secondary" onclick={() => selectedResumeId && loadIR(selectedResumeId)}>
+                Retry
+              </button>
+            </div>
+          {:else if ir}
+            {#if activeViewTab === 'editor'}
+              <ResumeEditor
+                resumeId={selectedResumeId}
+                {ir}
+                format={activeFormat}
+                latexOverride={resumeDetail.latex_override ?? null}
+                latexOverrideUpdatedAt={resumeDetail.latex_override_updated_at ?? null}
+                markdownOverride={resumeDetail.markdown_override ?? null}
+                markdownOverrideUpdatedAt={resumeDetail.markdown_override_updated_at ?? null}
+                resumeUpdatedAt={resumeDetail.updated_at}
+                onOverrideChange={refreshSelectedResume}
+                onUpdate={handleIRUpdate}
+                onAddEntry={(sectionId, entryType, sourceId, sourceLabel) => openPicker(sectionId, entryType, sourceId, sourceLabel)}
+                onAddSection={handleAddSection}
+                onDeleteSection={handleDeleteSection}
+                onRenameSection={handleRenameSection}
+                onMoveSection={handleMoveSection}
+                onRemoveEntry={async (entryId) => {
+                  await removeEntry(entryId)
+                  if (selectedResumeId) await loadIR(selectedResumeId)
+                }}
+                onRemoveCertification={async (rcId) => {
+                  if (!selectedResumeId) return
+                  const result = await forge.resumes.removeCertification(selectedResumeId, rcId)
+                  if (result.ok) await loadIR(selectedResumeId)
+                  else addToast({ message: friendlyError(result.error), type: 'error' })
+                }}
+                onUpdateSummary={async (update) => {
+                  if (!selectedResumeId) return
+                  const result = await forge.resumes.update(selectedResumeId, update)
+                  if (result.ok) {
+                    await loadIR(selectedResumeId)
+                  } else {
+                    addToast({ message: friendlyError(result.error), type: 'error' })
+                  }
+                }}
+              />
+            {:else}
+              <ResumePreview resumeId={selectedResumeId} {ir} format={activeFormat} />
             {/if}
-          </div>
-        </div>
+          {/if}
+        </ResumeViewPanel>
       {/if}
     {/if}
   </div>
@@ -1990,29 +1988,6 @@
     display: flex;
     gap: 0.35rem;
     flex-wrap: wrap;
-  }
-
-  /* ---- View Tabs ---- */
-  .view-tabs-container {
-    margin-top: 1.5rem;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    overflow: hidden;
-    background: var(--color-surface);
-  }
-
-  .view-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.5rem;
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .view-content {
-    flex: 1;
-    min-height: 400px;
-    overflow: hidden;
   }
 
   .view-error {

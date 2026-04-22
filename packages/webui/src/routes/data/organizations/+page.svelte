@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { LoadingSpinner, EmptyState, EmptyPanel, ListSearchInput, ConfirmDialog, PageWrapper, SplitPanel, ListPanelHeader } from '$lib/components'
+  import { LoadingSpinner, EmptyState, EmptyPanel, ListSearchInput, ConfirmDialog, PageWrapper, SplitPanel, ListPanelHeader, EntityNotes } from '$lib/components'
   import type { Organization, OrgTag, OrgCampus } from '@forge/sdk'
 
   const ORG_TYPES = ['company', 'nonprofit', 'government', 'military', 'education', 'volunteer', 'freelance', 'other']
@@ -30,8 +30,6 @@
   let formLinkedinUrl = $state('')
   let formGlassdoorUrl = $state('')
   let formGlassdoorRating = $state<number | null>(null)
-  let formReputationNotes = $state('')
-  let formNotes = $state('')
   let formStatus = $state<string | null>(null)
 
   // Campus management
@@ -177,8 +175,6 @@
     formLinkedinUrl = org.linkedin_url ?? ''
     formGlassdoorUrl = org.glassdoor_url ?? ''
     formGlassdoorRating = org.glassdoor_rating ?? null
-    formReputationNotes = org.reputation_notes ?? ''
-    formNotes = org.notes ?? ''
     formStatus = org.status ?? null
   }
 
@@ -199,8 +195,6 @@
     formLinkedinUrl = ''
     formGlassdoorUrl = ''
     formGlassdoorRating = null
-    formReputationNotes = ''
-    formNotes = ''
     formStatus = null
   }
 
@@ -239,8 +233,6 @@
       linkedin_url: formLinkedinUrl || undefined,
       glassdoor_url: formGlassdoorUrl || undefined,
       glassdoor_rating: formGlassdoorRating,
-      reputation_notes: formReputationNotes || undefined,
-      notes: formNotes || undefined,
       status: formStatus,
     }
 
@@ -652,15 +644,7 @@
           <input id="org-rating" type="number" step="0.1" min="0" max="5" bind:value={formGlassdoorRating} />
         </div>
 
-        <div class="form-group">
-          <label for="org-reputation">Reputation Notes</label>
-          <textarea id="org-reputation" bind:value={formReputationNotes} rows="3"></textarea>
-        </div>
-
-        <div class="form-group">
-          <label for="org-notes">Notes</label>
-          <textarea id="org-notes" bind:value={formNotes} rows="3"></textarea>
-        </div>
+        <EntityNotes entityType="organization" entityId={selectedOrg?.id} />
 
         <!-- Campuses section (only for existing orgs, not during create) -->
         {#if !editing && selectedOrg}

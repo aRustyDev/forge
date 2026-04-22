@@ -1,0 +1,18 @@
+<!-- Minimal fixture reproducing the salary truncation bug from 3bp.13 -->
+<!-- LinkedIn wraps chip text in SIBLING spans after the SVG, not a single wrapper span -->
+<!-- Current code reads only the first <span> child, getting partial text -->
+<html><body>
+<div data-display-contents="true"><p>Staff Software Engineer</p></div>
+<span aria-label="Company, Anthropic."><img alt="" /></span>
+<div data-testid="expandable-text-box">Great role building AI systems. This is a longer description that exceeds fifty characters to pass the length check in extractDescriptionSDUI.</div>
+<!-- Salary chip with sibling spans that cause truncation -->
+<span>
+  <svg id="check-small"><path d=""/></svg>
+  <span>$300,000</span><span>/yr</span>
+</span>
+<!-- Workplace chip (normal single-span) -->
+<span>
+  <svg id="check-small"><path d=""/></svg>
+  <span>Remote</span>
+</span>
+</body></html>

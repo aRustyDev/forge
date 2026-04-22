@@ -23,6 +23,9 @@ import { IndustriesResource } from './resources/industries'
 import { RoleTypesResource } from './resources/role-types'
 import { CredentialsResource } from './resources/credentials'
 import { CertificationsResource } from './resources/certifications'
+import { AnswerBankResource } from './resources/answer-bank'
+import { ExtensionConfigResource } from './resources/extension-config'
+import { ExtensionLogsResource } from './resources/extension-logs'
 import type { ForgeError, PaginatedResult, Result } from './types'
 
 // ---------------------------------------------------------------------------
@@ -92,6 +95,12 @@ export class ForgeClient {
   public alignment?: AlignmentResource
   /** Split-handshake derivation — prepare + commit. */
   public derivations: DerivationsResource
+  /** Answer bank — reusable EEO/work-auth answers for form filling (M6). */
+  public answerBank: AnswerBankResource
+  /** Extension config — key-value config stored in Forge DB (M7). */
+  public extensionConfig: ExtensionConfigResource
+  /** Extension logs — server-side error logging (M7). */
+  public extensionLogs: ExtensionLogsResource
 
   constructor(options: ForgeClientOptions) {
     // Strip trailing slash so callers can pass "http://localhost:3000/" without
@@ -131,6 +140,9 @@ export class ForgeClient {
     this.certifications = new CertificationsResource(req)
     this.alignment = new AlignmentResource(req)
     this.derivations = new DerivationsResource(req)
+    this.answerBank = new AnswerBankResource(req)
+    this.extensionConfig = new ExtensionConfigResource(req)
+    this.extensionLogs = new ExtensionLogsResource(req)
   }
 
   /** Check connectivity to the Forge HTTP server. */

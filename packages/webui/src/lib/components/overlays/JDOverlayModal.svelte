@@ -132,7 +132,6 @@
   let displaySalaryMax = $derived(canonical?.salary_max ?? null)
   let displayUrl = $derived(canonical?.url ?? null)
   let displayRawText = $derived(canonical?.raw_text ?? '')
-  let displayNotes = $derived(canonical?.notes ?? null)
   let displayCreatedAt = $derived(canonical?.created_at ?? null)
   let displayUpdatedAt = $derived(canonical?.updated_at ?? null)
   let displaySkills = $derived(skills ?? initialData?.skills ?? [])
@@ -247,12 +246,6 @@
         </div>
       </section>
 
-      {#if displayNotes}
-        <section class="jd-overlay-section">
-          <h4 class="jd-overlay-section-title">Notes</h4>
-          <div class="jd-overlay-notes">{displayNotes}</div>
-        </section>
-      {/if}
     {/if}
   {/snippet}
 

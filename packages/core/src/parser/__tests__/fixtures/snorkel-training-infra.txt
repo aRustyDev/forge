@@ -1,0 +1,27 @@
+Applied Research Engineer, Training Infra
+
+About The Role
+
+Own the infrastructure that powers model training and evaluation at Snorkel AI. Build and operate GPU cluster infrastructure, training pipelines, and tooling that allows research and engineering teams to run experiments reliably and at scale.
+
+Main Responsibilities
+
+- Set up and manage GPU cluster infrastructure on major cloud providers (e.g., AWS HyperPod) for distributed model training
+- Build and operate job orchestration and scheduling systems (Kubernetes, Slurm, or cloud-native equivalents)
+- Integrate and maintain ML training frameworks and post-training pipelines at scale
+- Set up and maintain experiment tracking, dataset versioning, and model artifact management
+- Monitor and optimize cluster health, inter-node communication, and resource utilization; implement fault tolerance and auto-recovery
+- Work closely with research scientists and ML engineers to unblock experiments and evolve infrastructure
+
+Preferred Qualifications
+
+- Hands-on experience managing GPU clusters on major cloud providers
+- Experience with distributed compute orchestration (Kubernetes, Slurm, or equivalent)
+- Working knowledge of distributed training concepts: parallelism strategies, memory optimization, inter-node communication
+- Experience with ML experiment tracking and data/model versioning tools
+- Strong Python proficiency and solid software engineering fundamentals
+- Ability to work in fast-moving environment and take end-to-end ownership
+- Post-training workflow experience (SFT, RLHF, GRPO) is a strong plus
+
+Annual Salary: $150,000 - $180,000 USD
+Location: Redwood City/San Francisco, CA or Remote

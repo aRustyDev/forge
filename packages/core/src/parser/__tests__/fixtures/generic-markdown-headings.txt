@@ -1,0 +1,14 @@
+## About Us
+We are a fast-growing startup.
+
+## Responsibilities
+- Design and implement distributed systems
+- Mentor junior engineers
+
+## Requirements
+- 5+ years Python experience
+- Experience with Kubernetes
+
+## Benefits
+- Health insurance
+- 401k matching

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Applied Researcher II | Capital One</title></head>
+<body>
+<!-- Title: via data-display-contents -->
+<div data-display-contents="true"><p>Applied Researcher II</p></div>
+
+<!-- Company: via aria-label -->
+<div aria-label="Company, Capital One.">
+  <img src="logo.png" alt="Capital One logo">
+</div>
+
+<!-- Location: appears as a span near company info (not in a chip) -->
+<span class="job-details-jobs-unified-top-card__bullet">McLean, VA</span>
+
+<!-- Check-small chips: employment type, workplace type, experience level (NO salary chip) -->
+<div class="job-insight-chips">
+  <div><span><svg xmlns="http://www.w3.org/2000/svg" id="check-small" fill="currentColor" aria-hidden="true" data-supported-dps="16x16" viewBox="0 0 16 16" width="16" height="16" role="img" aria-label=""><path d="M12.57 2H15L6 15l-5-5 1.41-1.41 3.31 3.3Z"></path></svg><span>Full-time</span></span></div>
+  <div><span><svg xmlns="http://www.w3.org/2000/svg" id="check-small" fill="currentColor" aria-hidden="true" data-supported-dps="16x16" viewBox="0 0 16 16" width="16" height="16" role="img" aria-label=""><path d="M12.57 2H15L6 15l-5-5 1.41-1.41 3.31 3.3Z"></path></svg><span>On-site</span></span></div>
+  <div><span><svg xmlns="http://www.w3.org/2000/svg" id="check-small" fill="currentColor" aria-hidden="true" data-supported-dps="16x16" viewBox="0 0 16 16" width="16" height="16" role="img" aria-label=""><path d="M12.57 2H15L6 15l-5-5 1.41-1.41 3.31 3.3Z"></path></svg><span>Senior level</span></span></div>
+</div>
+
+<!-- Description: SDUI nested-p pattern (nested p tags get hoisted to siblings by parser) -->
+<div>
+<p data-testid="expandable-text-box"><p>Capital One is looking for an Applied Researcher II to join our growing AI/ML team.</p><p>You will work on cutting-edge research in NLP, computer vision, and reinforcement learning to solve complex business problems at scale.</p><p>Requirements: PhD in Computer Science, Machine Learning, or related field. 3+ years of research experience. Strong publication record.</p><p>Base salary range for this role: $262,500.00 - $299,600.00 per year. Actual offers may vary based on location, experience, and qualifications.</p></p>
+</div>
+
+</body>
+</html>

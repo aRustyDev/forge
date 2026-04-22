@@ -18,7 +18,7 @@ import type { Skill } from '../../types'
 
 // Minimal skill factory for tests — we only care about `name`
 function makeSkill(name: string): Skill {
-  return { id: crypto.randomUUID(), name, category: 'other', notes: null }
+  return { id: crypto.randomUUID(), name, category: 'other' }
 }
 
 describe('tokenize', () => {

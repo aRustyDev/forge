@@ -72,6 +72,14 @@ export class JobDescriptionsResource {
     return this.request<void>('DELETE', `/api/job-descriptions/${id}`)
   }
 
+  lookupByUrl(url: string): Promise<Result<JobDescriptionWithOrg>> {
+    return this.request<JobDescriptionWithOrg>(
+      'POST',
+      '/api/job-descriptions/lookup-by-url',
+      { url },
+    )
+  }
+
   // ── JD Skills ─────────────────────────────────────────────────────
 
   /** List all skills linked to a job description. */

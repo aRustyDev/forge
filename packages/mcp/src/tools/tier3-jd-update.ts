@@ -20,8 +20,6 @@ export function registerTier3JDUpdateTool(
         'offered', 'rejected', 'withdrawn', 'closed',
       ]).optional().describe('Pipeline status'),
       raw_text: z.string().optional().describe('Updated job description text'),
-      notes: z.string().nullable().optional()
-        .describe('Notes (set null to clear)'),
     },
     async (params) => {
       const { job_description_id, ...input } = params

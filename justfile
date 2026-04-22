@@ -5,7 +5,15 @@ set dotenv-load := true
 # Resolve DB path relative to workspace root (bun --filter changes CWD to package dir)
 export FORGE_DB_PATH := absolute_path(env("FORGE_DB_PATH", "./data/forge.db"))
 
-# Start core API + MCP server + webui together
+# ─── Modules ──────────────────────────────────────────────
+
+mod docker ".docker/justfile"
+mod test "packages/justfile"
+mod data "data/justfile"
+
+# ─── Local development ───────────────────────────────────
+
+# Start core API + MCP server + WebUI locally (SQLite)
 dev:
     @echo "Starting Forge API (:3000) + MCP (:5174) + WebUI (:5173)..."
     @echo "Database: {{FORGE_DB_PATH}}"
@@ -15,61 +23,9 @@ dev:
     sleep 1
     bun run --filter '@forge/webui' dev
 
-# Start only the core API server
-api:
-    bun run --filter '@forge/core' dev
-
-# Start only the webui dev server (needs 'just api' running in another tab)
-webui:
-    @echo "Note: API server must be running on :3000 (run 'just api' in another tab)"
-    bun run --filter '@forge/webui' dev
-
-# Run all unit tests (core + sdk + webui + mcp)
-test:
-    bun run --filter '@forge/core' test
-    bun run --filter '@forge/sdk' test
-    bun test packages/webui/src/__tests__/
-    bun test packages/mcp/src/__tests__/
-
-# Run only core tests
-test-core:
-    bun run --filter '@forge/core' test
-
-# Run only webui unit tests (adoption, layout, navigation, content, interactive, visualization)
-test-webui:
-    bun test packages/webui/src/__tests__/
-
-# Run only MCP unit tests
-test-mcp:
-    bun test packages/mcp/src/__tests__/
-
-# Run Playwright E2E tests (requires dev server running — includes webui + MCP)
-test-e2e:
-    cd packages/webui && npx playwright test
-
-# Check Rust stubs compile
-check-rust:
-    cargo check --workspace
-
-# Run database migrations
-migrate:
-    bun run --filter '@forge/core' migrate
-
-# Dump Forge database for backup
-dump:
-    sqlite3 ${FORGE_DB_PATH:-./data/forge.db} .dump > data/forge-dump-$(date +%Y%m%d).sql
-
-# Open SQLite shell
-shell:
-    sqlite3 ${FORGE_DB_PATH:-./data/forge.db}
-
-# Start the MCP server on STDIO
-mcp:
-    bun run packages/mcp/src/index.ts
-
-# Launch MCP Inspector (stdio mode — opens browser UI for testing tools)
-inspect:
-    @echo "Starting Forge API (:3000) + MCP (:5174) + WebUI (:5173)..."
+# Start dev + MCP Inspector for debugging
+debug:
+    @echo "Starting Forge + MCP Inspector..."
     @echo "Database: {{FORGE_DB_PATH}}"
     bun run --filter '@forge/core' dev &
     sleep 1
@@ -79,12 +35,43 @@ inspect:
     sleep 1
     bun run --filter '@forge/mcp' inspect:http
 
-# Build all TypeScript packages + webui
-build:
-    bun run --filter '*' build
+# Build distributable artifacts
+release *package="":
+    @if [ -z "{{package}}" ]; then \
+        bun run --filter '*' build; \
+    else \
+        bun run --filter "@forge/{{package}}" build; \
+    fi
 
-# Build everything including Rust
-build-all: build check-rust
+# ─── Individual services (local) ─────────────────────────
+
+# Start only the core API server
+api:
+    bun run --filter '@forge/core' dev
+
+# Start only the WebUI dev server (needs 'just api' in another tab)
+webui:
+    @echo "Note: API server must be running on :3000 (run 'just api' in another tab)"
+    bun run --filter '@forge/webui' dev
+
+# Start the MCP server on STDIO
+mcp:
+    bun run packages/mcp/src/index.ts
+
+# ─── Setup & utilities ───────────────────────────────────
+
+# Install dependencies and set up env
+setup:
+    bun install
+    @test -f .env || cp .env.example .env && echo "Created .env from .env.example"
+    @mkdir -p data
+    @echo "Done. Run 'just dev' to start."
+
+# Check Rust stubs compile
+check-rust:
+    cargo check --workspace
+
+# ─── Telemetry (mitmproxy → MLFlow) ─────────────────────
 
 # Start mitmproxy telemetry capture for Claude Code
 telemetry:
@@ -101,9 +88,18 @@ telemetry-stop:
     pkill -f mitmdump || true
     @echo "Telemetry proxy stopped."
 
-# Install dependencies and set up env
-setup:
-    bun install
-    @test -f .env || cp .env.example .env && echo "Created .env from .env.example"
-    @mkdir -p data
-    @echo "Done. Run 'just dev' to start the API server."
+# ─── Extension packaging ────────────────────────────────
+
+# Package extension for store submission (both browsers)
+pack-extension:
+    cd packages/extension && bun run build
+    @mkdir -p dist
+    cd packages/extension/dist/chrome && zip -r ../../../../dist/forge-job-tools-chrome-v$(cd ../.. && jq -r .version manifest.json).zip .
+    cd packages/extension/dist/firefox && zip -r ../../../../dist/forge-job-tools-firefox-v$(cd ../.. && jq -r .version manifest.firefox.json).zip .
+    @echo "Packaged:"
+    @ls -la dist/forge-job-tools-*.zip
+
+# Package source for Firefox AMO review (required for bundled code)
+pack-extension-source:
+    git archive HEAD --prefix=forge-source/ -o dist/forge-job-tools-source.zip
+    @echo "Source archive: dist/forge-job-tools-source.zip"

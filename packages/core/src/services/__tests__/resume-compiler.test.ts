@@ -40,7 +40,7 @@ describe('compileResumeIR', () => {
     seedProfile(db, {
       name: 'Adam Smith',
       email: 'adam@example.com',
-      location: 'Reston, VA',
+      addressName: 'Reston, VA',
     })
     const headerJson = JSON.stringify({
       tagline: 'Security Engineer',
@@ -50,7 +50,7 @@ describe('compileResumeIR', () => {
     const result = compileResumeIR(db, resumeId)!
     expect(result.header.name).toBe('Adam Smith')       // from profile
     expect(result.header.tagline).toBe('Security Engineer')  // from resume header JSON
-    expect(result.header.location).toBe('Reston, VA')    // from profile
+    expect(result.header.location).toBe('Reston, VA')    // from profile address.name
     expect(result.header.email).toBe('adam@example.com') // from profile
     // No clearance credentials seeded → null
     expect(result.header.clearance).toBeNull()
@@ -324,10 +324,10 @@ describe('compileResumeIR', () => {
     const group = skillsSection!.items[0]
     if (group.kind === 'skill_group') {
       expect(group.categories.length).toBeGreaterThanOrEqual(1)
-      const langs = group.categories.find(c => c.label === 'language')
+      const langs = group.categories.find(c => c.label === 'Languages')
       expect(langs).toBeDefined()
       expect(langs!.skills).toContain('Python')
-      const devops = group.categories.find(c => c.label === 'methodology')
+      const devops = group.categories.find(c => c.label === 'Methodology')
       expect(devops).toBeDefined()
       expect(devops!.skills).toContain('Kubernetes')
     }
@@ -658,12 +658,17 @@ describe('compileResumeIR', () => {
     const resumeId = seedResume(db)
     const orgId = seedOrganization(db, { name: 'Western Governors University' })
 
-    // Create a campus
+    // Create a location with address
+    const addrId = crypto.randomUUID()
+    db.run(
+      `INSERT INTO addresses (id, name, city, state) VALUES (?, ?, ?, ?)`,
+      [addrId, 'Salt Lake City Campus', 'Salt Lake City', 'UT']
+    )
     const campusId = crypto.randomUUID()
     db.run(
-      `INSERT INTO org_campuses (id, organization_id, name, modality, city, state)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [campusId, orgId, 'Salt Lake City Campus', 'in_person', 'Salt Lake City', 'UT']
+      `INSERT INTO org_locations (id, organization_id, name, modality, address_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [campusId, orgId, 'Salt Lake City Campus', 'in_person', addrId]
     )
 
     const sourceId = seedSource(db, { title: 'WGU Degree', sourceType: 'education' })
@@ -974,7 +979,7 @@ describe('compileResumeIR', () => {
       name: 'Adam',
       email: 'adam@test.com',
       phone: '+1-555-0123',
-      location: 'DC',
+      addressName: 'DC',
     })
     // Set resume header JSON with a tagline
     db.run("UPDATE resumes SET header = ? WHERE id = ?", [
@@ -987,7 +992,7 @@ describe('compileResumeIR', () => {
     expect(ir!.header.name).toBe('Adam')  // from profile
     expect(ir!.header.email).toBe('adam@test.com')  // from profile
     expect(ir!.header.phone).toBe('+1-555-0123')  // from profile
-    expect(ir!.header.location).toBe('DC')  // from profile
+    expect(ir!.header.location).toBe('DC')  // from profile address.name
     expect(ir!.header.tagline).toBe('Security Engineer')  // from resume header
   })
 
@@ -1361,12 +1366,17 @@ describe('compileResumeIR — Phase 44 data quality', () => {
     const resumeId = seedResume(db)
     const orgId = seedOrganization(db, { name: 'Raytheon Intelligence & Space' })
 
-    // Create HQ campus
+    // Create HQ location with address
+    const hqAddrId = crypto.randomUUID()
+    db.run(
+      `INSERT INTO addresses (id, name, city, state) VALUES (?, ?, ?, ?)`,
+      [hqAddrId, 'HQ', 'Arlington', 'VA']
+    )
     const campusId = crypto.randomUUID()
     db.run(
-      `INSERT INTO org_campuses (id, organization_id, name, modality, city, state, is_headquarters)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [campusId, orgId, 'HQ', 'in_person', 'Arlington', 'VA', 1]
+      `INSERT INTO org_locations (id, organization_id, name, modality, address_id, is_headquarters)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [campusId, orgId, 'HQ', 'in_person', hqAddrId, 1]
     )
 
     const sourceId = seedSource(db, { title: 'Engineer', sourceType: 'role' })
@@ -1486,11 +1496,16 @@ describe('compileResumeIR — Phase 44 data quality', () => {
     const resumeId = seedResume(db)
     const orgId = seedOrganization(db, { name: 'University of Maryland' })
 
+    const cpAddrId = crypto.randomUUID()
+    db.run(
+      `INSERT INTO addresses (id, name, city, state) VALUES (?, ?, ?, ?)`,
+      [cpAddrId, 'College Park', 'College Park', 'MD']
+    )
     const campusId = crypto.randomUUID()
     db.run(
-      `INSERT INTO org_campuses (id, organization_id, name, modality, city, state)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [campusId, orgId, 'College Park', 'in_person', 'College Park', 'MD']
+      `INSERT INTO org_locations (id, organization_id, name, modality, address_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [campusId, orgId, 'College Park', 'in_person', cpAddrId]
     )
 
     const sourceId = seedSource(db, { title: 'UMD Degree', sourceType: 'education' })
@@ -1516,11 +1531,16 @@ describe('compileResumeIR — Phase 44 data quality', () => {
     const resumeId = seedResume(db)
     const orgId = seedOrganization(db, { name: 'WGU' })
 
+    const slcAddrId = crypto.randomUUID()
+    db.run(
+      `INSERT INTO addresses (id, name, city, state) VALUES (?, ?, ?, ?)`,
+      [slcAddrId, 'Main Campus', 'Salt Lake City', 'UT']
+    )
     const campusId = crypto.randomUUID()
     db.run(
-      `INSERT INTO org_campuses (id, organization_id, name, modality, city, state)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [campusId, orgId, 'Main Campus', 'remote', 'Salt Lake City', 'UT']
+      `INSERT INTO org_locations (id, organization_id, name, modality, address_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [campusId, orgId, 'Main Campus', 'remote', slcAddrId]
     )
 
     const sourceId = seedSource(db, { title: 'WGU Degree', sourceType: 'education' })
@@ -1567,7 +1587,7 @@ describe('compileResumeIR — Phase 44 data quality', () => {
     // Valid skill still appears
     const group = skillsSection.items[0]
     if (group.kind === 'skill_group') {
-      const langs = group.categories.find(c => c.label === 'language')
+      const langs = group.categories.find(c => c.label === 'Languages')
       expect(langs).toBeDefined()
       expect(langs!.skills).toContain('Python')
     }
@@ -1630,8 +1650,8 @@ describe('compileResumeIR — Phase 44 data quality', () => {
     const group = skillsSection.items[0]
     if (group.kind === 'skill_group') {
       const labels = group.categories.map(c => c.label)
-      // 'language' < 'platform' < 'tool' alphabetically
-      expect(labels).toEqual(['language', 'platform', 'tool'])
+      // Ordered by skill_categories.position: Languages(5) < Platforms(9) < Tools(13)
+      expect(labels).toEqual(['Languages', 'Platforms', 'Tools'])
     }
   })
 })

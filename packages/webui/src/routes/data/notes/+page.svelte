@@ -4,7 +4,7 @@
   import { LoadingSpinner, EmptyState, ConfirmDialog, PageWrapper, SplitPanel, ListPanelHeader, EmptyPanel, ListSearchInput } from '$lib/components'
   import type { UserNote, NoteReference } from '@forge/sdk'
 
-  const ENTITY_TYPES = ['source', 'bullet', 'perspective', 'resume_entry', 'resume', 'skill', 'organization']
+  const ENTITY_TYPES = ['source', 'bullet', 'perspective', 'resume_entry', 'resume', 'skill', 'organization', 'job_description', 'contact', 'credential', 'certification']
 
   let notes = $state<UserNote[]>([])
   let selectedId = $state<string | null>(null)

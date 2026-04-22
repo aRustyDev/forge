@@ -21,7 +21,6 @@ export function registerTier2EntityCreationTools(
         .describe('Type of experience source'),
       start_date: z.string().optional().describe('Start date (ISO 8601)'),
       end_date: z.string().optional().describe('End date (ISO 8601)'),
-      notes: z.string().optional().describe('Free-text notes'),
       // Role extension fields
       organization_id: z.string().optional()
         .describe('Organization ID (for role/project/education)'),
@@ -43,7 +42,6 @@ export function registerTier2EntityCreationTools(
         source_type: params.source_type,
         start_date: params.start_date,
         end_date: params.end_date,
-        notes: params.notes,
       }
 
       if (params.source_type === 'role') {
@@ -92,7 +90,6 @@ export function registerTier2EntityCreationTools(
         'backlog', 'researching', 'exciting',
         'interested', 'acceptable', 'excluded',
       ]).optional().describe('Pipeline status'),
-      notes: z.string().optional().describe('Free-text notes'),
     },
     async (params) => {
       const result = await sdk.organizations.create(params)
@@ -131,6 +128,44 @@ export function registerTier2EntityCreationTools(
     },
     async (params) => {
       const result = await sdk.skills.create(params)
+      return respond(result)
+    },
+  )
+
+  // forge_create_perspective
+  registerTool(
+    server,
+    'forge_create_perspective',
+    'Create a perspective directly from an existing bullet, bypassing the derivation flow. Use for filler bullets whose text is already resume-ready. By default creates with status "approved" so it can be immediately added to a resume via forge_add_resume_entry.',
+    {
+      bullet_id: z.string().uuid().describe('Bullet UUID to create the perspective from'),
+      content: z.string().describe('Resume-ready text for the perspective'),
+      target_archetype: z.string().optional()
+        .describe('Target archetype (e.g., "platform-engineer"). Omit for generic filler.'),
+      domain: z.string().optional()
+        .describe('Target domain (e.g., "infrastructure"). Omit for generic filler.'),
+      framing: z.enum(['accomplishment', 'responsibility', 'context']).optional()
+        .describe('Framing type (default: "accomplishment")'),
+      auto_approve: z.boolean().optional()
+        .describe('Auto-approve the perspective (default: true). Set false to create as draft.'),
+    },
+    async (params) => {
+      const result = await sdk.perspectives.create(params)
+      return respond(result)
+    },
+  )
+
+  // forge_merge_skills
+  registerTool(
+    server,
+    'forge_merge_skills',
+    'Merge one skill into another: re-points all junction rows (bullet_skills, resume_skills, certification_skills, jd_skills, perspective_skills, source_skills, skill_domains, summary_skills) from the source to the target skill, deduplicating overlaps, then deletes the source. Returns the surviving target skill.',
+    {
+      source_id: z.string().describe('Skill ID to merge FROM (will be deleted)'),
+      target_id: z.string().describe('Skill ID to merge INTO (will survive)'),
+    },
+    async (params) => {
+      const result = await sdk.skills.merge(params.source_id, params.target_id)
       return respond(result)
     },
   )

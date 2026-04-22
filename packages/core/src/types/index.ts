@@ -84,23 +84,25 @@ export type ClearanceAccessProgram = 'sci' | 'sap' | 'nato'
 
 // ── Core Entities ─────────────────────────────────────────────────────
 
-/** Campus modality — how instruction/work is delivered at this location. */
-export type CampusModality = 'in_person' | 'remote' | 'hybrid'
+/** Location modality — how instruction/work is delivered at this location. */
+export type LocationModality = 'in_person' | 'remote' | 'hybrid'
 
-/** A campus/location belonging to an organization. */
-export interface OrgCampus {
+/** @deprecated Use LocationModality */
+export type CampusModality = LocationModality
+
+/** A named location belonging to an organization (office, campus, remote hub). */
+export interface OrgLocation {
   id: string
   organization_id: string
   name: string
-  modality: CampusModality
-  address: string | null
-  city: string | null
-  state: string | null
-  zipcode: string | null
-  country: string | null
+  modality: LocationModality
+  address_id: string | null
   is_headquarters: number
   created_at: string
 }
+
+/** @deprecated Use OrgLocation */
+export type OrgCampus = OrgLocation
 
 /** An alias/shorthand name for an organization. */
 export interface OrgAlias {
@@ -128,8 +130,6 @@ export interface Organization {
   linkedin_url: string | null
   glassdoor_url: string | null
   glassdoor_rating: number | null
-  reputation_notes: string | null
-  notes: string | null
   status: OrganizationStatus | null
   created_at: string
   updated_at: string
@@ -159,7 +159,10 @@ export interface JobDescription {
   salary_min: number | null
   salary_max: number | null
   location: string | null
-  notes: string | null
+  parsed_sections: string | null
+  work_posture: string | null
+  parsed_locations: string | null
+  salary_period: string | null
   created_at: string
   updated_at: string
 }
@@ -213,7 +216,10 @@ export interface CreateJobDescription {
   salary_min?: number
   salary_max?: number
   location?: string
-  notes?: string
+  parsed_sections?: string
+  work_posture?: string
+  parsed_locations?: string
+  salary_period?: string
 }
 
 /** Input for partially updating a JobDescription. */
@@ -227,7 +233,10 @@ export interface UpdateJobDescription {
   salary_min?: number | null
   salary_max?: number | null
   location?: string | null
-  notes?: string | null
+  parsed_sections?: string | null
+  work_posture?: string | null
+  parsed_locations?: string | null
+  salary_period?: string | null
 }
 
 // ── Contact Entity ─────────────────────────────────────────────────────
@@ -314,7 +323,6 @@ export interface Source {
   status: SourceStatus
   updated_by: UpdatedBy
   last_derived_at: string | null
-  notes: string | null
   created_at: string
   updated_at: string
 }
@@ -403,7 +411,6 @@ export interface Bullet {
   prompt_log_id: string | null
   approved_at: string | null
   approved_by: string | null
-  notes: string | null
   domain: string | null
   created_at: string
 }
@@ -429,7 +436,6 @@ export interface Perspective {
   prompt_log_id: string | null
   approved_at: string | null
   approved_by: string | null
-  notes: string | null
   created_at: string
 }
 
@@ -441,7 +447,6 @@ export interface Resume {
   target_employer: string
   archetype: string
   status: ResumeStatus
-  notes: string | null
   header: string | null
   summary_id: string | null
   /**
@@ -614,7 +619,6 @@ export interface ResumeEntry {
   content: string | null
   perspective_content_snapshot: string | null
   position: number
-  notes: string | null
   created_at: string
   updated_at: string
 }
@@ -649,7 +653,6 @@ export interface Skill {
   id: string
   name: string
   category: SkillCategory
-  notes: string | null
 }
 
 /** A skill with its linked domains (many-to-many via skill_domains junction). */
@@ -792,24 +795,67 @@ export interface UpdateSummary {
   notes?: string | null
 }
 
+// ── Addresses ─────────────────────────────────────────────────────────
+
+/** Shared address entity. Referenced by user_profile and org_locations. */
+export interface Address {
+  id: string
+  name: string
+  street_1: string | null
+  street_2: string | null
+  city: string | null
+  state: string | null
+  zip: string | null
+  country_code: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateAddress {
+  name: string
+  street_1?: string | null
+  street_2?: string | null
+  city?: string | null
+  state?: string | null
+  zip?: string | null
+  country_code?: string
+}
+
+export interface UpdateAddress {
+  name?: string
+  street_1?: string | null
+  street_2?: string | null
+  city?: string | null
+  state?: string | null
+  zip?: string | null
+  country_code?: string
+}
+
+// ── Profile URLs ──────────────────────────────────────────────────────
+
+export interface ProfileUrl {
+  id: string
+  profile_id: string
+  key: string
+  url: string
+  position: number
+  created_at: string
+}
+
+export const WELL_KNOWN_URL_KEYS = ['linkedin', 'github', 'gitlab', 'indeed', 'blog', 'portfolio'] as const
+export type WellKnownUrlKey = typeof WELL_KNOWN_URL_KEYS[number]
+
 // ── User Profile ──────────────────────────────────────────────────────
 
-/**
- * Global user profile — single source of truth for contact information.
- *
- * As of migration 037 (Phase 84, Qualifications track), the `clearance`
- * column has moved to the new `credentials` entity. Clearance data is
- * managed from the Qualifications sidebar group, not the profile page.
- */
+/** Global user profile — single source of truth for contact information. */
 export interface UserProfile {
   id: string
   name: string
   email: string | null
   phone: string | null
-  location: string | null
-  linkedin: string | null
-  github: string | null
-  website: string | null
+  address_id: string | null
+  address: Address | null
+  urls: ProfileUrl[]
   salary_minimum: number | null
   salary_target: number | null
   salary_stretch: number | null
@@ -818,7 +864,17 @@ export interface UserProfile {
 }
 
 /** Input for partially updating the user profile. */
-export type UpdateProfile = Partial<Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>>
+export interface UpdateProfile {
+  name?: string | null
+  email?: string | null
+  phone?: string | null
+  address_id?: string | null
+  address?: CreateAddress | UpdateAddress
+  urls?: Array<{ key: string; url: string }>
+  salary_minimum?: number | null
+  salary_target?: number | null
+  salary_stretch?: number | null
+}
 
 // ── Input Types ───────────────────────────────────────────────────────
 
@@ -829,7 +885,6 @@ export interface CreateSource {
   source_type?: SourceType
   start_date?: string
   end_date?: string
-  notes?: string
   // Role extension fields
   organization_id?: string
   is_current?: number
@@ -866,7 +921,6 @@ export interface UpdateSource {
   description?: string
   start_date?: string | null
   end_date?: string | null
-  notes?: string | null
   // Role extension fields
   organization_id?: string | null
   is_current?: number
@@ -955,7 +1009,6 @@ export interface AddResumeEntry {
    */
   position?: number
   content?: string | null
-  notes?: string | null
 }
 
 /** Input for reordering all perspectives in a resume. */
@@ -1034,6 +1087,7 @@ export interface PerspectiveFilter {
   framing?: Framing
   status?: PerspectiveStatus
   source_id?: string
+  search?: string
 }
 
 // ── Audit Types ──────────────────────────────────────────────────────
@@ -1267,7 +1321,7 @@ export interface EducationItem {
   issuing_body?: string | null
   certificate_subtype?: string | null
   edu_description?: string | null
-  // Campus fields from org_campuses JOIN
+  // Location fields from org_locations + addresses JOIN
   campus_name?: string | null
   campus_city?: string | null
   campus_state?: string | null
@@ -1422,6 +1476,182 @@ export interface DataExportBundle {
   organizations?: Organization[]
   summaries?: unknown[]       // typed as unknown[] until Spec 2 lands
   job_descriptions?: unknown[] // typed as unknown[] until Spec 4 lands
+}
+
+// ── Repository Input / Filter Types ──────────────────────────────────
+// Extracted from db/repositories/ during Phase 1.8 cleanup.
+
+/** Input for creating an Organization. */
+export interface CreateOrganizationInput {
+  name: string
+  org_type?: string
+  tags?: string[]
+  industry?: string
+  size?: string
+  worked?: number
+  employment_type?: string
+  website?: string
+  linkedin_url?: string
+  glassdoor_url?: string
+  glassdoor_rating?: number
+  status?: OrganizationStatus | null
+}
+
+/** Filter options for listing Organizations. */
+export interface OrganizationFilter {
+  org_type?: string
+  tag?: string
+  worked?: number
+  search?: string
+  status?: string
+}
+
+/** Input for creating an Archetype. */
+export interface CreateArchetypeInput {
+  name: string
+  description?: string
+}
+
+/** Archetype with its linked Domain array. */
+export interface ArchetypeWithDomains extends Archetype {
+  domains: Domain[]
+}
+
+/** Archetype with aggregated counts. */
+export interface ArchetypeWithCounts extends Archetype {
+  resume_count: number
+  perspective_count: number
+  domain_count: number
+}
+
+/** A UserNote with its NoteReference array. */
+export interface UserNoteWithReferences extends UserNote {
+  references: NoteReference[]
+}
+
+/** Filter options for listing Job Descriptions. */
+export interface JobDescriptionFilter {
+  status?: JobDescriptionStatus
+  organization_id?: string
+}
+
+/** Sort-by column for summary lists. */
+export type SummarySortBy = 'title' | 'created_at' | 'updated_at'
+
+/** Sort direction. */
+export type SortDirection = 'asc' | 'desc'
+
+/** Sort configuration for summary lists. */
+export interface SummarySort {
+  sort_by?: SummarySortBy
+  direction?: SortDirection
+}
+
+/** Filter options for listing Summaries. */
+export interface SummaryFilter {
+  is_template?: number
+  industry_id?: string
+  role_type_id?: string
+  skill_id?: string
+  search?: string
+}
+
+/** Alias — repositories used `CreateSummaryInput`; types uses `CreateSummary`. */
+export type CreateSummaryInput = CreateSummary
+
+/** Alias — repositories used `UpdateSummaryInput`; types uses `UpdateSummary`. */
+export type UpdateSummaryInput = UpdateSummary
+
+/** Input for creating an Industry. */
+export interface CreateIndustryInput {
+  name: string
+  description?: string
+}
+
+/** Filter options for listing Bullets. */
+export interface BulletFilter {
+  source_id?: string
+  status?: string
+  technology?: string
+  domain?: string
+}
+
+/** Input for partially updating a Bullet. */
+export interface UpdateBulletInput {
+  content?: string
+  metrics?: string | null
+  domain?: string | null
+  technologies?: string[]
+}
+
+/** Filter options for listing Sources. */
+export interface SourceFilter {
+  source_type?: SourceType
+  organization_id?: string
+  status?: SourceStatus
+  education_type?: string
+  search?: string
+}
+
+/** Input for creating a Domain. */
+export interface CreateDomainInput {
+  name: string
+  description?: string
+}
+
+/** Domain with perspective and archetype counts. */
+export interface DomainWithUsage extends Domain {
+  perspective_count: number
+  archetype_count: number
+}
+
+/** Input for creating a RoleType. */
+export interface CreateRoleTypeInput {
+  name: string
+  description?: string
+}
+
+/** A pending derivation lock row. */
+export interface PendingDerivation {
+  id: string
+  entity_type: 'source' | 'bullet'
+  entity_id: string
+  client_id: string
+  prompt: string
+  snapshot: string
+  derivation_params: string | null
+  locked_at: string
+  expires_at: string
+  created_at: string
+}
+
+/** Input for creating a PendingDerivation. */
+export interface CreatePendingDerivationInput {
+  entity_type: 'source' | 'bullet'
+  entity_id: string
+  client_id: string
+  prompt: string
+  snapshot: string
+  derivation_params: string | null
+  expires_at: string
+}
+
+/** Database row shape for embeddings (vector is Uint8Array on read). */
+export interface EmbeddingRow {
+  id: string
+  entity_type: EmbeddingEntityType
+  entity_id: string
+  content_hash: string
+  vector: Uint8Array
+  created_at: string
+}
+
+/** Input for upserting an embedding (vector is Float32Array on write). */
+export interface UpsertEmbeddingInput {
+  entity_type: EmbeddingEntityType
+  entity_id: string
+  content_hash: string
+  vector: Float32Array
 }
 
 // ── Review Queue ──────────────────────────────────────────────────────

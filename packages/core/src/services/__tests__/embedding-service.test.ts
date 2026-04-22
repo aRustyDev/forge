@@ -3,10 +3,23 @@
 import { describe, it, expect, beforeEach, afterEach, afterAll } from 'bun:test'
 import type { Database } from 'bun:sqlite'
 import { EmbeddingService } from '../embedding-service'
-import { EmbeddingRepository } from '../../db/repositories/embedding-repository'
 import { resetPipeline } from '../../lib/model-loader'
 import { createTestDb } from '../../db/__tests__/helpers'
-import type { Bullet } from '../../types'
+import { buildDefaultElm } from '../../storage/build-elm'
+import type { Bullet, EmbeddingRow } from '../../types'
+
+/** Inline replacement for EmbeddingRepository.findByEntity (deleted in Phase 1.8). */
+function findEmbeddingByEntity(db: Database, entityType: string, entityId: string): EmbeddingRow | null {
+  return db
+    .query('SELECT * FROM embeddings WHERE entity_type = ? AND entity_id = ?')
+    .get(entityType, entityId) as EmbeddingRow | null
+}
+
+/** Inline replacement for EmbeddingRepository.deserializeVector (deleted in Phase 1.8). */
+function deserializeVector(blob: Uint8Array): Float32Array {
+  const alignedBuffer = blob.buffer.slice(blob.byteOffset, blob.byteOffset + blob.byteLength)
+  return new Float32Array(alignedBuffer)
+}
 
 // AP2: Clean up module-level mutable singleton to prevent test pollution
 afterAll(() => {
@@ -19,7 +32,7 @@ describe('EmbeddingService', () => {
 
   beforeEach(() => {
     db = createTestDb()
-    service = new EmbeddingService(db)
+    service = new EmbeddingService(buildDefaultElm(db))
   })
 
   afterEach(() => db.close())
@@ -29,21 +42,21 @@ describe('EmbeddingService', () => {
       const result = await service.embed('bullet', 'b-001', 'Designed Kubernetes clusters')
       expect(result.ok).toBe(true)
 
-      const row = EmbeddingRepository.findByEntity(db, 'bullet', 'b-001')
+      const row = findEmbeddingByEntity(db,'bullet', 'b-001')
       expect(row).not.toBeNull()
       expect(row!.entity_type).toBe('bullet')
       expect(row!.entity_id).toBe('b-001')
 
-      const vec = EmbeddingRepository.deserializeVector(row!.vector)
+      const vec = deserializeVector(row!.vector)
       expect(vec.length).toBe(384)
     })
 
     it('skips recomputation if content hash matches', async () => {
       await service.embed('bullet', 'b-001', 'Same text')
-      const row1 = EmbeddingRepository.findByEntity(db, 'bullet', 'b-001')
+      const row1 = findEmbeddingByEntity(db,'bullet', 'b-001')
 
       await service.embed('bullet', 'b-001', 'Same text')
-      const row2 = EmbeddingRepository.findByEntity(db, 'bullet', 'b-001')
+      const row2 = findEmbeddingByEntity(db,'bullet', 'b-001')
 
       // Same created_at means it was not re-upserted
       expect(row1!.created_at).toBe(row2!.created_at)
@@ -51,10 +64,10 @@ describe('EmbeddingService', () => {
 
     it('re-embeds when content changes', async () => {
       await service.embed('bullet', 'b-001', 'Original text')
-      const row1 = EmbeddingRepository.findByEntity(db, 'bullet', 'b-001')
+      const row1 = findEmbeddingByEntity(db,'bullet', 'b-001')
 
       await service.embed('bullet', 'b-001', 'Updated text')
-      const row2 = EmbeddingRepository.findByEntity(db, 'bullet', 'b-001')
+      const row2 = findEmbeddingByEntity(db,'bullet', 'b-001')
 
       expect(row1!.content_hash).not.toBe(row2!.content_hash)
     })
@@ -172,13 +185,13 @@ describe('EmbeddingService', () => {
       db.run(`DELETE FROM bullets WHERE id = ?`, [bulletId])
 
       // The embedding should still exist
-      const beforeRefresh = EmbeddingRepository.findByEntity(db, 'bullet', bulletId)
+      const beforeRefresh = findEmbeddingByEntity(db,'bullet', bulletId)
       expect(beforeRefresh).not.toBeNull()
 
       // refreshStale should clean up the orphan
       await service.refreshStale()
 
-      const afterRefresh = EmbeddingRepository.findByEntity(db, 'bullet', bulletId)
+      const afterRefresh = findEmbeddingByEntity(db,'bullet', bulletId)
       expect(afterRefresh).toBeNull()
     })
   })
@@ -198,14 +211,13 @@ describe('EmbeddingService', () => {
         prompt_log_id: null,
         approved_at: null,
         approved_by: null,
-        notes: null,
         created_at: new Date().toISOString(),
       } as Bullet
 
       // Should not throw
       await service.onBulletCreated(bullet)
 
-      const row = EmbeddingRepository.findByEntity(db, 'bullet', 'b-test')
+      const row = findEmbeddingByEntity(db,'bullet', 'b-test')
       expect(row).not.toBeNull()
     })
   })
@@ -221,7 +233,6 @@ describe('EmbeddingService', () => {
         status: 'discovered' as const,
         salary_range: null,
         location: null,
-        notes: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
@@ -235,7 +246,7 @@ describe('EmbeddingService', () => {
       await service.onJDCreated(jd, requirements)
 
       for (let i = 0; i < requirements.length; i++) {
-        const row = EmbeddingRepository.findByEntity(db, 'jd_requirement', `jd-001:${i}`)
+        const row = findEmbeddingByEntity(db,'jd_requirement', `jd-001:${i}`)
         expect(row).not.toBeNull()
       }
     })

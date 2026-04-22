@@ -220,7 +220,6 @@ describe('Qualifications SDK resources', () => {
           id: 'skill-1',
           name: 'Security',
           category: 'methodology',
-          notes: null,
         },
       ],
     }

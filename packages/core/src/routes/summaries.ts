@@ -16,19 +16,19 @@ import type {
   SummarySort,
   SummarySortBy,
   SortDirection,
-} from '../db/repositories/summary-repository'
+} from '../types'
 
 export function summaryRoutes(services: Services) {
   const app = new Hono()
 
   app.post('/summaries', async (c) => {
     const body = await c.req.json()
-    const result = services.summaries.create(body)
+    const result = await services.summaries.create(body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
 
-  app.get('/summaries', (c) => {
+  app.get('/summaries', async (c) => {
     const offset = Math.max(0, parseInt(c.req.query('offset') ?? '0', 10) || 0)
     const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') ?? '50', 10) || 50))
 
@@ -42,29 +42,30 @@ export function summaryRoutes(services: Services) {
     if (c.req.query('industry_id')) filter.industry_id = c.req.query('industry_id')!
     if (c.req.query('role_type_id')) filter.role_type_id = c.req.query('role_type_id')!
     if (c.req.query('skill_id')) filter.skill_id = c.req.query('skill_id')!
+    if (c.req.query('search')) filter.search = c.req.query('search')!
 
     const sort: SummarySort = {}
     if (c.req.query('sort_by')) sort.sort_by = c.req.query('sort_by') as SummarySortBy
     if (c.req.query('direction')) sort.direction = c.req.query('direction') as SortDirection
 
-    const result = services.summaries.list(filter, sort, offset, limit)
+    const result = await services.summaries.list(filter, sort, offset, limit)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data, pagination: result.pagination })
   })
 
   // Toggle template — must be registered BEFORE /:id catch-all
-  app.post('/summaries/:id/toggle-template', (c) => {
-    const result = services.summaries.toggleTemplate(c.req.param('id'))
+  app.post('/summaries/:id/toggle-template', async (c) => {
+    const result = await services.summaries.toggleTemplate(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   // Linked resumes — must be registered BEFORE /:id catch-all
-  app.get('/summaries/:id/linked-resumes', (c) => {
+  app.get('/summaries/:id/linked-resumes', async (c) => {
     const offset = Math.max(0, parseInt(c.req.query('offset') ?? '0', 10) || 0)
     const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') ?? '50', 10) || 50))
 
-    const result = services.summaries.getLinkedResumes(c.req.param('id'), offset, limit)
+    const result = await services.summaries.getLinkedResumes(c.req.param('id'), offset, limit)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data, pagination: result.pagination })
   })
@@ -72,8 +73,8 @@ export function summaryRoutes(services: Services) {
   // ── Skill keyword junction (Phase 91) ───────────────────────────────
   // Registered BEFORE /:id catch-all.
 
-  app.get('/summaries/:id/skills', (c) => {
-    const result = services.summaries.getSkills(c.req.param('id'))
+  app.get('/summaries/:id/skills', async (c) => {
+    const result = await services.summaries.getSkills(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
@@ -83,41 +84,41 @@ export function summaryRoutes(services: Services) {
     if (!body.skill_id) {
       return c.json({ error: { code: 'VALIDATION_ERROR', message: 'skill_id is required' } }, 400)
     }
-    const result = services.summaries.addSkill(c.req.param('id'), body.skill_id)
+    const result = await services.summaries.addSkill(c.req.param('id'), body.skill_id)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 
-  app.delete('/summaries/:id/skills/:skillId', (c) => {
-    const result = services.summaries.removeSkill(c.req.param('id'), c.req.param('skillId'))
+  app.delete('/summaries/:id/skills/:skillId', async (c) => {
+    const result = await services.summaries.removeSkill(c.req.param('id'), c.req.param('skillId'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 
-  app.get('/summaries/:id', (c) => {
+  app.get('/summaries/:id', async (c) => {
     const includeRelations = c.req.query('include') === 'relations'
     const result = includeRelations
-      ? services.summaries.getWithRelations(c.req.param('id'))
-      : services.summaries.get(c.req.param('id'))
+      ? await services.summaries.getWithRelations(c.req.param('id'))
+      : await services.summaries.get(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   app.patch('/summaries/:id', async (c) => {
     const body = await c.req.json()
-    const result = services.summaries.update(c.req.param('id'), body)
+    const result = await services.summaries.update(c.req.param('id'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/summaries/:id', (c) => {
-    const result = services.summaries.delete(c.req.param('id'))
+  app.delete('/summaries/:id', async (c) => {
+    const result = await services.summaries.delete(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })
 
-  app.post('/summaries/:id/clone', (c) => {
-    const result = services.summaries.clone(c.req.param('id'))
+  app.post('/summaries/:id/clone', async (c) => {
+    const result = await services.summaries.clone(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })

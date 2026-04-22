@@ -15,21 +15,18 @@
  * Error isolation: embedding failures NEVER propagate to calling services.
  * The embed/hook methods catch all errors internally and log warnings.
  *
- * NOTE (AP1): Use the structured logger from Phase 23 if available. If Phase 23
- * has not landed, console.error is acceptable as a temporary measure.
- * TODO: Replace console.error with structured logger (Phase 23).
+ * Phase 1.6: EmbeddingRepository + raw SQL replaced with EntityLifecycleManager.
+ * Blob fields (vector) handled via ELM's native blob serialization (Float32Array → Buffer
+ * on write, Uint8Array on read). Upsert semantics preserved via find + create/update.
+ * alignResume uses a named query for the resume_entries+sections JOIN.
  *
- * NOTE (I3): checkStale() uses raw SQL queries for cross-entity staleness scans
- * rather than going through individual repositories. This is intentional for
- * performance: a single scan across multiple entity types avoids N+1 queries
- * through repository abstractions.
- *
- * NOTE (I7): refreshStale() uses individual lookupById calls (N+1 pattern) to
- * fetch entity content. For v1, this is acceptable for the expected small number
- * of stale embeddings. Batched lookup is a future optimization if stale counts grow.
+ * Circular dependency note: This service is injected into the entity map (for
+ * afterCreate hooks on bullets/perspectives/sources). The hooks call
+ * service.embed() which uses this.elm. Because the EmbeddingService creates its
+ * own private ELM (without embedding hooks), there is no infinite loop.
  */
 
-import type { Database } from 'bun:sqlite'
+import type { EntityLifecycleManager } from '../storage/lifecycle-manager'
 import type {
   Result, Bullet, Perspective, JobDescription, Source,
   EmbeddingEntityType, AlignmentReport, RequirementMatchReport,
@@ -38,9 +35,6 @@ import type {
 import {
   STRONG_THRESHOLD_DEFAULT, ADJACENT_THRESHOLD_DEFAULT,
 } from '../types'
-import {
-  EmbeddingRepository,
-} from '../db/repositories/embedding-repository'
 import { computeEmbedding, EMBEDDING_DIM } from '../lib/model-loader'
 import { parseRequirements } from '../lib/jd-parser'
 import { createHash } from 'node:crypto'
@@ -79,17 +73,32 @@ function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   return dot
 }
 
+/** Convert Uint8Array (ELM read path) to Float32Array for vector math. */
+function toFloat32(blob: unknown): Float32Array {
+  if (blob instanceof Float32Array) return blob
+  if (blob instanceof Uint8Array) {
+    const buf = blob.buffer.slice(blob.byteOffset, blob.byteOffset + blob.byteLength)
+    return new Float32Array(buf)
+  }
+  if (Buffer.isBuffer(blob)) {
+    const buf = blob.buffer.slice(blob.byteOffset, blob.byteOffset + blob.byteLength)
+    return new Float32Array(buf)
+  }
+  throw new Error('Cannot convert blob to Float32Array')
+}
+
 // ── Service ──────────────────────────────────────────────────────────
 
 export class EmbeddingService {
-  constructor(private db: Database) {}
+  constructor(protected readonly elm: EntityLifecycleManager) {}
 
   /**
    * Compute and store an embedding for a single entity.
    *
    * If an embedding already exists and the content hash matches,
    * this is a no-op (returns early). If the hash differs, the
-   * embedding is recomputed and upserted.
+   * embedding is recomputed and updated. If none exists, a new one
+   * is created.
    */
   async embed(
     entityType: EmbeddingEntityType,
@@ -100,14 +109,35 @@ export class EmbeddingService {
       const hash = contentHash(text)
 
       // Check if current embedding is still fresh
-      const existing = EmbeddingRepository.findByEntity(this.db, entityType, entityId)
-      if (existing && existing.content_hash === hash) {
+      const existingResult = await this.elm.list('embeddings', {
+        where: { entity_type: entityType, entity_id: entityId },
+        limit: 1,
+      })
+      if (existingResult.ok && existingResult.value.rows.length > 0) {
+        const existing = existingResult.value.rows[0]
+        if (existing.content_hash === hash) {
+          return { ok: true, data: undefined }
+        }
+        // Hash changed — recompute and update
+        const vector = await computeEmbedding(text)
+        if (vector.length !== EMBEDDING_DIM) {
+          return {
+            ok: false,
+            error: {
+              code: 'EMBEDDING_ERROR',
+              message: `Expected ${EMBEDDING_DIM}-dim vector, got ${vector.length}`,
+            },
+          }
+        }
+        await this.elm.update('embeddings', existing.id as string, {
+          content_hash: hash,
+          vector,
+        })
         return { ok: true, data: undefined }
       }
 
-      // Compute embedding vector
+      // New embedding
       const vector = await computeEmbedding(text)
-
       if (vector.length !== EMBEDDING_DIM) {
         return {
           ok: false,
@@ -117,15 +147,12 @@ export class EmbeddingService {
           },
         }
       }
-
-      // Upsert into DB
-      EmbeddingRepository.upsert(this.db, {
+      await this.elm.create('embeddings', {
         entity_type: entityType,
         entity_id: entityId,
         content_hash: hash,
         vector,
       })
-
       return { ok: true, data: undefined }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -152,14 +179,21 @@ export class EmbeddingService {
     try {
       const queryVec = await computeEmbedding(queryText)
 
-      const rows = EmbeddingRepository.findByType(this.db, entityType)
+      const listResult = await this.elm.list('embeddings', {
+        where: { entity_type: entityType },
+        limit: 100000,
+        includeLazy: ['vector'],
+      })
+      if (!listResult.ok) {
+        return { ok: false, error: { code: 'EMBEDDING_ERROR', message: 'Failed to load embeddings' } }
+      }
 
       const scored: SimilarEntity[] = []
-      for (const row of rows) {
-        const storedVec = EmbeddingRepository.deserializeVector(row.vector)
+      for (const row of listResult.value.rows) {
+        const storedVec = toFloat32(row.vector)
         const sim = cosineSimilarity(queryVec, storedVec)
         if (sim >= threshold) {
-          scored.push({ entity_id: row.entity_id, similarity: sim })
+          scored.push({ entity_id: row.entity_id as string, similarity: sim })
         }
       }
 
@@ -189,81 +223,88 @@ export class EmbeddingService {
     try {
       const stale: StaleEmbedding[] = []
 
-      // Check bullets (stale + orphan)
-      const bullets = this.db
-        .query('SELECT id, content FROM bullets')
-        .all() as Array<{ id: string; content: string }>
-      const bulletHashes = new Map(bullets.map(b => [b.id, contentHash(b.content)]))
-      const staleBullets = EmbeddingRepository.findStale(this.db, 'bullet', bulletHashes)
-      for (const s of staleBullets) {
-        stale.push({ entity_type: 'bullet', ...s })
-      }
-      // Detect orphan embeddings (entity deleted from source table)
-      const bulletEmbeddings = EmbeddingRepository.findByType(this.db, 'bullet')
-      for (const emb of bulletEmbeddings) {
-        if (!bulletHashes.has(emb.entity_id)) {
-          stale.push({ entity_type: 'bullet', entity_id: emb.entity_id, stored_hash: emb.content_hash, current_hash: '' })
-        }
-      }
+      // Helper: check staleness for a simple entity type
+      const checkEntityType = async (
+        entityType: EmbeddingEntityType,
+        sourceEntity: string,
+        contentField: string,
+      ) => {
+        const entitiesResult = await this.elm.list(sourceEntity, { limit: 100000 })
+        if (!entitiesResult.ok) return
 
-      // Check perspectives (stale + orphan)
-      const perspectives = this.db
-        .query('SELECT id, content FROM perspectives')
-        .all() as Array<{ id: string; content: string }>
-      const perspectiveHashes = new Map(perspectives.map(p => [p.id, contentHash(p.content)]))
-      const stalePerspectives = EmbeddingRepository.findStale(this.db, 'perspective', perspectiveHashes)
-      for (const s of stalePerspectives) {
-        stale.push({ entity_type: 'perspective', ...s })
-      }
-      const perspectiveEmbeddings = EmbeddingRepository.findByType(this.db, 'perspective')
-      for (const emb of perspectiveEmbeddings) {
-        if (!perspectiveHashes.has(emb.entity_id)) {
-          stale.push({ entity_type: 'perspective', entity_id: emb.entity_id, stored_hash: emb.content_hash, current_hash: '' })
+        const entityHashes = new Map<string, string>()
+        for (const row of entitiesResult.value.rows) {
+          const content = row[contentField]
+          if (typeof content === 'string' && typeof row.id === 'string') {
+            entityHashes.set(row.id, contentHash(content))
+          }
         }
-      }
 
-      // Check sources (stale + orphan)
-      const sources = this.db
-        .query('SELECT id, description FROM sources')
-        .all() as Array<{ id: string; description: string }>
-      const sourceHashes = new Map(sources.map(s => [s.id, contentHash(s.description)]))
-      const staleSources = EmbeddingRepository.findStale(this.db, 'source', sourceHashes)
-      for (const s of staleSources) {
-        stale.push({ entity_type: 'source', ...s })
-      }
-      const sourceEmbeddings = EmbeddingRepository.findByType(this.db, 'source')
-      for (const emb of sourceEmbeddings) {
-        if (!sourceHashes.has(emb.entity_id)) {
-          stale.push({ entity_type: 'source', entity_id: emb.entity_id, stored_hash: emb.content_hash, current_hash: '' })
+        // Check each entity against stored embeddings
+        const embeddingsResult = await this.elm.list('embeddings', {
+          where: { entity_type: entityType },
+          limit: 100000,
+        })
+        if (!embeddingsResult.ok) return
+        const storedById = new Map<string, string>()
+        for (const emb of embeddingsResult.value.rows) {
+          storedById.set(emb.entity_id as string, emb.content_hash as string)
         }
-      }
 
-      // Check JD requirements for staleness (S1)
-      // Re-parse requirements from raw_text, compute hash of requirement texts,
-      // compare against stored content_hash for each jd_requirement embedding.
-      const jds = this.db
-        .query('SELECT id, raw_text FROM job_descriptions')
-        .all() as Array<{ id: string; raw_text: string }>
-      for (const jd of jds) {
-        const parsed = parseRequirements(jd.raw_text)
-        for (let i = 0; i < parsed.requirements.length; i++) {
-          const entityId = `${jd.id}:${i}`
-          const currentHash = contentHash(parsed.requirements[i].text)
-          const existing = EmbeddingRepository.findByEntity(this.db, 'jd_requirement', entityId)
-          if (!existing) {
+        // Find stale (hash mismatch or missing embedding)
+        for (const [entityId, currentHash] of entityHashes) {
+          const storedHash = storedById.get(entityId)
+          if (!storedHash) {
+            stale.push({ entity_type: entityType, entity_id: entityId, stored_hash: null, current_hash: currentHash })
+          } else if (storedHash !== currentHash) {
+            stale.push({ entity_type: entityType, entity_id: entityId, stored_hash: storedHash, current_hash: currentHash })
+          }
+        }
+
+        // Find orphan embeddings (entity deleted from source table)
+        for (const emb of embeddingsResult.value.rows) {
+          if (!entityHashes.has(emb.entity_id as string)) {
             stale.push({
-              entity_type: 'jd_requirement',
-              entity_id: entityId,
-              stored_hash: null,
-              current_hash: currentHash,
+              entity_type: entityType,
+              entity_id: emb.entity_id as string,
+              stored_hash: emb.content_hash as string,
+              current_hash: '',
             })
-          } else if (existing.content_hash !== currentHash) {
-            stale.push({
-              entity_type: 'jd_requirement',
-              entity_id: entityId,
-              stored_hash: existing.content_hash,
-              current_hash: currentHash,
-            })
+          }
+        }
+      }
+
+      await checkEntityType('bullet', 'bullets', 'content')
+      await checkEntityType('perspective', 'perspectives', 'content')
+      await checkEntityType('source', 'sources', 'description')
+
+      // Check JD requirements for staleness
+      const jdsResult = await this.elm.list('job_descriptions', { limit: 100000 })
+      if (jdsResult.ok) {
+        const jdReqEmbeddings = await this.elm.list('embeddings', {
+          where: { entity_type: 'jd_requirement' },
+          limit: 100000,
+        })
+        const storedReqs = new Map<string, string>()
+        if (jdReqEmbeddings.ok) {
+          for (const emb of jdReqEmbeddings.value.rows) {
+            storedReqs.set(emb.entity_id as string, emb.content_hash as string)
+          }
+        }
+
+        for (const jd of jdsResult.value.rows) {
+          const rawText = jd.raw_text as string
+          if (!rawText) continue
+          const parsed = parseRequirements(rawText)
+          for (let i = 0; i < parsed.requirements.length; i++) {
+            const entityId = `${jd.id}:${i}`
+            const currentHash = contentHash(parsed.requirements[i].text)
+            const storedHash = storedReqs.get(entityId)
+            if (!storedHash) {
+              stale.push({ entity_type: 'jd_requirement', entity_id: entityId, stored_hash: null, current_hash: currentHash })
+            } else if (storedHash !== currentHash) {
+              stale.push({ entity_type: 'jd_requirement', entity_id: entityId, stored_hash: storedHash, current_hash: currentHash })
+            }
           }
         }
       }
@@ -293,23 +334,24 @@ export class EmbeddingService {
       let text: string | null = null
 
       if (entry.entity_type === 'bullet') {
-        const row = this.db.query('SELECT content FROM bullets WHERE id = ?').get(entry.entity_id) as { content: string } | null
-        text = row?.content ?? null
+        const result = await this.elm.get('bullets', entry.entity_id)
+        text = result.ok ? (result.value.content as string) : null
       } else if (entry.entity_type === 'perspective') {
-        const row = this.db.query('SELECT content FROM perspectives WHERE id = ?').get(entry.entity_id) as { content: string } | null
-        text = row?.content ?? null
+        const result = await this.elm.get('perspectives', entry.entity_id)
+        text = result.ok ? (result.value.content as string) : null
       } else if (entry.entity_type === 'source') {
-        const row = this.db.query('SELECT description FROM sources WHERE id = ?').get(entry.entity_id) as { description: string } | null
-        text = row?.description ?? null
+        const result = await this.elm.get('sources', entry.entity_id)
+        text = result.ok ? (result.value.description as string) : null
       } else if (entry.entity_type === 'jd_requirement') {
         // Parse the JD ID and requirement index from the entity_id (format: "{jd_id}:{index}")
         const colonIdx = entry.entity_id.lastIndexOf(':')
         if (colonIdx > 0) {
           const jdId = entry.entity_id.slice(0, colonIdx)
           const reqIdx = parseInt(entry.entity_id.slice(colonIdx + 1), 10)
-          const jdRow = this.db.query('SELECT raw_text FROM job_descriptions WHERE id = ?').get(jdId) as { raw_text: string } | null
-          if (jdRow) {
-            const parsed = parseRequirements(jdRow.raw_text)
+          const jdResult = await this.elm.get('job_descriptions', jdId)
+          if (jdResult.ok) {
+            const rawText = jdResult.value.raw_text as string
+            const parsed = parseRequirements(rawText)
             if (reqIdx < parsed.requirements.length) {
               text = parsed.requirements[reqIdx].text
             }
@@ -318,8 +360,11 @@ export class EmbeddingService {
       }
 
       if (text === null) {
-        // Entity was deleted since the staleness check -- remove orphan embedding
-        EmbeddingRepository.deleteByEntity(this.db, entry.entity_type, entry.entity_id)
+        // Entity was deleted since the staleness check — remove orphan embedding
+        await this.elm.deleteWhere('embeddings', {
+          entity_type: entry.entity_type,
+          entity_id: entry.entity_id,
+        })
         continue
       }
 
@@ -352,8 +397,17 @@ export class EmbeddingService {
       const adjacentThreshold = opts?.adjacentThreshold ?? ADJACENT_THRESHOLD_DEFAULT
 
       // Fetch JD requirement embeddings
-      const jdRows = EmbeddingRepository.findByType(this.db, 'jd_requirement')
-        .filter(r => r.entity_id.startsWith(`${jdId}:`))
+      const jdEmbResult = await this.elm.list('embeddings', {
+        where: { entity_type: 'jd_requirement' },
+        limit: 100000,
+        includeLazy: ['vector'],
+      })
+      if (!jdEmbResult.ok) {
+        return { ok: false, error: { code: 'EMBEDDING_ERROR', message: 'Failed to load JD embeddings' } }
+      }
+      const jdRows = jdEmbResult.value.rows.filter(
+        (r) => (r.entity_id as string).startsWith(`${jdId}:`),
+      )
       if (jdRows.length === 0) {
         return {
           ok: false,
@@ -361,13 +415,35 @@ export class EmbeddingService {
         }
       }
 
-      // Fetch resume entry perspective IDs (with entry IDs for unmatched tracking)
-      const resumeEntries = this.db.query(
-        `SELECT re.id as entry_id, re.perspective_id
-         FROM resume_entries re
-         JOIN resume_sections rs ON re.section_id = rs.id
-         WHERE rs.resume_id = ?`,
-      ).all(resumeId) as Array<{ entry_id: string; perspective_id: string }>
+      // Fetch resume entry perspective IDs via sequential ELM calls
+      const sectionsResult = await this.elm.list('resume_sections', {
+        where: { resume_id: resumeId },
+        limit: 10000,
+      })
+      if (!sectionsResult.ok || sectionsResult.value.rows.length === 0) {
+        return {
+          ok: false,
+          error: { code: 'EMBEDDING_ERROR', message: `No resume entries found for resume ${resumeId}` },
+        }
+      }
+
+      const resumeEntries: Array<{ entry_id: string; perspective_id: string }> = []
+      for (const section of sectionsResult.value.rows) {
+        const entriesResult = await this.elm.list('resume_entries', {
+          where: { section_id: section.id as string },
+          limit: 10000,
+        })
+        if (entriesResult.ok) {
+          for (const entry of entriesResult.value.rows) {
+            if (entry.perspective_id) {
+              resumeEntries.push({
+                entry_id: entry.id as string,
+                perspective_id: entry.perspective_id as string,
+              })
+            }
+          }
+        }
+      }
 
       if (resumeEntries.length === 0) {
         return {
@@ -384,22 +460,27 @@ export class EmbeddingService {
         vector: Float32Array
       }> = []
       for (const entry of resumeEntries) {
-        const embRow = EmbeddingRepository.findByEntity(this.db, 'perspective', entry.perspective_id)
-        if (embRow) {
+        const embResult = await this.elm.list('embeddings', {
+          where: { entity_type: 'perspective', entity_id: entry.perspective_id },
+          limit: 1,
+          includeLazy: ['vector'],
+        })
+        if (embResult.ok && embResult.value.rows.length > 0) {
+          const embRow = embResult.value.rows[0]
           // Look up perspective content
-          const pRow = this.db.query('SELECT content FROM perspectives WHERE id = ?').get(entry.perspective_id) as { content: string } | null
+          const pResult = await this.elm.get('perspectives', entry.perspective_id)
           perspectiveEmbeddings.push({
             entry_id: entry.entry_id,
             perspective_id: entry.perspective_id,
-            perspective_content: pRow?.content ?? '',
-            vector: EmbeddingRepository.deserializeVector(embRow.vector),
+            perspective_content: pResult.ok ? (pResult.value.content as string) : '',
+            vector: toFloat32(embRow.vector),
           })
         }
       }
 
-      // Look up requirement texts once
-      const jdTextRow = this.db.query('SELECT raw_text FROM job_descriptions WHERE id = ?').get(jdId) as { raw_text: string } | null
-      const parsedReqs = jdTextRow ? parseRequirements(jdTextRow.raw_text) : null
+      // Look up requirement texts
+      const jdResult = await this.elm.get('job_descriptions', jdId)
+      const parsedReqs = jdResult.ok ? parseRequirements(jdResult.value.raw_text as string) : null
 
       // Track best requirement similarity per entry (for unmatched detection)
       const entryBestReqSim = new Map<string, number>()
@@ -412,8 +493,8 @@ export class EmbeddingService {
       let similaritySum = 0
 
       for (const jdRow of jdRows) {
-        const jdVec = EmbeddingRepository.deserializeVector(jdRow.vector)
-        const reqIdxStr = jdRow.entity_id.split(':').pop()!
+        const jdVec = toFloat32(jdRow.vector)
+        const reqIdxStr = (jdRow.entity_id as string).split(':').pop()!
         const reqIdx = parseInt(reqIdxStr, 10)
 
         const requirementText = parsedReqs && reqIdx < parsedReqs.requirements.length
@@ -522,8 +603,17 @@ export class EmbeddingService {
       const limit = opts?.limit ?? 10
 
       // Fetch JD requirement embeddings
-      const jdRows = EmbeddingRepository.findByType(this.db, 'jd_requirement')
-        .filter(r => r.entity_id.startsWith(`${jdId}:`))
+      const jdEmbResult = await this.elm.list('embeddings', {
+        where: { entity_type: 'jd_requirement' },
+        limit: 100000,
+        includeLazy: ['vector'],
+      })
+      if (!jdEmbResult.ok) {
+        return { ok: false, error: { code: 'EMBEDDING_ERROR', message: 'Failed to load JD embeddings' } }
+      }
+      const jdRows = jdEmbResult.value.rows.filter(
+        (r) => (r.entity_id as string).startsWith(`${jdId}:`),
+      )
       if (jdRows.length === 0) {
         return {
           ok: false,
@@ -532,37 +622,45 @@ export class EmbeddingService {
       }
 
       // Fetch all entity embeddings of the requested type
-      const entityRows = EmbeddingRepository.findByType(this.db, entityType)
+      const entityEmbResult = await this.elm.list('embeddings', {
+        where: { entity_type: entityType },
+        limit: 100000,
+        includeLazy: ['vector'],
+      })
+      if (!entityEmbResult.ok) {
+        return { ok: false, error: { code: 'EMBEDDING_ERROR', message: 'Failed to load entity embeddings' } }
+      }
 
       // Look up requirement texts
-      const jdTextRow = this.db.query('SELECT raw_text FROM job_descriptions WHERE id = ?').get(jdId) as { raw_text: string } | null
-      const parsedReqs = jdTextRow ? parseRequirements(jdTextRow.raw_text) : null
+      const jdResult = await this.elm.get('job_descriptions', jdId)
+      const parsedReqs = jdResult.ok ? parseRequirements(jdResult.value.raw_text as string) : null
 
       const matches: RequirementMatchReport['matches'] = []
 
       for (const jdRow of jdRows) {
-        const jdVec = EmbeddingRepository.deserializeVector(jdRow.vector)
-        const reqIdx = parseInt(jdRow.entity_id.split(':').pop()!, 10)
+        const jdVec = toFloat32(jdRow.vector)
+        const reqIdx = parseInt((jdRow.entity_id as string).split(':').pop()!, 10)
         const requirementText = parsedReqs && reqIdx < parsedReqs.requirements.length
           ? parsedReqs.requirements[reqIdx].text
           : `Requirement ${reqIdx}`
 
         // Score all entities against this requirement
         const candidates: Array<{ entity_id: string; content: string; similarity: number }> = []
-        for (const entityRow of entityRows) {
-          const entityVec = EmbeddingRepository.deserializeVector(entityRow.vector)
+        for (const entityRow of entityEmbResult.value.rows) {
+          const entityVec = toFloat32(entityRow.vector)
           const sim = cosineSimilarity(jdVec, entityVec)
           if (sim >= threshold) {
             // Look up content for the entity
             let content = ''
+            const entityId = entityRow.entity_id as string
             if (entityType === 'bullet') {
-              const row = this.db.query('SELECT content FROM bullets WHERE id = ?').get(entityRow.entity_id) as { content: string } | null
-              content = row?.content ?? ''
+              const r = await this.elm.get('bullets', entityId)
+              content = r.ok ? (r.value.content as string) : ''
             } else {
-              const row = this.db.query('SELECT content FROM perspectives WHERE id = ?').get(entityRow.entity_id) as { content: string } | null
-              content = row?.content ?? ''
+              const r = await this.elm.get('perspectives', entityId)
+              content = r.ok ? (r.value.content as string) : ''
             }
-            candidates.push({ entity_id: entityRow.entity_id, content, similarity: sim })
+            candidates.push({ entity_id: entityId, content, similarity: sim })
           }
         }
 
@@ -601,7 +699,6 @@ export class EmbeddingService {
     try {
       await this.embed('bullet', bullet.id, bullet.content)
     } catch (err) {
-      // TODO: Replace with structured logger (Phase 23)
       console.error(`[EmbeddingService] Failed to embed bullet ${bullet.id}:`, err)
     }
   }
@@ -614,7 +711,6 @@ export class EmbeddingService {
     try {
       await this.embed('perspective', perspective.id, perspective.content)
     } catch (err) {
-      // TODO: Replace with structured logger (Phase 23)
       console.error(`[EmbeddingService] Failed to embed perspective ${perspective.id}:`, err)
     }
   }
@@ -632,7 +728,6 @@ export class EmbeddingService {
         await this.embed('jd_requirement', entityId, requirements[i])
       }
     } catch (err) {
-      // TODO: Replace with structured logger (Phase 23)
       console.error(`[EmbeddingService] Failed to embed JD requirements for ${jd.id}:`, err)
     }
   }
@@ -646,10 +741,19 @@ export class EmbeddingService {
   async onJDUpdated(jd: JobDescription): Promise<void> {
     try {
       // Delete all existing requirement embeddings for this JD
-      const existing = EmbeddingRepository.findByType(this.db, 'jd_requirement')
-        .filter(r => r.entity_id.startsWith(`${jd.id}:`))
-      for (const row of existing) {
-        EmbeddingRepository.deleteByEntity(this.db, 'jd_requirement', row.entity_id)
+      const existingResult = await this.elm.list('embeddings', {
+        where: { entity_type: 'jd_requirement' },
+        limit: 100000,
+      })
+      if (existingResult.ok) {
+        for (const row of existingResult.value.rows) {
+          if ((row.entity_id as string).startsWith(`${jd.id}:`)) {
+            await this.elm.deleteWhere('embeddings', {
+              entity_type: 'jd_requirement',
+              entity_id: row.entity_id as string,
+            })
+          }
+        }
       }
 
       // Re-parse and re-embed
@@ -659,7 +763,6 @@ export class EmbeddingService {
         await this.embed('jd_requirement', entityId, parsed.requirements[i].text)
       }
     } catch (err) {
-      // TODO: Replace with structured logger (Phase 23)
       console.error(`[EmbeddingService] Failed to re-embed JD requirements for ${jd.id}:`, err)
     }
   }
@@ -672,7 +775,6 @@ export class EmbeddingService {
     try {
       await this.embed('source', source.id, source.description)
     } catch (err) {
-      // TODO: Replace with structured logger (Phase 23)
       console.error(`[EmbeddingService] Failed to embed source ${source.id}:`, err)
     }
   }

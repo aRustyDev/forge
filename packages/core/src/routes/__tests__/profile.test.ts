@@ -75,25 +75,27 @@ describe('Profile routes', () => {
   })
 
   test('PATCH /profile updates all fields at once', async () => {
-    // clearance moved to credentials entity in migration 037 (Phase 84)
+    // Post-migration 046: location/linkedin/github/website moved to addresses + profile_urls
     const res = await apiRequest(ctx.app, 'PATCH', '/profile', {
       name: 'Adam',
       email: 'adam@example.com',
       phone: '+1-555-0123',
-      location: 'Washington, DC',
-      linkedin: 'linkedin.com/in/adam',
-      github: 'github.com/adam',
-      website: 'adam.dev',
+      address: { name: 'Washington, DC', city: 'Washington', state: 'DC' },
+      urls: [
+        { key: 'linkedin', url: 'linkedin.com/in/adam' },
+        { key: 'github', url: 'github.com/adam' },
+        { key: 'blog', url: 'adam.dev' },
+      ],
     })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.name).toBe('Adam')
     expect(body.data.email).toBe('adam@example.com')
     expect(body.data.phone).toBe('+1-555-0123')
-    expect(body.data.location).toBe('Washington, DC')
-    expect(body.data.linkedin).toBe('linkedin.com/in/adam')
-    expect(body.data.github).toBe('github.com/adam')
-    expect(body.data.website).toBe('adam.dev')
+    expect(body.data.address.name).toBe('Washington, DC')
+    expect(body.data.urls).toHaveLength(3)
+    expect(body.data.urls[0].key).toBe('linkedin')
+    expect(body.data.urls[0].url).toBe('linkedin.com/in/adam')
   })
 
   test('PATCH /profile refreshes updated_at', async () => {

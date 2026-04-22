@@ -11,7 +11,7 @@ describe('sb2nov template', () => {
     test('contains required packages', () => {
       expect(sb2nov.preamble).toContain('\\usepackage[empty]{fullpage}')
       expect(sb2nov.preamble).toContain('\\usepackage{titlesec}')
-      expect(sb2nov.preamble).toContain('\\usepackage[hidelinks]{hyperref}')
+      expect(sb2nov.preamble).toContain('\\usepackage{hyperref}')
       expect(sb2nov.preamble).toContain('\\usepackage{fancyhdr}')
     })
 

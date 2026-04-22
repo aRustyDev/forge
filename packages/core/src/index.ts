@@ -50,7 +50,7 @@ runMigrations(db, migrationsDir)
 
 // ── 4. Recover stale locks ───────────────────────────────────────────
 
-const recovered = DerivationService.recoverStaleLocks(db)
+const recovered = await DerivationService.recoverStaleLocks(db)
 if (recovered > 0) {
   logger.warn({ msg: 'Recovered stale deriving locks', count: recovered })
 }
@@ -84,23 +84,26 @@ try {
   logger.warn({ msg: 'Tectonic not found', note: 'PDF generation will be unavailable' })
 }
 
-// ── 6. Create services ──────────────────────────────────────────────
-
-const services = createServices(db, dbPath)
-
-// ── 6b. Initialize embedding service (async, non-blocking) ──────────
+// ── 6. Initialize embedding service (before createServices) ─────────
 // EmbeddingService loads the ML model asynchronously (~2-5s on first use).
-// It is injected into Services after createServices() completes, and also
-// wired into services that have fire-and-forget hooks.
+// Phase 1.0: the embedding service is constructed BEFORE createServices
+// so the entity map can close over it in lifecycle hooks (afterCreate
+// hooks fire embeddings for bullets/perspectives/sources/JD requirements
+// via the integrity layer rather than service-level queueMicrotask calls).
 import { EmbeddingService } from './services/embedding-service'
+import { buildDefaultElm } from './storage/build-elm'
 
-const embeddingService = new EmbeddingService(db)
+const embeddingService = new EmbeddingService(buildDefaultElm(db))
+
+// ── 6b. Create services with embedding wired into the entity map ────
+
+const services = createServices(db, dbPath, { embeddingService })
 services.embedding = embeddingService
 
-// Wire fire-and-forget hooks into services that create entities
-services.derivation.setEmbeddingService(embeddingService)
+// JD service still uses the embedding service DIRECTLY for parse-and-multi-embed
+// semantics (entity-map hooks can't express the jd_requirement:{i} pattern).
+// Source service embedding is fully handled by entity-map afterCreate hooks.
 services.jobDescriptions.setEmbeddingService(embeddingService)
-services.sources.setEmbeddingService(embeddingService)
 
 // ── 7. Mount routes ──────────────────────────────────────────────────
 

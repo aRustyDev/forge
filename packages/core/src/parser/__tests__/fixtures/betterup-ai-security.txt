@@ -1,0 +1,34 @@
+Principal AI Security Engineer
+
+Position Summary
+
+Strategic individual contributor role advancing BetterUp's product and application security posture across the AI-powered SaaS platform. Operates at the intersection of software engineering, AI/ML implementation, product development and secure engineering.
+
+Key Responsibilities
+
+Product Development and Engineering:
+- Partner with Product/Engineering to design, build, and ship AI features (Ruby on Rails + modern web tech)
+- Drive engineering excellence through code reviews, technical documentation, best practices
+- Contribute to GitHub workflows, releases, feature flags, deployment pipelines
+
+Security Architecture & Technical Advisory:
+- Lead application-level security architecture reviews, define secure patterns for auth, data protection, API security
+- Evaluate new technologies and services for security risks
+- Evolve BetterUp's secure development lifecycle
+
+Security-Conscious AI Development:
+- Assess, mitigate, and monitor risks unique to GenAI/AI/ML (prompt injection, data leakage, model manipulation)
+- Provide expertise in secure coding, threat modeling, design reviews, static/dynamic analysis
+- Serve as security SME for AI features, align with AI governance frameworks (e.g. ISO 42001)
+
+Qualifications
+
+- 8+ years software engineering, with 4-5 years emphasis in AI/ML
+- 5+ years Ruby on Rails; modern web frameworks, APIs, cloud-native architectures
+- Hands-on experience with SAST/DAST tooling, threat modeling, secure code review, vulnerability management
+- Experience collaborating with product, engineering, and GTM teams
+- Demonstrated ability to influence engineering teams without formal authority
+- Bonus: bug bounty or coordinated vulnerability disclosure experience
+
+Annual Salary: $232,000 - $333,000 USD
+Location: Arlington, VA (Hybrid, 2 days/week or 8 days/month in office)

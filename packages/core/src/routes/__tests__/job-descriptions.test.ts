@@ -386,6 +386,65 @@ describe('Job Description Routes', () => {
     expect(row.cnt).toBe(0)
   })
 
+  // ── POST /job-descriptions/lookup-by-url ───────────────────────────
+
+  test('POST lookup-by-url returns JD when URL matches', async () => {
+    seedJobDescription(ctx.db, {
+      title: 'ML Engineer',
+      url: 'https://example.com/jobs/ml-eng',
+      rawText: 'Build ML systems',
+    })
+
+    const res = await apiRequest(ctx.app, 'POST', '/job-descriptions/lookup-by-url', {
+      url: 'https://example.com/jobs/ml-eng',
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.title).toBe('ML Engineer')
+    expect(body.data.url).toBe('https://example.com/jobs/ml-eng')
+  })
+
+  test('POST lookup-by-url returns 404 when URL not found', async () => {
+    const res = await apiRequest(ctx.app, 'POST', '/job-descriptions/lookup-by-url', {
+      url: 'https://example.com/jobs/nonexistent',
+    })
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.error.code).toBe('NOT_FOUND')
+  })
+
+  test('POST lookup-by-url returns 400 for empty URL', async () => {
+    const res = await apiRequest(ctx.app, 'POST', '/job-descriptions/lookup-by-url', {
+      url: '',
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  test('POST lookup-by-url returns 400 for missing URL', async () => {
+    const res = await apiRequest(ctx.app, 'POST', '/job-descriptions/lookup-by-url', {})
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  test('POST lookup-by-url hydrates organization_name', async () => {
+    const orgId = seedOrganization(ctx.db, { name: 'Anthropic' })
+    seedJobDescription(ctx.db, {
+      title: 'SWE',
+      url: 'https://anthropic.com/careers/swe',
+      organizationId: orgId,
+    })
+
+    const res = await apiRequest(ctx.app, 'POST', '/job-descriptions/lookup-by-url', {
+      url: 'https://anthropic.com/careers/swe',
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.organization_name).toBe('Anthropic')
+  })
+
   // ── Sort order test ───────────────────────────────────────────────
 
   test('GET list returns JDs ordered by updated_at DESC', async () => {

@@ -4,9 +4,13 @@
  * Scans all bullets and perspectives for stale content snapshots.
  * A "drifted" entity is one where the snapshot stored at derivation time
  * no longer matches the current content of its parent entity.
+ *
+ * Phase 1.4: uses EntityLifecycleManager named queries
  */
 
-import type { Database } from 'bun:sqlite'
+import { storageErrorToForgeError } from '../storage/error-mapper'
+import type { EntityLifecycleManager } from '../storage/lifecycle-manager'
+import type { ListDriftedBulletsResult, ListDriftedPerspectivesResult } from '../storage/named-queries'
 import type { Result } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -26,7 +30,7 @@ export interface DriftedEntity {
 // ---------------------------------------------------------------------------
 
 export class IntegrityService {
-  constructor(private db: Database) {}
+  constructor(protected readonly elm: EntityLifecycleManager) {}
 
   /**
    * Find all entities with stale snapshots.
@@ -34,21 +38,19 @@ export class IntegrityService {
    * Bullets: source_content_snapshot != primary source's description
    * Perspectives: bullet_content_snapshot != bullet's content
    */
-  getDriftedEntities(): Result<DriftedEntity[]> {
+  async getDriftedEntities(): Promise<Result<DriftedEntity[]>> {
     const drifted: DriftedEntity[] = []
 
-    // Check bullets against primary source
-    const bulletDrifts = this.db
-      .query(
-        `SELECT b.id AS bullet_id, b.source_content_snapshot, s.description AS current_description
-         FROM bullets b
-         JOIN bullet_sources bs ON b.id = bs.bullet_id AND bs.is_primary = 1
-         JOIN sources s ON bs.source_id = s.id
-         WHERE b.source_content_snapshot != s.description`,
-      )
-      .all() as Array<{ bullet_id: string; source_content_snapshot: string; current_description: string }>
+    // Check bullets against primary source via named query
+    const bulletResult = await this.elm.query<Record<string, unknown>, ListDriftedBulletsResult>(
+      'listDriftedBullets',
+      {},
+    )
+    if (!bulletResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(bulletResult.error) }
+    }
 
-    for (const row of bulletDrifts) {
+    for (const row of bulletResult.value.rows) {
       drifted.push({
         entity_type: 'bullet',
         entity_id: row.bullet_id,
@@ -58,17 +60,16 @@ export class IntegrityService {
       })
     }
 
-    // Check perspectives against bullet content
-    const perspectiveDrifts = this.db
-      .query(
-        `SELECT p.id AS perspective_id, p.bullet_content_snapshot, b.content AS current_content
-         FROM perspectives p
-         JOIN bullets b ON p.bullet_id = b.id
-         WHERE p.bullet_content_snapshot != b.content`,
-      )
-      .all() as Array<{ perspective_id: string; bullet_content_snapshot: string; current_content: string }>
+    // Check perspectives against bullet content via named query
+    const perspResult = await this.elm.query<Record<string, unknown>, ListDriftedPerspectivesResult>(
+      'listDriftedPerspectives',
+      {},
+    )
+    if (!perspResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(perspResult.error) }
+    }
 
-    for (const row of perspectiveDrifts) {
+    for (const row of perspResult.value.rows) {
       drifted.push({
         entity_type: 'perspective',
         entity_id: row.perspective_id,

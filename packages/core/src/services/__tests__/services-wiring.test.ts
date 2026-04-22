@@ -43,20 +43,20 @@ describe('Services wiring (Phase 85 T85.7)', () => {
     expect(services.certifications).toBeInstanceOf(CertificationService)
   })
 
-  test('services.credentials.list() returns an ok Result', () => {
-    const result = services.credentials.list()
+  test('services.credentials.list() returns an ok Result', async () => {
+    const result = await services.credentials.list()
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.data).toEqual([])
   })
 
-  test('services.certifications.list() returns an ok Result', () => {
-    const result = services.certifications.list()
+  test('services.certifications.list() returns an ok Result', async () => {
+    const result = await services.certifications.list()
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.data).toEqual([])
   })
 
-  test('services.credentials can create and retrieve a credential', () => {
-    const create = services.credentials.create({
+  test('services.credentials can create and retrieve a credential', async () => {
+    const create = await services.credentials.create({
       credential_type: 'clearance',
       label: 'Test TS',
       details: {
@@ -69,17 +69,17 @@ describe('Services wiring (Phase 85 T85.7)', () => {
     expect(create.ok).toBe(true)
     if (!create.ok) return
 
-    const get = services.credentials.get(create.data.id)
+    const get = await services.credentials.get(create.data.id)
     expect(get.ok).toBe(true)
     if (get.ok) expect(get.data.id).toBe(create.data.id)
   })
 
-  test('services.certifications can create and retrieve a certification', () => {
-    const create = services.certifications.create({ short_name: 'Test', long_name: 'Test Cert' })
+  test('services.certifications can create and retrieve a certification', async () => {
+    const create = await services.certifications.create({ short_name: 'Test', long_name: 'Test Cert' })
     expect(create.ok).toBe(true)
     if (!create.ok) return
 
-    const get = services.certifications.get(create.data.id)
+    const get = await services.certifications.get(create.data.id)
     expect(get.ok).toBe(true)
     if (get.ok) expect(get.data.short_name).toBe('Test')
   })

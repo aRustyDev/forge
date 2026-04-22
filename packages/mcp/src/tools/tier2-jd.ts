@@ -4,6 +4,7 @@ import type { FeatureFlags } from '../utils/feature-flags'
 import { z } from 'zod'
 import { registerTool } from '../utils/register-tool'
 import { mapResult } from '../utils/error-mapper'
+import { parseJobDescription } from '@forge/core/src/parser'
 
 export function registerTier2JDTools(
   server: McpServer,
@@ -27,10 +28,27 @@ export function registerTier2JDTools(
       ]).optional().describe('Application pipeline status (default: interested)'),
       salary_range: z.string().optional().describe('Salary range'),
       location: z.string().optional().describe('Job location'),
-      notes: z.string().optional().describe('Free-text notes'),
     },
     async (params) => {
-      const result = await sdk.jobDescriptions.create(params)
+      // M5a: Run parser on raw_text to auto-populate structured fields
+      const parsed = parseJobDescription(params.raw_text)
+
+      const result = await sdk.jobDescriptions.create({
+        title: params.title,
+        raw_text: params.raw_text,
+        organization_id: params.organization_id,
+        url: params.url,
+        status: params.status,
+        salary_range: params.salary_range,
+        location: params.location,
+        // Parser-derived fields
+        salary_min: parsed.salary?.min != null ? Math.round(parsed.salary.min) : undefined,
+        salary_max: parsed.salary?.max != null ? Math.round(parsed.salary.max) : undefined,
+        salary_period: parsed.salary?.period,
+        work_posture: parsed.workPosture ?? undefined,
+        parsed_locations: parsed.locations.length > 0 ? JSON.stringify(parsed.locations) : undefined,
+        parsed_sections: JSON.stringify(parsed.sections),
+      })
       if (!result.ok) {
         return respond(result)
       }
@@ -97,4 +115,18 @@ export function registerTier2JDTools(
       },
     )
   }
+
+  // forge_jd_lookup_by_url -- check if a JD already exists by URL
+  registerTool(
+    server,
+    'forge_jd_lookup_by_url',
+    'Check if a job description already exists by URL. Returns the JD if found, NOT_FOUND otherwise. Use before ingesting to prevent duplicates.',
+    {
+      url: z.string().describe('Job posting URL to look up'),
+    },
+    async (params) => {
+      const result = await sdk.jobDescriptions.lookupByUrl(params.url)
+      return respond(result)
+    },
+  )
 }

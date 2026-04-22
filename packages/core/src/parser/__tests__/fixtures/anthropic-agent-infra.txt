@@ -1,0 +1,25 @@
+# [[20d23fb1-6d1b-470c-88cb-18319cafd96f|Sr/Staff SWE: Autonomous Agent Infrastructure]]
+
+## Why This Role
+
+Best match for my background. MCP work is directly relevant, plus distributed systems + security + containers experience.
+
+## Gaps to Address
+
+- Need to demonstrate hyperscale experience
+- Frame infrastructure work as software engineering
+
+## Prep Checklist
+
+- [ ] Tailor resume to emphasize agent infrastructure work
+- [ ] Prepare MCP project talking points
+- [ ] Research Anthropic's agent architecture
+
+## Notes
+
+Best match - MCP work relevant, distributed systems + security + containers. Gap: Need to demonstrate hyperscale experience.
+
+**Fit:** 72%
+**Interest:** 5 - Must Have
+**Lift:** 3 - Moderate Work
+**Role Age:** 14 days

@@ -6,6 +6,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { Database } from 'bun:sqlite'
 import { IntegrityService } from '../integrity-service'
 import { createTestDb, seedSource, seedBullet, seedPerspective } from '../../db/__tests__/helpers'
+import { buildDefaultElm } from '../../storage/build-elm'
 
 describe('IntegrityService', () => {
   let db: Database
@@ -13,25 +14,25 @@ describe('IntegrityService', () => {
 
   beforeEach(() => {
     db = createTestDb()
-    service = new IntegrityService(db)
+    service = new IntegrityService(buildDefaultElm(db))
   })
   afterEach(() => db.close())
 
   // -- getDriftedEntities -----------------------------------------------
 
-  test('returns empty when no entities exist', () => {
-    const result = service.getDriftedEntities()
+  test('returns empty when no entities exist', async () => {
+    const result = await service.getDriftedEntities()
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data).toHaveLength(0)
   })
 
-  test('returns empty when all bullet snapshots match', () => {
+  test('returns empty when all bullet snapshots match', async () => {
     const srcId = seedSource(db, { description: 'snapshot of source content' })
     // seedBullet uses 'snapshot of source content' as the default source_content_snapshot
     seedBullet(db, [{ id: srcId }])
 
-    const result = service.getDriftedEntities()
+    const result = await service.getDriftedEntities()
     expect(result.ok).toBe(true)
     if (!result.ok) return
     // Filter to bullet drifts only (perspectives may exist)
@@ -39,14 +40,14 @@ describe('IntegrityService', () => {
     expect(bulletDrifts).toHaveLength(0)
   })
 
-  test('detects bullet with stale source snapshot', () => {
+  test('detects bullet with stale source snapshot', async () => {
     const srcId = seedSource(db, { description: 'Original description' })
     const bulletId = seedBullet(db, [{ id: srcId }])
 
     // Update source description to create drift
     db.run("UPDATE sources SET description = 'Updated description' WHERE id = ?", [srcId])
 
-    const result = service.getDriftedEntities()
+    const result = await service.getDriftedEntities()
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
@@ -58,7 +59,7 @@ describe('IntegrityService', () => {
     expect(bulletDrifts[0].current_value).toBe('Updated description')
   })
 
-  test('returns empty when all perspective snapshots match', () => {
+  test('returns empty when all perspective snapshots match', async () => {
     const srcId = seedSource(db)
     // seedBullet default content: 'Led 4-engineer team migrating...'
     // seedPerspective default bullet_content_snapshot: 'snapshot of bullet content'
@@ -66,14 +67,14 @@ describe('IntegrityService', () => {
     const bulletId = seedBullet(db, [{ id: srcId }], { content: 'snapshot of bullet content' })
     seedPerspective(db, bulletId)
 
-    const result = service.getDriftedEntities()
+    const result = await service.getDriftedEntities()
     expect(result.ok).toBe(true)
     if (!result.ok) return
     const perspDrifts = result.data.filter(d => d.entity_type === 'perspective')
     expect(perspDrifts).toHaveLength(0)
   })
 
-  test('detects perspective with stale bullet snapshot', () => {
+  test('detects perspective with stale bullet snapshot', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const perspId = seedPerspective(db, bulletId)
@@ -81,7 +82,7 @@ describe('IntegrityService', () => {
     // Update bullet content to create drift
     db.run("UPDATE bullets SET content = 'Updated bullet content' WHERE id = ?", [bulletId])
 
-    const result = service.getDriftedEntities()
+    const result = await service.getDriftedEntities()
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
@@ -93,7 +94,7 @@ describe('IntegrityService', () => {
     expect(perspDrifts[0].current_value).toBe('Updated bullet content')
   })
 
-  test('detects both bullet and perspective drift simultaneously', () => {
+  test('detects both bullet and perspective drift simultaneously', async () => {
     const srcId = seedSource(db, { description: 'Original source' })
     const bulletId = seedBullet(db, [{ id: srcId }])
     seedPerspective(db, bulletId)
@@ -102,7 +103,7 @@ describe('IntegrityService', () => {
     db.run("UPDATE sources SET description = 'Changed source' WHERE id = ?", [srcId])
     db.run("UPDATE bullets SET content = 'Changed bullet' WHERE id = ?", [bulletId])
 
-    const result = service.getDriftedEntities()
+    const result = await service.getDriftedEntities()
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
@@ -112,20 +113,20 @@ describe('IntegrityService', () => {
     expect(perspDrifts).toHaveLength(1)
   })
 
-  test('does not flag bullets without a primary source', () => {
+  test('does not flag bullets without a primary source', async () => {
     // Create a bullet with no source associations
     const bulletId = seedBullet(db, [])
 
     // Even if we change some other source, this bullet has no primary source
     // so it should not appear in drift results
-    const result = service.getDriftedEntities()
+    const result = await service.getDriftedEntities()
     expect(result.ok).toBe(true)
     if (!result.ok) return
     const bulletDrifts = result.data.filter(d => d.entity_type === 'bullet')
     expect(bulletDrifts).toHaveLength(0)
   })
 
-  test('handles multiple drifted bullets', () => {
+  test('handles multiple drifted bullets', async () => {
     const src1 = seedSource(db, { title: 'Source 1', description: 'Desc 1' })
     const src2 = seedSource(db, { title: 'Source 2', description: 'Desc 2' })
     const b1 = seedBullet(db, [{ id: src1 }])
@@ -135,7 +136,7 @@ describe('IntegrityService', () => {
     db.run("UPDATE sources SET description = 'Changed 1' WHERE id = ?", [src1])
     db.run("UPDATE sources SET description = 'Changed 2' WHERE id = ?", [src2])
 
-    const result = service.getDriftedEntities()
+    const result = await service.getDriftedEntities()
     expect(result.ok).toBe(true)
     if (!result.ok) return
 
@@ -145,7 +146,7 @@ describe('IntegrityService', () => {
     expect(ids).toEqual([b1, b2].sort())
   })
 
-  test('handles multiple drifted perspectives from same bullet', () => {
+  test('handles multiple drifted perspectives from same bullet', async () => {
     const srcId = seedSource(db)
     const bulletId = seedBullet(db, [{ id: srcId }])
     const p1 = seedPerspective(db, bulletId, { archetype: 'agentic-ai' })
@@ -154,7 +155,7 @@ describe('IntegrityService', () => {
     // Create drift
     db.run("UPDATE bullets SET content = 'Changed bullet' WHERE id = ?", [bulletId])
 
-    const result = service.getDriftedEntities()
+    const result = await service.getDriftedEntities()
     expect(result.ok).toBe(true)
     if (!result.ok) return
 

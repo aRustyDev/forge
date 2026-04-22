@@ -131,21 +131,22 @@ export type DegreeLevelType = 'associate' | 'bachelors' | 'masters' | 'doctoral'
 export type CertificateSubtype = 'professional' | 'vendor' | 'completion'
 export type EducationType = 'degree' | 'certificate' | 'course' | 'self_taught'
 
-export type CampusModality = 'in_person' | 'remote' | 'hybrid'
+export type LocationModality = 'in_person' | 'remote' | 'hybrid'
+/** @deprecated Use LocationModality */
+export type CampusModality = LocationModality
 
-export interface OrgCampus {
+export interface OrgLocation {
   id: string
   organization_id: string
   name: string
-  modality: CampusModality
-  address: string | null
-  city: string | null
-  state: string | null
-  zipcode: string | null
-  country: string | null
+  modality: LocationModality
+  address_id: string | null
   is_headquarters: boolean
   created_at: string
 }
+
+/** @deprecated Use OrgLocation */
+export type OrgCampus = OrgLocation
 
 export interface SourceEducation {
   education_type: EducationType
@@ -368,7 +369,6 @@ export interface Source {
   title: string
   description: string
   source_type: SourceType
-  notes: string | null
   start_date: string | null
   end_date: string | null
   status: 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived' | 'deriving'
@@ -390,7 +390,6 @@ export interface Bullet {
   technologies: string[]
   metrics: string | null
   domain: string | null
-  notes: string | null
   status: 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
   rejection_reason: string | null
   prompt_log_id: string | null
@@ -413,7 +412,6 @@ export interface Perspective {
   prompt_log_id: string | null
   approved_at: string | null
   approved_by: string | null
-  notes: string | null
   created_at: string
 }
 
@@ -424,7 +422,6 @@ export interface Resume {
   target_employer: string
   archetype: string
   status: 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
-  notes: string | null
   header: string | null
   summary_id: string | null
   /** TF-IDF tagline generated from linked JDs (Phase 92). Read-only. */
@@ -484,8 +481,6 @@ export interface Organization {
   linkedin_url: string | null
   glassdoor_url: string | null
   glassdoor_rating: number | null
-  reputation_notes: string | null
-  notes: string | null
   /** Pipeline status for org vetting. Backlog->Researching->Targeting (exciting/interested/acceptable)->Excluded. Null means not in the pipeline. */
   status: 'backlog' | 'researching' | 'exciting' | 'interested' | 'acceptable' | 'excluded' | null
   created_at: string
@@ -516,7 +511,10 @@ export interface JobDescription {
   salary_min: number | null
   salary_max: number | null
   location: string | null
-  notes: string | null
+  parsed_sections: string | null
+  work_posture: string | null
+  parsed_locations: string | null
+  salary_period: string | null
   created_at: string
   updated_at: string
 }
@@ -537,7 +535,10 @@ export interface CreateJobDescription {
   salary_min?: number
   salary_max?: number
   location?: string
-  notes?: string
+  parsed_sections?: string
+  work_posture?: string
+  parsed_locations?: string
+  salary_period?: string
 }
 
 /** Input for partially updating a JobDescription. */
@@ -551,7 +552,10 @@ export interface UpdateJobDescription {
   salary_min?: number | null
   salary_max?: number | null
   location?: string | null
-  notes?: string | null
+  parsed_sections?: string | null
+  work_posture?: string | null
+  parsed_locations?: string | null
+  salary_period?: string | null
 }
 
 /** Filter options for listing job descriptions. */
@@ -750,7 +754,6 @@ export interface ResumeEntry {
   content: string | null
   perspective_content_snapshot: string | null
   position: number
-  notes: string | null
   created_at: string
   updated_at: string
 }
@@ -777,7 +780,6 @@ export interface Skill {
   id: string
   name: string
   category: SkillCategory
-  notes: string | null
 }
 
 /** A skill with its linked domains (many-to-many via skill_domains junction). */
@@ -957,6 +959,8 @@ export interface SummaryFilter {
   industry_id?: string
   role_type_id?: string
   skill_id?: string
+  /** Case-insensitive substring search on title + description. */
+  search?: string
 }
 
 /** Sort options for listing summaries. */
@@ -969,6 +973,60 @@ export interface SummarySort {
 }
 
 // ---------------------------------------------------------------------------
+// Addresses
+// ---------------------------------------------------------------------------
+
+/** Shared address entity. Referenced by user_profile and org_locations. */
+export interface Address {
+  id: string
+  name: string
+  street_1: string | null
+  street_2: string | null
+  city: string | null
+  state: string | null
+  zip: string | null
+  country_code: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateAddress {
+  name: string
+  street_1?: string | null
+  street_2?: string | null
+  city?: string | null
+  state?: string | null
+  zip?: string | null
+  country_code?: string
+}
+
+export interface UpdateAddress {
+  name?: string
+  street_1?: string | null
+  street_2?: string | null
+  city?: string | null
+  state?: string | null
+  zip?: string | null
+  country_code?: string
+}
+
+// ---------------------------------------------------------------------------
+// Profile URLs
+// ---------------------------------------------------------------------------
+
+export interface ProfileUrl {
+  id: string
+  profile_id: string
+  key: string
+  url: string
+  position: number
+  created_at: string
+}
+
+export const WELL_KNOWN_URL_KEYS = ['linkedin', 'github', 'gitlab', 'indeed', 'blog', 'portfolio'] as const
+export type WellKnownUrlKey = typeof WELL_KNOWN_URL_KEYS[number]
+
+// ---------------------------------------------------------------------------
 // User Profile
 // ---------------------------------------------------------------------------
 
@@ -978,11 +1036,9 @@ export interface UserProfile {
   name: string
   email: string | null
   phone: string | null
-  location: string | null
-  linkedin: string | null
-  github: string | null
-  website: string | null
-  // `clearance` moved to the credentials entity in migration 037 (Phase 84).
+  address_id: string | null
+  address: Address | null
+  urls: ProfileUrl[]
   salary_minimum: number | null
   salary_target: number | null
   salary_stretch: number | null
@@ -991,7 +1047,17 @@ export interface UserProfile {
 }
 
 /** Input for partially updating the user profile. */
-export type UpdateProfile = Partial<Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>>
+export interface UpdateProfile {
+  name?: string | null
+  email?: string | null
+  phone?: string | null
+  address_id?: string | null
+  address?: CreateAddress | UpdateAddress
+  urls?: Array<{ key: string; url: string }>
+  salary_minimum?: number | null
+  salary_target?: number | null
+  salary_stretch?: number | null
+}
 
 // ---------------------------------------------------------------------------
 // Rich response types (with nested data)
@@ -1155,7 +1221,7 @@ export interface EducationItem {
   issuing_body?: string | null
   certificate_subtype?: string | null
   edu_description?: string | null
-  // Campus fields from org_campuses JOIN
+  // Location fields from org_locations + addresses JOIN
   campus_name?: string | null
   campus_city?: string | null
   campus_state?: string | null
@@ -1337,7 +1403,6 @@ export interface CreateSource {
   title: string
   description: string
   source_type?: SourceType
-  notes?: string
   start_date?: string
   end_date?: string
   role?: Partial<SourceRole>
@@ -1352,7 +1417,6 @@ export interface CreateSource {
 export interface UpdateSource {
   title?: string
   description?: string
-  notes?: string | null
   start_date?: string | null
   end_date?: string | null
   role?: Partial<SourceRole>
@@ -1369,7 +1433,15 @@ export interface UpdateBullet {
   technologies?: string[]
   metrics?: string | null
   domain?: string | null
-  notes?: string | null
+}
+
+export interface CreatePerspective {
+  bullet_id: string
+  content: string
+  target_archetype?: string
+  domain?: string
+  framing?: 'accomplishment' | 'responsibility' | 'context'
+  auto_approve?: boolean
 }
 
 export interface UpdatePerspective {
@@ -1377,7 +1449,6 @@ export interface UpdatePerspective {
   target_archetype?: string | null
   domain?: string | null
   framing?: 'accomplishment' | 'responsibility' | 'context'
-  notes?: string | null
 }
 
 export interface RejectInput {
@@ -1404,7 +1475,6 @@ export interface UpdateResume {
   target_employer?: string
   archetype?: string
   status?: 'draft' | 'in_review' | 'approved' | 'rejected' | 'archived'
-  notes?: string | null
   header?: string | null
   summary_id?: string | null
   summary_override?: string | null
@@ -1430,14 +1500,12 @@ export interface AddResumeEntry {
    */
   position?: number
   content?: string | null
-  notes?: string | null
 }
 
 export interface UpdateResumeEntry {
   content?: string | null
   section_id?: string
   position?: number
-  notes?: string | null
 }
 
 export interface CreateOrganization {
@@ -1451,8 +1519,6 @@ export interface CreateOrganization {
   linkedin_url?: string
   glassdoor_url?: string
   glassdoor_rating?: number
-  reputation_notes?: string
-  notes?: string
   status?: 'backlog' | 'researching' | 'exciting' | 'interested' | 'acceptable' | 'excluded' | null
 }
 
@@ -1467,8 +1533,6 @@ export interface UpdateOrganization {
   linkedin_url?: string | null
   glassdoor_url?: string | null
   glassdoor_rating?: number | null
-  reputation_notes?: string | null
-  notes?: string | null
   status?: 'backlog' | 'researching' | 'exciting' | 'interested' | 'acceptable' | 'excluded' | null
 }
 
@@ -1496,6 +1560,8 @@ export interface SourceFilter {
    * `'course'`).
    */
   education_type?: string
+  /** Case-insensitive substring search on title + description. */
+  search?: string
 }
 
 export interface BulletFilter {
@@ -1511,6 +1577,8 @@ export interface PerspectiveFilter {
   framing?: string
   status?: string
   source_id?: string
+  /** Case-insensitive substring search on perspective content. */
+  search?: string
 }
 
 export interface OrganizationFilter {
@@ -1518,6 +1586,7 @@ export interface OrganizationFilter {
   tag?: string
   worked?: string
   status?: string
+  search?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -1644,9 +1713,76 @@ export interface PerspectiveCommitInput {
   reasoning: string
 }
 
+// ---------------------------------------------------------------------------
+// Answer Bank (extension M6)
+// ---------------------------------------------------------------------------
+
+/** A stored answer for EEO/work-auth form fields. */
+export interface AnswerBankEntry {
+  id: string
+  field_kind: string
+  label: string
+  value: string
+  created_at: string
+  updated_at: string
+}
+
+/** Input for creating or updating an answer bank entry. */
+export interface UpsertAnswer {
+  field_kind: string
+  label: string
+  value: string
+}
+
+// ---------------------------------------------------------------------------
+// JD Skill Extraction
+// ---------------------------------------------------------------------------
+
 export interface JDSkillExtractionContext {
   jd_raw_text: string
   existing_skills: Array<{ id: string; name: string; category: string }>
   prompt_template: string
   instructions: string
+}
+
+// ---------------------------------------------------------------------------
+// Extension Infrastructure (M7)
+// ---------------------------------------------------------------------------
+
+/** Full extension config — all keys merged over defaults. */
+export interface ExtensionConfig {
+  baseUrl: string
+  devMode: boolean
+  enabledPlugins: string[]
+  enableServerLogging: boolean
+}
+
+/** A stored extension error log entry. */
+export interface ExtensionLog {
+  id: string
+  error_code: string
+  message: string
+  layer: string
+  plugin: string | null
+  url: string | null
+  context: Record<string, unknown> | null
+  created_at: string
+}
+
+/** Input for appending an extension log entry. */
+export interface CreateExtensionLog {
+  error_code: string
+  message: string
+  layer: string
+  plugin?: string
+  url?: string
+  context?: Record<string, unknown>
+}
+
+/** Filter options for listing extension logs. */
+export interface ExtensionLogFilter {
+  limit?: number
+  offset?: number
+  error_code?: string
+  layer?: string
 }

@@ -7,6 +7,8 @@
  */
 
 import type { Database } from 'bun:sqlite'
+import { buildDefaultElm } from '../storage/build-elm'
+import type { EntityLifecycleManager } from '../storage/lifecycle-manager'
 import type {
   ResumeDocument,
   ResumeHeader,
@@ -92,8 +94,13 @@ interface SkillRow {
  * Compile a resume into the IR format.
  *
  * Returns null if the resume does not exist.
+ *
+ * Phase 1.4: optional elm parameter for ELM compatibility. Internal
+ * builder queries stay as raw SQL (complex JOINs with 6-8 tables that
+ * would be extremely verbose as multi-step ELM fetches). These will
+ * become named queries in Phase 2 when adapter portability matters.
  */
-export function compileResumeIR(db: Database, resumeId: string): ResumeDocument | null {
+export function compileResumeIR(db: Database, resumeId: string, elm?: EntityLifecycleManager): ResumeDocument | null {
   // 1. Fetch resume base data (including Phase 92 tagline columns)
   const resume = db
     .query(
@@ -106,10 +113,21 @@ export function compileResumeIR(db: Database, resumeId: string): ResumeDocument 
 
   if (!resume) return null
 
-  // 2. Fetch user profile for contact fields
-  const profile = db
+  // 2. Fetch user profile for contact fields, including address and URLs
+  const profileRow = db
     .query('SELECT * FROM user_profile LIMIT 1')
-    .get() as UserProfile | null
+    .get() as Record<string, unknown> | null
+
+  let profile: UserProfile | null = null
+  if (profileRow) {
+    const address = profileRow.address_id
+      ? db.query('SELECT * FROM addresses WHERE id = ?').get(profileRow.address_id as string) as UserProfile['address']
+      : null
+    const urls = db
+      .query('SELECT * FROM profile_urls WHERE profile_id = ? ORDER BY position')
+      .all(profileRow.id as string) as UserProfile['urls']
+    profile = { ...profileRow, address, urls } as unknown as UserProfile
+  }
 
   // 4. Parse header — contact fields from profile, tagline from resume-level
   // `tagline_override ?? generated_tagline` (Phase 92). Summary is no longer
@@ -302,7 +320,8 @@ function parseHeader(db: Database, resume: ResumeRow, profile: UserProfile | nul
   }
 
   // Check for missing contact fields
-  if (profile && !profile.email && !profile.phone && !profile.linkedin && !profile.github) {
+  const hasContactUrl = profile?.urls?.some(u => ['linkedin', 'github'].includes(u.key))
+  if (profile && !profile.email && !profile.phone && !hasContactUrl) {
     console.warn('[resume-compiler] user_profile has no contact fields populated. Header will have no contact info.')
   }
 
@@ -317,12 +336,12 @@ function parseHeader(db: Database, resume: ResumeRow, profile: UserProfile | nul
   return {
     name,
     tagline,
-    location: profile?.location ?? null,
+    location: profile?.address?.name ?? null,
     email: profile?.email ?? null,
     phone: profile?.phone ?? null,
-    linkedin: profile?.linkedin ?? null,
-    github: profile?.github ?? null,
-    website: profile?.website ?? null,
+    linkedin: ensureProtocol(profile?.urls?.find(u => u.key === 'linkedin')?.url ?? null),
+    github: ensureProtocol(profile?.urls?.find(u => u.key === 'github')?.url ?? null),
+    website: ensureProtocol(profile?.urls?.find(u => u.key === 'blog')?.url ?? profile?.urls?.find(u => u.key === 'portfolio')?.url ?? null),
     clearance,
   }
 }
@@ -368,8 +387,8 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
         sr.work_arrangement,
         o.name AS org_name,
         o.employment_type,
-        oc.city AS org_city,
-        oc.state AS org_state
+        addr.city AS org_city,
+        addr.state AS org_state
       FROM resume_entries re
       LEFT JOIN perspectives p ON p.id = re.perspective_id
       LEFT JOIN bullets b ON b.id = p.bullet_id
@@ -377,12 +396,13 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
       LEFT JOIN sources s ON s.id = COALESCE(re.source_id, bs.source_id)
       LEFT JOIN source_roles sr ON sr.source_id = s.id
       LEFT JOIN organizations o ON o.id = sr.organization_id
-      LEFT JOIN org_campuses oc ON oc.id = (
-        SELECT id FROM org_campuses
+      LEFT JOIN org_locations ol ON ol.id = (
+        SELECT id FROM org_locations
         WHERE organization_id = o.id
         ORDER BY is_headquarters DESC, id ASC
         LIMIT 1
       )
+      LEFT JOIN addresses addr ON addr.id = ol.address_id
       WHERE re.section_id = ?
       ORDER BY sr.is_current DESC, sr.start_date DESC, re.position ASC`
     )
@@ -421,7 +441,9 @@ function buildExperienceItems(db: Database, sectionId: string): ExperienceGroup[
       ? '⚠ Unlinked Sources'
       : buildOrgDisplayString(
           firstEntry.org_name,
-          firstEntry.employment_type,
+          firstEntry.org_city,
+          firstEntry.org_state,
+          firstEntry.work_arrangement,
         )
 
     if (isUnlinked) {
@@ -560,9 +582,9 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
         se.gpa,
         COALESCE(se.location,
           CASE
-            WHEN oc.city IS NOT NULL AND oc.state IS NOT NULL THEN oc.city || ', ' || oc.state
-            WHEN oc.city IS NOT NULL THEN oc.city
-            WHEN oc.state IS NOT NULL THEN oc.state
+            WHEN addr.city IS NOT NULL AND addr.state IS NOT NULL THEN addr.city || ', ' || addr.state
+            WHEN addr.city IS NOT NULL THEN addr.city
+            WHEN addr.state IS NOT NULL THEN addr.state
             ELSE NULL
           END
         ) AS location,
@@ -571,16 +593,17 @@ function buildEducationItems(db: Database, sectionId: string): EducationItem[] {
         se.certificate_subtype,
         se.edu_description,
         se.organization_id,
-        oc.name AS campus_name,
-        oc.city AS campus_city,
-        oc.state AS campus_state
+        ol.name AS campus_name,
+        addr.city AS campus_city,
+        addr.state AS campus_state
       FROM resume_entries re
       LEFT JOIN perspectives p ON p.id = re.perspective_id
       LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
       LEFT JOIN sources s ON s.id = COALESCE(re.source_id, bs.source_id)
       LEFT JOIN source_education se ON se.source_id = s.id
       LEFT JOIN organizations o ON o.id = se.organization_id
-      LEFT JOIN org_campuses oc ON oc.id = se.campus_id
+      LEFT JOIN org_locations ol ON ol.id = se.campus_id
+      LEFT JOIN addresses addr ON addr.id = ol.address_id
       WHERE re.section_id = ?
       -- Sort most recent first, then by user-defined position as a tiebreaker.
       -- NULL end_date (in-progress degrees) sorts first since they're implicitly "current".
@@ -656,7 +679,17 @@ function buildProjectItems(db: Database, sectionId: string): ProjectItem[] {
       FROM resume_entries re
       LEFT JOIN perspectives p ON p.id = re.perspective_id
       LEFT JOIN bullets b ON b.id = p.bullet_id
-      LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.is_primary = 1
+      -- For projects section: prefer project-type sources over role sources
+      -- when a bullet is linked to both. Falls back to is_primary if no
+      -- project source exists.
+      LEFT JOIN bullet_sources bs ON bs.bullet_id = p.bullet_id AND bs.source_id = (
+        SELECT bs2.source_id FROM bullet_sources bs2
+        JOIN sources s2 ON s2.id = bs2.source_id
+        WHERE bs2.bullet_id = p.bullet_id
+        ORDER BY CASE WHEN s2.source_type = 'project' THEN 0 ELSE 1 END,
+                 bs2.is_primary DESC
+        LIMIT 1
+      )
       LEFT JOIN sources s ON s.id = COALESCE(re.source_id, bs.source_id)
       LEFT JOIN source_projects sp ON sp.source_id = s.id
       WHERE re.section_id = ?
@@ -1051,38 +1084,47 @@ export function formatDateRange(
  * not the organization level.
  *
  * Examples:
- *   - "Cisco (Contract)"
- *   - "United States Air Force (Active Duty)"
- *   - "Raytheon Intelligence & Space"    — civilian, no suffix
+ *   - "Raytheon Intelligence & Space (Arlington, VA)" — HQ location
+ *   - "Cisco (Remote)"                               — no location, arrangement
+ *   - "Raytheon Intelligence & Space"                 — no location or arrangement
  *   - "Other" (null org name)
  */
 
-const EMPLOYMENT_TYPE_DISPLAY: Record<string, string> = {
-  contractor: 'Contract',
-  military_active: 'Active Duty',
-  military_reserve: 'Reserve',
-  volunteer: 'Volunteer',
-  intern: 'Intern',
-}
-
 export function buildOrgDisplayString(
   orgName: string | null,
-  employmentType: string | null,
+  city: string | null,
+  state: string | null,
+  workArrangement: string | null,
 ): string {
   const name = orgName ?? 'Other'
-  const label = employmentType ? EMPLOYMENT_TYPE_DISPLAY[employmentType] : null
-  return label ? `${name} (${label})` : name
+
+  // Location takes precedence over work arrangement
+  if (city && state) return `${name} (${city}, ${state})`
+  if (city) return `${name} (${city})`
+  if (state) return `${name} (${state})`
+  if (workArrangement) {
+    const label = workArrangement.charAt(0).toUpperCase() + workArrangement.slice(1)
+    return `${name} (${label})`
+  }
+  return name
 }
 
 /**
  * Build a location string for a role subheading.
- * Prefers campus city/state, falls back to work arrangement.
+ * Prefers org location city/state, falls back to work arrangement.
  *
  * Examples:
  *   - "Arlington, VA"
  *   - "Remote"
  *   - null (no location or arrangement)
  */
+/** Prepend https:// to URLs that lack a protocol prefix. */
+function ensureProtocol(url: string | null): string | null {
+  if (!url) return null
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  return `https://${url}`
+}
+
 export function buildRoleLocationString(
   city: string | null,
   state: string | null,

@@ -138,16 +138,6 @@ describe('Bullet Routes', () => {
 
   // ── PATCH /bullets/:id (extended fields) ───────────────────────────
 
-  test('PATCH /bullets/:id with notes updates notes', async () => {
-    const sourceId = seedSource(ctx.db)
-    const bulletId = seedBullet(ctx.db, [{ id: sourceId }])
-
-    const res = await apiRequest(ctx.app, 'PATCH', `/bullets/${bulletId}`, { notes: 'new note' })
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.data.notes).toBe('new note')
-  })
-
   test('PATCH /bullets/:id with domain updates domain', async () => {
     const sourceId = seedSource(ctx.db)
     const bulletId = seedBullet(ctx.db, [{ id: sourceId }])

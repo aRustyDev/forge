@@ -29,7 +29,8 @@ export function registerTier3NoteTools(
       references: z.array(z.object({
         entity_type: z.enum([
           'source', 'bullet', 'perspective', 'resume_entry',
-          'resume', 'skill', 'organization',
+          'resume', 'skill', 'organization', 'job_description',
+          'contact', 'credential', 'certification',
         ]).describe('Entity type'),
         entity_id: z.string().describe('Entity ID'),
       })).optional().describe('Entities to reference from this note'),
@@ -88,11 +89,71 @@ export function registerTier3NoteTools(
     'Search notes by content or title.',
     {
       search: z.string().optional().describe('Full-text search on title + content'),
-      offset: z.number().optional().describe('Pagination offset (default 0)'),
-      limit: z.number().optional().describe('Page size (default 20)'),
+      offset: z.coerce.number().optional().describe('Pagination offset (default 0)'),
+      limit: z.coerce.number().optional().describe('Page size (default 20)'),
     },
     async (params) => {
       const result = await (sdk as any).notes.list(params)
+      return respond(result)
+    },
+  )
+
+  const ENTITY_TYPES = z.enum([
+    'source', 'bullet', 'perspective', 'resume_entry',
+    'resume', 'skill', 'organization', 'job_description',
+    'contact', 'credential', 'certification',
+  ])
+
+  registerTool(
+    server,
+    'forge_link_note',
+    'Link an existing note to an entity (source, bullet, skill, etc.).',
+    {
+      note_id: z.string().describe('Note ID'),
+      entity_type: ENTITY_TYPES.describe('Entity type to link'),
+      entity_id: z.string().describe('Entity ID to link'),
+    },
+    async (params) => {
+      const result = await (sdk as any).notes.addReference(params.note_id, {
+        entity_type: params.entity_type,
+        entity_id: params.entity_id,
+      })
+      return respond(result)
+    },
+  )
+
+  registerTool(
+    server,
+    'forge_unlink_note',
+    'Remove a link between a note and an entity.',
+    {
+      note_id: z.string().describe('Note ID'),
+      entity_type: ENTITY_TYPES.describe('Entity type to unlink'),
+      entity_id: z.string().describe('Entity ID to unlink'),
+    },
+    async (params) => {
+      const result = await (sdk as any).notes.removeReference(
+        params.note_id,
+        params.entity_type,
+        params.entity_id,
+      )
+      return respond(result)
+    },
+  )
+
+  registerTool(
+    server,
+    'forge_get_entity_notes',
+    'Get all notes linked to a specific entity.',
+    {
+      entity_type: ENTITY_TYPES.describe('Entity type'),
+      entity_id: z.string().describe('Entity ID'),
+    },
+    async (params) => {
+      const result = await (sdk as any).notes.getNotesForEntity(
+        params.entity_type,
+        params.entity_id,
+      )
       return respond(result)
     },
   )

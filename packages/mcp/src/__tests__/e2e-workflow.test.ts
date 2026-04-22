@@ -159,7 +159,6 @@ describe('Feature-flagged tool behavior', () => {
     const flags = detectFeatures(sdk)
     expect(flags.jdResumeLinkage).toBe(true)
     expect(flags.jdSkillExtraction).toBe(true)
-    expect(flags.reorderEntries).toBe(true)
     expect(flags.reviewAvailable).toBe(true)
     expect(flags.integrityAvailable).toBe(true)
     expect(flags.notesAvailable).toBe(true)
@@ -175,12 +174,6 @@ describe('Feature-flagged tool behavior', () => {
     const sdk = createMockSdk({ allFeatures: false })
     const flags = detectFeatures(sdk)
     expect(flags.jdSkillExtraction).toBe(false)
-  })
-
-  test('skips reorderEntries when SDK method missing', () => {
-    const sdk = createMockSdk({ allFeatures: false })
-    const flags = detectFeatures(sdk)
-    expect(flags.reorderEntries).toBe(false)
   })
 
   test('skips review when sdk.review missing', () => {
@@ -209,7 +202,6 @@ describe('Feature-flagged tool behavior', () => {
     const flags = detectFeatures(sdk)
     expect(flags.jdResumeLinkage).toBe(true)
     expect(flags.jdSkillExtraction).toBe(false)
-    expect(flags.reorderEntries).toBe(false)
   })
 
   test('jdSkillExtraction requires all 3 methods', () => {
@@ -240,7 +232,6 @@ describe('Contract: MCP server tool definitions', () => {
     const flags: FeatureFlags = {
       jdResumeLinkage: false,
       jdSkillExtraction: false,
-      reorderEntries: false,
       reviewAvailable: false,
       integrityAvailable: false,
       notesAvailable: false,

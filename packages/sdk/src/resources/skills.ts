@@ -10,18 +10,17 @@ import type {
 export interface CreateSkill {
   name: string
   category?: SkillCategory
-  notes?: string | null
 }
 
 export interface UpdateSkill {
   name?: string
   category?: SkillCategory
-  notes?: string | null
 }
 
 export interface SkillListFilter {
   category?: SkillCategory
   domain_id?: string
+  search?: string
   limit?: number
 }
 
@@ -33,6 +32,7 @@ export class SkillsResource {
     const params: string[] = []
     if (filter?.category) params.push(`category=${encodeURIComponent(filter.category)}`)
     if (filter?.domain_id) params.push(`domain_id=${encodeURIComponent(filter.domain_id)}`)
+    if (filter?.search) params.push(`search=${encodeURIComponent(filter.search)}`)
     if (filter?.limit) params.push(`limit=${filter.limit}`)
     if (params.length > 0) path += `?${params.join('&')}`
     return this.request<Skill[]>('GET', path)
@@ -57,6 +57,11 @@ export class SkillsResource {
 
   delete(id: string): Promise<Result<void>> {
     return this.request<void>('DELETE', `/api/skills/${id}`)
+  }
+
+  /** Merge source skill into target: re-points all junction rows, then deletes the source. */
+  merge(sourceId: string, targetId: string): Promise<Result<Skill>> {
+    return this.request<Skill>('POST', `/api/skills/${sourceId}/merge`, { target_id: targetId })
   }
 
   // ── Skill ↔ Domain junction ─────────────────────────────────────────

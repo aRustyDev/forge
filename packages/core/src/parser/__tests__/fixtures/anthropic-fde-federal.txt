@@ -1,0 +1,31 @@
+Forward Deployed Engineer, Applied AI (Federal Civilian)
+
+About The Role
+
+As a member of the Applied AI team at Anthropic, you will be a Forward Deployed Engineer (FDE) who embeds directly with strategic federal civilian (and occasionally state/local) customers to drive transformational AI adoption. You will collaborate closely with customer teams to ship advanced AI applications that solve real world business problems.
+
+Core Responsibilities
+
+- Work within customer systems to build production applications with Claude models
+- Deliver technical artifacts like MCP servers, sub-agents, and agent skills for production workflows
+- Provide white glove deployment support for Anthropic products in federal government environments
+- Identify and codify repeatable deployment patterns and contribute insights back to Product and Engineering
+- Maintain strong knowledge of latest LLM capabilities, implementation patterns, and AI product development stacks
+- Build long term relationships with customers and proactively identify new AI deployment opportunities
+- Travel frequently (25-50%) to customer sites
+- Champion Anthropic's mission in the field
+
+You Might Be a Good Fit If You Have
+
+- Security clearance not required, but a plus
+- Must have prior experience working with US federal civilian, state, or local agencies
+- 4+ years in a technical, customer-facing role (FDE, SWE with consulting experience, or former technical founder)
+- Production experience with LLMs: advanced prompt engineering, agent development, evaluation frameworks, deployment at scale
+- Strong programming skills in Python (ideally also TypeScript, Java, etc) with production shipping experience
+- High agency with ability to navigate ambiguity in complex organizations
+- High cooperation mindset for cross-organizational collaboration
+- Passion for advancing safe, beneficial AI systems
+- Strong communication skills for discovery and conveying technical concepts to diverse stakeholders
+
+Annual Salary: $280,000—$320,000 USD
+Location: Washington, DC (Hybrid, 25% in-office minimum)

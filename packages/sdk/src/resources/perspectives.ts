@@ -1,4 +1,5 @@
 import type {
+  CreatePerspective,
   PaginatedResult,
   PaginationParams,
   Perspective,
@@ -27,6 +28,11 @@ export class PerspectivesResource {
     private request: RequestFn,
     private requestList: RequestListFn,
   ) {}
+
+  /** Create a perspective directly from a bullet (bypasses derivation flow). */
+  create(input: CreatePerspective): Promise<Result<Perspective>> {
+    return this.request<Perspective>('POST', '/api/perspectives', input)
+  }
 
   list(
     filter?: PerspectiveFilter & PaginationParams,

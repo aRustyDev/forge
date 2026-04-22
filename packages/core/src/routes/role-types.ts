@@ -11,34 +11,34 @@ export function roleTypeRoutes(services: Services) {
 
   app.post('/role-types', async (c) => {
     const body = await c.req.json()
-    const result = services.roleTypes.create(body)
+    const result = await services.roleTypes.create(body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
 
-  app.get('/role-types', (c) => {
+  app.get('/role-types', async (c) => {
     const offset = Math.max(0, parseInt(c.req.query('offset') ?? '0', 10) || 0)
     const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') ?? '50', 10) || 50))
-    const result = services.roleTypes.list(offset, limit)
+    const result = await services.roleTypes.list(offset, limit)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data, pagination: result.pagination })
   })
 
-  app.get('/role-types/:id', (c) => {
-    const result = services.roleTypes.get(c.req.param('id'))
+  app.get('/role-types/:id', async (c) => {
+    const result = await services.roleTypes.get(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   app.patch('/role-types/:id', async (c) => {
     const body = await c.req.json()
-    const result = services.roleTypes.update(c.req.param('id'), body)
+    const result = await services.roleTypes.update(c.req.param('id'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/role-types/:id', (c) => {
-    const result = services.roleTypes.delete(c.req.param('id'))
+  app.delete('/role-types/:id', async (c) => {
+    const result = await services.roleTypes.delete(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })

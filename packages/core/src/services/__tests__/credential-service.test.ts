@@ -12,6 +12,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { Database } from 'bun:sqlite'
 import { createTestDb, seedOrganization, testUuid } from '../../db/__tests__/helpers'
+import { buildDefaultElm } from '../../storage/build-elm'
 import { CredentialService } from '../credential-service'
 
 describe('CredentialService', () => {
@@ -20,7 +21,7 @@ describe('CredentialService', () => {
 
   beforeEach(() => {
     db = createTestDb()
-    service = new CredentialService(db)
+    service = new CredentialService(buildDefaultElm(db))
   })
 
   afterEach(() => {
@@ -32,8 +33,8 @@ describe('CredentialService', () => {
   // ────────────────────────────────────────────────────────────────
 
   describe('clearance details validation', () => {
-    test('accepts clearance with required level + clearance_type', () => {
-      const result = service.create({
+    test('accepts clearance with required level + clearance_type', async () => {
+      const result = await service.create({
         credential_type: 'clearance',
         label: 'TS',
         details: {
@@ -46,8 +47,8 @@ describe('CredentialService', () => {
       expect(result.ok).toBe(true)
     })
 
-    test('rejects clearance missing level', () => {
-      const result = service.create({
+    test('rejects clearance missing level', async () => {
+      const result = await service.create({
         credential_type: 'clearance',
         label: 'Missing Level',
         details: {
@@ -64,8 +65,8 @@ describe('CredentialService', () => {
       }
     })
 
-    test('rejects clearance missing clearance_type', () => {
-      const result = service.create({
+    test('rejects clearance missing clearance_type', async () => {
+      const result = await service.create({
         credential_type: 'clearance',
         label: 'Missing Type',
         details: {
@@ -81,8 +82,8 @@ describe('CredentialService', () => {
       }
     })
 
-    test('accepts clearance with polygraph=null (polygraph is optional)', () => {
-      const result = service.create({
+    test('accepts clearance with polygraph=null (polygraph is optional)', async () => {
+      const result = await service.create({
         credential_type: 'clearance',
         label: 'Secret no poly',
         details: {
@@ -95,8 +96,8 @@ describe('CredentialService', () => {
       expect(result.ok).toBe(true)
     })
 
-    test('accepts clearance with empty access_programs array', () => {
-      const result = service.create({
+    test('accepts clearance with empty access_programs array', async () => {
+      const result = await service.create({
         credential_type: 'clearance',
         label: 'Secret',
         details: {
@@ -111,8 +112,8 @@ describe('CredentialService', () => {
   })
 
   describe('drivers_license details validation', () => {
-    test('accepts with required class + state', () => {
-      const result = service.create({
+    test('accepts with required class + state', async () => {
+      const result = await service.create({
         credential_type: 'drivers_license',
         label: 'VA CDL',
         details: { class: 'A', state: 'VA', endorsements: [] },
@@ -120,8 +121,8 @@ describe('CredentialService', () => {
       expect(result.ok).toBe(true)
     })
 
-    test('rejects missing class', () => {
-      const result = service.create({
+    test('rejects missing class', async () => {
+      const result = await service.create({
         credential_type: 'drivers_license',
         label: 'No Class',
         details: { state: 'VA', endorsements: [] } as any,
@@ -130,8 +131,8 @@ describe('CredentialService', () => {
       if (!result.ok) expect(result.error.message).toContain('class')
     })
 
-    test('rejects missing state', () => {
-      const result = service.create({
+    test('rejects missing state', async () => {
+      const result = await service.create({
         credential_type: 'drivers_license',
         label: 'No State',
         details: { class: 'A', endorsements: [] } as any,
@@ -140,8 +141,8 @@ describe('CredentialService', () => {
       if (!result.ok) expect(result.error.message).toContain('state')
     })
 
-    test('rejects empty class string', () => {
-      const result = service.create({
+    test('rejects empty class string', async () => {
+      const result = await service.create({
         credential_type: 'drivers_license',
         label: 'Empty Class',
         details: { class: '   ', state: 'VA', endorsements: [] },
@@ -151,8 +152,8 @@ describe('CredentialService', () => {
   })
 
   describe('bar_admission details validation', () => {
-    test('accepts with required jurisdiction', () => {
-      const result = service.create({
+    test('accepts with required jurisdiction', async () => {
+      const result = await service.create({
         credential_type: 'bar_admission',
         label: 'VA Bar',
         details: { jurisdiction: 'Virginia', bar_number: null },
@@ -160,8 +161,8 @@ describe('CredentialService', () => {
       expect(result.ok).toBe(true)
     })
 
-    test('rejects missing jurisdiction', () => {
-      const result = service.create({
+    test('rejects missing jurisdiction', async () => {
+      const result = await service.create({
         credential_type: 'bar_admission',
         label: 'No Jurisdiction',
         details: { bar_number: '12345' } as any,
@@ -170,8 +171,8 @@ describe('CredentialService', () => {
       if (!result.ok) expect(result.error.message).toContain('jurisdiction')
     })
 
-    test('accepts null bar_number (optional field)', () => {
-      const result = service.create({
+    test('accepts null bar_number (optional field)', async () => {
+      const result = await service.create({
         credential_type: 'bar_admission',
         label: 'Bar no number',
         details: { jurisdiction: 'CA', bar_number: null },
@@ -181,8 +182,8 @@ describe('CredentialService', () => {
   })
 
   describe('medical_license details validation', () => {
-    test('accepts with required license_type + state', () => {
-      const result = service.create({
+    test('accepts with required license_type + state', async () => {
+      const result = await service.create({
         credential_type: 'medical_license',
         label: 'VA MD',
         details: { license_type: 'MD', state: 'VA', license_number: null },
@@ -190,8 +191,8 @@ describe('CredentialService', () => {
       expect(result.ok).toBe(true)
     })
 
-    test('rejects missing license_type', () => {
-      const result = service.create({
+    test('rejects missing license_type', async () => {
+      const result = await service.create({
         credential_type: 'medical_license',
         label: 'No Type',
         details: { state: 'VA', license_number: null } as any,
@@ -200,8 +201,8 @@ describe('CredentialService', () => {
       if (!result.ok) expect(result.error.message).toContain('license_type')
     })
 
-    test('rejects missing state', () => {
-      const result = service.create({
+    test('rejects missing state', async () => {
+      const result = await service.create({
         credential_type: 'medical_license',
         label: 'No State',
         details: { license_type: 'MD', license_number: null } as any,
@@ -216,8 +217,8 @@ describe('CredentialService', () => {
   // ────────────────────────────────────────────────────────────────
 
   describe('enum + basic field validation', () => {
-    test('rejects unknown credential_type', () => {
-      const result = service.create({
+    test('rejects unknown credential_type', async () => {
+      const result = await service.create({
         credential_type: 'bogus' as any,
         label: 'Bogus',
         details: {} as any,
@@ -229,8 +230,8 @@ describe('CredentialService', () => {
       }
     })
 
-    test('rejects unknown status', () => {
-      const result = service.create({
+    test('rejects unknown status', async () => {
+      const result = await service.create({
         credential_type: 'clearance',
         label: 'Bad Status',
         status: 'wibble' as any,
@@ -245,8 +246,8 @@ describe('CredentialService', () => {
       if (!result.ok) expect(result.error.message).toContain('status')
     })
 
-    test('rejects empty label', () => {
-      const result = service.create({
+    test('rejects empty label', async () => {
+      const result = await service.create({
         credential_type: 'clearance',
         label: '',
         details: {
@@ -260,8 +261,8 @@ describe('CredentialService', () => {
       if (!result.ok) expect(result.error.message).toContain('label')
     })
 
-    test('rejects whitespace-only label', () => {
-      const result = service.create({
+    test('rejects whitespace-only label', async () => {
+      const result = await service.create({
         credential_type: 'clearance',
         label: '   ',
         details: {
@@ -274,8 +275,8 @@ describe('CredentialService', () => {
       expect(result.ok).toBe(false)
     })
 
-    test('rejects missing details', () => {
-      const result = service.create({
+    test('rejects missing details', async () => {
+      const result = await service.create({
         credential_type: 'clearance',
         label: 'X',
       } as any)
@@ -289,9 +290,9 @@ describe('CredentialService', () => {
   // ────────────────────────────────────────────────────────────────
 
   describe('organization_id FK validation', () => {
-    test('accepts valid organization_id', () => {
+    test('accepts valid organization_id', async () => {
       const orgId = seedOrganization(db, { name: 'DoD', orgType: 'government' })
-      const result = service.create({
+      const result = await service.create({
         credential_type: 'clearance',
         label: 'DoD TS',
         organization_id: orgId,
@@ -306,8 +307,8 @@ describe('CredentialService', () => {
       if (result.ok) expect(result.data.organization_id).toBe(orgId)
     })
 
-    test('rejects unknown organization_id with NOT_FOUND', () => {
-      const result = service.create({
+    test('rejects unknown organization_id with NOT_FOUND', async () => {
+      const result = await service.create({
         credential_type: 'clearance',
         label: 'Ghost Org',
         organization_id: testUuid(),
@@ -325,8 +326,8 @@ describe('CredentialService', () => {
       }
     })
 
-    test('update rejects unknown organization_id', () => {
-      const created = service.create({
+    test('update rejects unknown organization_id', async () => {
+      const created = await service.create({
         credential_type: 'clearance',
         label: 'TS',
         details: {
@@ -339,14 +340,14 @@ describe('CredentialService', () => {
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
-      const result = service.update(created.data.id, { organization_id: testUuid() })
+      const result = await service.update(created.data.id, { organization_id: testUuid() })
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error.code).toBe('NOT_FOUND')
     })
 
-    test('update accepts null organization_id to clear', () => {
+    test('update accepts null organization_id to clear', async () => {
       const orgId = seedOrganization(db, { name: 'DoD', orgType: 'government' })
-      const created = service.create({
+      const created = await service.create({
         credential_type: 'clearance',
         label: 'TS',
         organization_id: orgId,
@@ -360,7 +361,7 @@ describe('CredentialService', () => {
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
-      const result = service.update(created.data.id, { organization_id: null })
+      const result = await service.update(created.data.id, { organization_id: null })
       expect(result.ok).toBe(true)
       if (result.ok) expect(result.data.organization_id).toBeNull()
     })
@@ -371,8 +372,8 @@ describe('CredentialService', () => {
   // ────────────────────────────────────────────────────────────────
 
   describe('get()', () => {
-    test('returns found credential in ok envelope', () => {
-      const created = service.create({
+    test('returns found credential in ok envelope', async () => {
+      const created = await service.create({
         credential_type: 'clearance',
         label: 'TS',
         details: {
@@ -385,57 +386,57 @@ describe('CredentialService', () => {
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
-      const result = service.get(created.data.id)
+      const result = await service.get(created.data.id)
       expect(result.ok).toBe(true)
       if (result.ok) expect(result.data.id).toBe(created.data.id)
     })
 
-    test('returns NOT_FOUND for unknown id', () => {
-      const result = service.get(testUuid())
+    test('returns NOT_FOUND for unknown id', async () => {
+      const result = await service.get(testUuid())
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error.code).toBe('NOT_FOUND')
     })
   })
 
   describe('list()', () => {
-    test('returns empty list initially', () => {
-      const result = service.list()
+    test('returns empty list initially', async () => {
+      const result = await service.list()
       expect(result.ok).toBe(true)
       if (result.ok) expect(result.data).toEqual([])
     })
 
-    test('returns all credentials', () => {
-      service.create({
+    test('returns all credentials', async () => {
+      await service.create({
         credential_type: 'clearance',
         label: 'TS',
         details: { level: 'top_secret', polygraph: null, clearance_type: 'personnel', access_programs: [] },
       })
-      service.create({
+      await service.create({
         credential_type: 'drivers_license',
         label: 'VA CDL',
         details: { class: 'A', state: 'VA', endorsements: [] },
       })
 
-      const result = service.list()
+      const result = await service.list()
       expect(result.ok).toBe(true)
       if (result.ok) expect(result.data).toHaveLength(2)
     })
   })
 
   describe('findByType()', () => {
-    test('filters by type', () => {
-      service.create({
+    test('filters by type', async () => {
+      await service.create({
         credential_type: 'clearance',
         label: 'TS',
         details: { level: 'top_secret', polygraph: null, clearance_type: 'personnel', access_programs: [] },
       })
-      service.create({
+      await service.create({
         credential_type: 'drivers_license',
         label: 'VA CDL',
         details: { class: 'A', state: 'VA', endorsements: [] },
       })
 
-      const result = service.findByType('clearance')
+      const result = await service.findByType('clearance')
       expect(result.ok).toBe(true)
       if (result.ok) {
         expect(result.data).toHaveLength(1)
@@ -443,16 +444,16 @@ describe('CredentialService', () => {
       }
     })
 
-    test('rejects unknown type', () => {
-      const result = service.findByType('bogus')
+    test('rejects unknown type', async () => {
+      const result = await service.findByType('bogus')
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error.code).toBe('VALIDATION_ERROR')
     })
   })
 
   describe('update()', () => {
-    test('partial details merge preserves unmentioned fields', () => {
-      const created = service.create({
+    test('partial details merge preserves unmentioned fields', async () => {
+      const created = await service.create({
         credential_type: 'clearance',
         label: 'TS/SCI',
         details: {
@@ -465,7 +466,7 @@ describe('CredentialService', () => {
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
-      const result = service.update(created.data.id, {
+      const result = await service.update(created.data.id, {
         details: { polygraph: 'full_scope' },
       })
       expect(result.ok).toBe(true)
@@ -477,8 +478,8 @@ describe('CredentialService', () => {
       }
     })
 
-    test('rejects update that would leave required field absent', () => {
-      const created = service.create({
+    test('rejects update that would leave required field absent', async () => {
+      const created = await service.create({
         credential_type: 'drivers_license',
         label: 'VA CDL',
         details: { class: 'A', state: 'VA', endorsements: [] },
@@ -487,14 +488,14 @@ describe('CredentialService', () => {
       if (!created.ok) return
 
       // Try to blank the class field — merge validation catches it
-      const result = service.update(created.data.id, {
+      const result = await service.update(created.data.id, {
         details: { class: '' } as any,
       })
       expect(result.ok).toBe(false)
     })
 
-    test('rejects empty label on update', () => {
-      const created = service.create({
+    test('rejects empty label on update', async () => {
+      const created = await service.create({
         credential_type: 'clearance',
         label: 'TS',
         details: {
@@ -507,20 +508,20 @@ describe('CredentialService', () => {
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
-      const result = service.update(created.data.id, { label: '   ' })
+      const result = await service.update(created.data.id, { label: '   ' })
       expect(result.ok).toBe(false)
     })
 
-    test('returns NOT_FOUND for unknown id on update', () => {
-      const result = service.update(testUuid(), { label: 'Ghost' })
+    test('returns NOT_FOUND for unknown id on update', async () => {
+      const result = await service.update(testUuid(), { label: 'Ghost' })
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error.code).toBe('NOT_FOUND')
     })
   })
 
   describe('delete()', () => {
-    test('deletes existing credential', () => {
-      const created = service.create({
+    test('deletes existing credential', async () => {
+      const created = await service.create({
         credential_type: 'clearance',
         label: 'Temp',
         details: {
@@ -533,13 +534,14 @@ describe('CredentialService', () => {
       expect(created.ok).toBe(true)
       if (!created.ok) return
 
-      const result = service.delete(created.data.id)
+      const result = await service.delete(created.data.id)
       expect(result.ok).toBe(true)
-      expect(service.get(created.data.id).ok).toBe(false)
+      const fetched = await service.get(created.data.id)
+      expect(fetched.ok).toBe(false)
     })
 
-    test('returns NOT_FOUND for unknown id', () => {
-      const result = service.delete(testUuid())
+    test('returns NOT_FOUND for unknown id', async () => {
+      const result = await service.delete(testUuid())
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error.code).toBe('NOT_FOUND')
     })

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { forge, friendlyError } from '$lib/sdk'
   import { addToast } from '$lib/stores/toast.svelte'
-  import { LoadingSpinner, EmptyState, ListSearchInput, SplitPanel, ListPanelHeader, EmptyPanel } from '$lib/components'
+  import { LoadingSpinner, EmptyState, ListSearchInput, SplitPanel, ListPanelHeader, EmptyPanel, EntityNotes } from '$lib/components'
   import type { Skill, SkillCategory, Domain } from '@forge/sdk'
 
   // SkillCategory enum — matches migration 041 CHECK constraint.
@@ -23,7 +23,6 @@
 
   let formName = $state('')
   let formCategory = $state<SkillCategory>('other')
-  let formNotes = $state('')
   let formDomainIds = $state<Set<string>>(new Set())
 
   // Grouping state — follows SourcesView education grouping pattern
@@ -66,7 +65,6 @@
     if (selectedSkill && !editing) {
       formName = selectedSkill.name
       formCategory = (selectedSkill.category ?? 'other') as SkillCategory
-      formNotes = selectedSkill.notes ?? ''
       // Reload linked domains for the selected skill
       loadSkillDomains(selectedSkill.id)
     }
@@ -108,7 +106,6 @@
     editing = true
     formName = ''
     formCategory = 'other'
-    formNotes = ''
     formDomainIds = new Set()
     selectedDomains = []
   }
@@ -185,7 +182,6 @@
       const createRes = await forge.skills.create({
         name: formName.trim(),
         category: formCategory,
-        notes: formNotes.trim() || null,
       })
       if (createRes.ok) {
         skills = [...skills, createRes.data]
@@ -204,7 +200,6 @@
       const updateRes = await forge.skills.update(selectedId, {
         name: formName.trim(),
         category: formCategory,
-        notes: formNotes.trim() || null,
       })
       if (updateRes.ok) {
         skills = skills.map(s => s.id === selectedId ? updateRes.data : s)
@@ -334,12 +329,7 @@
             </select>
           </div>
 
-          <div class="form-group">
-            <label for="skill-notes">Notes</label>
-            <textarea id="skill-notes" bind:value={formNotes} rows="3"
-                      placeholder="Proficiency level, years of experience, context..."
-                      disabled={!editing}></textarea>
-          </div>
+          <EntityNotes entityType="skill" entityId={selectedSkill?.id} />
 
           <div class="form-group">
             <span class="form-group-title">Domains</span>

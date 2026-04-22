@@ -25,13 +25,13 @@ export function certificationRoutes(services: Services) {
 
   app.post('/certifications', async (c) => {
     const body = await c.req.json()
-    const result = services.certifications.create(body)
+    const result = await services.certifications.create(body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data }, 201)
   })
 
-  app.get('/certifications', (c) => {
-    const result = services.certifications.listWithSkills()
+  app.get('/certifications', async (c) => {
+    const result = await services.certifications.listWithSkills()
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
@@ -47,18 +47,18 @@ export function certificationRoutes(services: Services) {
       )
     }
     const certId = c.req.param('id')
-    const linkResult = services.certifications.addSkill(certId, body.skill_id)
+    const linkResult = await services.certifications.addSkill(certId, body.skill_id)
     if (!linkResult.ok) {
       return c.json({ error: linkResult.error }, mapStatusCode(linkResult.error.code))
     }
     // Return the hydrated cert so callers see the updated skills array
-    const result = services.certifications.getWithSkills(certId)
+    const result = await services.certifications.getWithSkills(certId)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/certifications/:id/skills/:skillId', (c) => {
-    const result = services.certifications.removeSkill(
+  app.delete('/certifications/:id/skills/:skillId', async (c) => {
+    const result = await services.certifications.removeSkill(
       c.req.param('id'),
       c.req.param('skillId'),
     )
@@ -66,21 +66,21 @@ export function certificationRoutes(services: Services) {
     return c.body(null, 204)
   })
 
-  app.get('/certifications/:id', (c) => {
-    const result = services.certifications.getWithSkills(c.req.param('id'))
+  app.get('/certifications/:id', async (c) => {
+    const result = await services.certifications.getWithSkills(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
   app.patch('/certifications/:id', async (c) => {
     const body = await c.req.json()
-    const result = services.certifications.update(c.req.param('id'), body)
+    const result = await services.certifications.update(c.req.param('id'), body)
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.json({ data: result.data })
   })
 
-  app.delete('/certifications/:id', (c) => {
-    const result = services.certifications.delete(c.req.param('id'))
+  app.delete('/certifications/:id', async (c) => {
+    const result = await services.certifications.delete(c.req.param('id'))
     if (!result.ok) return c.json({ error: result.error }, mapStatusCode(result.error.code))
     return c.body(null, 204)
   })

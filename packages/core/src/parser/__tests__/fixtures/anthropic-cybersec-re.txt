@@ -1,0 +1,33 @@
+## About the job
+
+**About Anthropic** Anthropic’s mission is to create reliable, interpretable, and steerable AI systems. We want AI to be safe and beneficial for our users and for society as a whole. Our team is a quickly growing group of committed researchers, engineers, policy experts, and business leaders working together to build beneficial AI systems.  
+  
+**About Horizons** The #Horizons team leads Anthropic's reinforcement learning ( #RL ) research and development, playing a critical role in advancing our AI systems. We've contributed to every Claude release, with significant impact on the autonomy, coding, and reasoning capabilities of Anthropic's models.  
+  
+**About The Role** We're hiring for the Cybersecurity RL team within #Horizons. As a Research Engineer, you'll help to safely advance the capabilities of our models in #secure-coding, #vulnerability-remediation, and other <mark style="background: #BBFABBA6;">areas of defensive cybersecurity</mark>.  
+  
+This role blends research and engineering, requiring you to both develop novel approaches and realize them in code. Your work will include designing and implementing #RL environments, conducting #experiments and #evaluations, delivering your work into production training runs, and collaborating with other researchers, engineers, and cybersecurity specialists across and outside Anthropic.  
+  
+The role requires domain expertise in cybersecurity paired with interest or experience in training safe AI models. For example, you might be a white hat hacker who's curious about how LLMs could augment or transform your work, a security engineer interested in how AI could help harden systems at scale, or a detection and response professional wondering how models could enhance defensive workflows.  
+  
+**You May Be a Good Fit If You**
+
+- Have experience in cybersecurity research.
+- Have experience with #ML.
+- Have strong software engineering skills.
+- Can balance research exploration with engineering implementation.
+- Are passionate about AI's potential and committed to developing safe and beneficial systems.
+
+**Strong Candidates May Also Have**
+
+- Professional experience in #security-engineering, #fuzzing, #detection-response, or other applied defensive work.
+- Experience participating in or building CTF competitions and cyber ranges.
+- Academic research experience in cybersecurity.
+- Familiarity with #RL techniques and environments.
+- Familiarity with #LLM-training methodologies.
+
+The annual compensation range for this role is listed below.  
+  
+For sales roles, the range provided is the role’s On Target Earnings ("OTE") range, meaning that the range includes both the sales commissions/sales bonuses target and annual base salary for the role.  
+  
+**Annual Salary** $300,000—$405,000 USD

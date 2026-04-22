@@ -17,6 +17,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import { Database } from 'bun:sqlite'
 import { createTestDb, seedResume, seedResumeSection, seedSkill } from '../../db/__tests__/helpers'
+import { buildDefaultElm } from '../../storage/build-elm'
 import { compileResumeIR } from '../resume-compiler'
 import { CredentialService } from '../credential-service'
 import { CertificationService } from '../certification-service'
@@ -29,8 +30,8 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
 
   beforeEach(() => {
     db = createTestDb()
-    credentialService = new CredentialService(db)
-    certificationService = new CertificationService(db)
+    credentialService = new CredentialService(buildDefaultElm(db))
+    certificationService = new CertificationService(buildDefaultElm(db))
   })
 
   afterEach(() => {
@@ -42,9 +43,9 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
   // ────────────────────────────────────────────────────────────────
 
   describe('credential → IR compiler round-trip', () => {
-    test('clearance credential appears in compiled resume clearance section', () => {
+    test('clearance credential appears in compiled resume clearance section', async () => {
       // Create a credential via the service
-      const createResult = credentialService.create({
+      const createResult = await credentialService.create({
         credential_type: 'clearance',
         label: 'TS/SCI with CI Poly',
         status: 'active',
@@ -100,13 +101,13 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
       expect(item.content).toContain('(Inactive)')
     })
 
-    test('multiple clearance credentials all render in IR', () => {
-      credentialService.create({
+    test('multiple clearance credentials all render in IR', async () => {
+      await credentialService.create({
         credential_type: 'clearance',
         label: 'TS/SCI',
         details: { level: 'top_secret', polygraph: 'ci', clearance_type: 'personnel', access_programs: ['sci'] },
       })
-      credentialService.create({
+      await credentialService.create({
         credential_type: 'clearance',
         label: 'Secret',
         details: { level: 'secret', polygraph: null, clearance_type: 'personnel', access_programs: [] },
@@ -120,9 +121,9 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
       expect(clrSection.items).toHaveLength(2)
     })
 
-    test('non-clearance credentials do NOT appear in clearance section', () => {
+    test('non-clearance credentials do NOT appear in clearance section', async () => {
       // Create a driver's license — should NOT show in clearance section
-      credentialService.create({
+      await credentialService.create({
         credential_type: 'drivers_license',
         label: 'VA CDL',
         details: { class: 'A', state: 'VA', endorsements: [] },
@@ -151,12 +152,12 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
       )
     }
 
-    test('certification appears in compiled resume certifications section', () => {
+    test('certification appears in compiled resume certifications section', async () => {
       // Seed an org for issuer_id
       const isc2OrgId = crypto.randomUUID()
       db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'ISC2', 'company')`, [isc2OrgId])
 
-      const createResult = certificationService.create({
+      const createResult = await certificationService.create({
         short_name: 'CISSP',
         long_name: 'Certified Information Systems Security Professional',
         issuer_id: isc2OrgId,
@@ -183,8 +184,8 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
       expect(group.categories[0].certs[0].name).toBe('CISSP')
     })
 
-    test('certification without issuer groups under "Other"', () => {
-      const certResult = certificationService.create({ short_name: 'Self Badge', long_name: 'Self-Study Badge' })
+    test('certification without issuer groups under "Other"', async () => {
+      const certResult = await certificationService.create({ short_name: 'Self Badge', long_name: 'Self-Study Badge' })
       expect(certResult.ok).toBe(true)
       if (!certResult.ok) return
 
@@ -198,9 +199,9 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
       expect(group.categories[0].label).toBe('Other')
     })
 
-    test('empty junction → empty section items even when global certs exist', () => {
+    test('empty junction → empty section items even when global certs exist', async () => {
       // Cert exists globally but is NOT pinned to this resume
-      certificationService.create({ short_name: 'Unpinned', long_name: 'Unpinned Cert' })
+      await certificationService.create({ short_name: 'Unpinned', long_name: 'Unpinned Cert' })
 
       const resumeId = seedResume(db)
       seedResumeSection(db, resumeId, 'Certifications', 'certifications', 0)
@@ -210,7 +211,7 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
       expect(certSection.items).toHaveLength(0)
     })
 
-    test('multiple certs from different issuers produce multiple categories', () => {
+    test('multiple certs from different issuers produce multiple categories', async () => {
       const isc2Id = crypto.randomUUID()
       const awsId = crypto.randomUUID()
       const pmiId = crypto.randomUUID()
@@ -218,9 +219,9 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
       db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'Amazon Web Services', 'company')`, [awsId])
       db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'PMI', 'company')`, [pmiId])
 
-      const r1 = certificationService.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional', issuer_id: isc2Id })
-      const r2 = certificationService.create({ short_name: 'AWS SA Pro', long_name: 'AWS Solutions Architect Professional', issuer_id: awsId })
-      const r3 = certificationService.create({ short_name: 'PMP', long_name: 'Project Management Professional', issuer_id: pmiId })
+      const r1 = await certificationService.create({ short_name: 'CISSP', long_name: 'Certified Information Systems Security Professional', issuer_id: isc2Id })
+      const r2 = await certificationService.create({ short_name: 'AWS SA Pro', long_name: 'AWS Solutions Architect Professional', issuer_id: awsId })
+      const r3 = await certificationService.create({ short_name: 'PMP', long_name: 'Project Management Professional', issuer_id: pmiId })
       expect(r1.ok && r2.ok && r3.ok).toBe(true)
       if (!r1.ok || !r2.ok || !r3.ok) return
 
@@ -244,7 +245,7 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
   // ────────────────────────────────────────────────────────────────
 
   describe('full-stack round-trip', () => {
-    test('credential details JSON survives service → db → compiler pipeline', () => {
+    test('credential details JSON survives service → db → compiler pipeline', async () => {
       const details = {
         level: 'top_secret' as const,
         polygraph: 'full_scope' as const,
@@ -252,7 +253,7 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
         access_programs: ['sci' as const, 'sap' as const],
       }
 
-      const result = credentialService.create({
+      const result = await credentialService.create({
         credential_type: 'clearance',
         label: 'TS/SCI Full Scope',
         details,
@@ -261,7 +262,7 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
       if (!result.ok) return
 
       // Verify details round-tripped through service → repo → db
-      const fetched = credentialService.get(result.data.id)
+      const fetched = await credentialService.get(result.data.id)
       expect(fetched.ok).toBe(true)
       if (fetched.ok) {
         const d = fetched.data.details as any
@@ -272,11 +273,11 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
       }
     })
 
-    test('certification with skills: skills survive the list → IR pipeline', () => {
+    test('certification with skills: skills survive the list → IR pipeline', async () => {
       const isc2OrgId = crypto.randomUUID()
       db.run(`INSERT INTO organizations (id, name, org_type) VALUES (?, 'ISC2', 'company')`, [isc2OrgId])
 
-      const certResult = certificationService.create({
+      const certResult = await certificationService.create({
         short_name: 'CISSP',
         long_name: 'Certified Information Systems Security Professional',
         issuer_id: isc2OrgId,
@@ -286,11 +287,11 @@ describe('Qualifications integration (Phase 88 T88.4)', () => {
 
       // Link a skill
       const skillId = seedSkill(db, { name: 'Security' })
-      const linkResult = certificationService.addSkill(certResult.data.id, skillId)
+      const linkResult = await certificationService.addSkill(certResult.data.id, skillId)
       expect(linkResult.ok).toBe(true)
 
       // Verify skills appear in getWithSkills
-      const hydrated = certificationService.getWithSkills(certResult.data.id)
+      const hydrated = await certificationService.getWithSkills(certResult.data.id)
       expect(hydrated.ok).toBe(true)
       if (hydrated.ok) {
         expect(hydrated.data.skills).toHaveLength(1)

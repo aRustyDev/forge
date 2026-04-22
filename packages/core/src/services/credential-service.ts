@@ -1,18 +1,27 @@
 /**
- * CredentialService — business logic + validation over CredentialRepository.
+ * CredentialService — business logic + validation over the integrity
+ * layer for credential entities.
  *
- * Introduced by Phase 85 T85.4 as part of the Qualifications track.
+ * Phase 1.2: uses EntityLifecycleManager instead of CredentialRepository.
+ *
  * Responsibilities:
  *   - Validate credential_type-specific required fields in details JSON
- *   - Validate status + credential_type enums
+ *     (ELM has no schema for polymorphic JSON payloads)
+ *   - Validate status + credential_type enums (duplicated for richer
+ *     error messages that name the valid values)
  *   - Validate organization_id references an existing organization
- *   - Map repository results into the standard Result<T> envelope
+ *     (ELM's FK check handles this, but the service keeps the friendly
+ *     "Organization X not found" wording that tests assert on)
+ *   - Merge partial details updates with the existing JSON payload
  *
- * The service is intentionally thin — all SQL lives in the repository, and
- * the service layer adds validation plus error mapping.
+ * Lazy field gotcha: the entity map declares `details` as
+ * `{ type: 'json', lazy: true }`. Every read MUST pass
+ * `{ includeLazy: ['details'] }` or the returned row will be missing
+ * the JSON payload entirely.
  */
 
-import type { Database } from 'bun:sqlite'
+import { storageErrorToForgeError } from '../storage/error-mapper'
+import type { EntityLifecycleManager } from '../storage/lifecycle-manager'
 import type {
   Credential,
   CreateCredential,
@@ -26,8 +35,6 @@ import type {
   MedicalLicenseDetails,
   Result,
 } from '../types'
-import * as CredentialRepo from '../db/repositories/credential-repository'
-import * as OrganizationRepo from '../db/repositories/organization-repository'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -45,6 +52,9 @@ const VALID_STATUSES: readonly CredentialStatus[] = [
   'inactive',
   'expired',
 ] as const
+
+/** Every credential read must include the lazy `details` JSON column. */
+const READ_OPTS = { includeLazy: ['details'] as string[] }
 
 // ---------------------------------------------------------------------------
 // Validation helpers
@@ -96,7 +106,11 @@ function validateDetails(
 
     case 'bar_admission': {
       const d = details as Partial<BarAdmissionDetails>
-      if (!d.jurisdiction || typeof d.jurisdiction !== 'string' || d.jurisdiction.trim().length === 0) {
+      if (
+        !d.jurisdiction ||
+        typeof d.jurisdiction !== 'string' ||
+        d.jurisdiction.trim().length === 0
+      ) {
         return 'bar_admission details.jurisdiction is required'
       }
       return null
@@ -104,7 +118,11 @@ function validateDetails(
 
     case 'medical_license': {
       const d = details as Partial<MedicalLicenseDetails>
-      if (!d.license_type || typeof d.license_type !== 'string' || d.license_type.trim().length === 0) {
+      if (
+        !d.license_type ||
+        typeof d.license_type !== 'string' ||
+        d.license_type.trim().length === 0
+      ) {
         return 'medical_license details.license_type is required'
       }
       if (!d.state || typeof d.state !== 'string' || d.state.trim().length === 0) {
@@ -120,9 +138,9 @@ function validateDetails(
 // ---------------------------------------------------------------------------
 
 export class CredentialService {
-  constructor(private db: Database) {}
+  constructor(protected readonly elm: EntityLifecycleManager) {}
 
-  create(input: CreateCredential): Result<Credential> {
+  async create(input: CreateCredential): Promise<Result<Credential>> {
     // Basic field validation
     if (!input.label || input.label.trim().length === 0) {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'label is required' } }
@@ -160,10 +178,12 @@ export class CredentialService {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: detailsError } }
     }
 
-    // Organization FK validation (if provided)
+    // Organization FK validation (if provided). The ELM would already
+    // catch this as a FK_VIOLATION, but the historical test suite
+    // asserts the exact "Organization X not found" wording.
     if (input.organization_id) {
-      const org = OrganizationRepo.get(this.db, input.organization_id)
-      if (!org) {
+      const orgResult = await this.elm.get('organizations', input.organization_id)
+      if (!orgResult.ok) {
         return {
           ok: false,
           error: {
@@ -174,26 +194,44 @@ export class CredentialService {
       }
     }
 
-    const credential = CredentialRepo.create(this.db, {
-      ...input,
+    const createResult = await this.elm.create('credentials', {
+      credential_type: input.credential_type,
       label: input.label.trim(),
+      status: input.status ?? 'active',
+      organization_id: input.organization_id ?? null,
+      details: input.details,
+      issued_date: input.issued_date ?? null,
+      expiry_date: input.expiry_date ?? null,
     })
-    return { ok: true, data: credential }
-  }
-
-  get(id: string): Result<Credential> {
-    const credential = CredentialRepo.findById(this.db, id)
-    if (!credential) {
-      return { ok: false, error: { code: 'NOT_FOUND', message: `Credential ${id} not found` } }
+    if (!createResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(createResult.error) }
     }
-    return { ok: true, data: credential }
+    return this.fetchCredential(createResult.value.id)
   }
 
-  list(): Result<Credential[]> {
-    return { ok: true, data: CredentialRepo.findAll(this.db) }
+  async get(id: string): Promise<Result<Credential>> {
+    return this.fetchCredential(id)
   }
 
-  findByType(type: string): Result<Credential[]> {
+  async list(): Promise<Result<Credential[]>> {
+    const listResult = await this.elm.list('credentials', {
+      orderBy: [
+        { field: 'credential_type', direction: 'asc' },
+        { field: 'label', direction: 'asc' },
+      ],
+      limit: 10000,
+      ...READ_OPTS,
+    })
+    if (!listResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(listResult.error) }
+    }
+    return {
+      ok: true,
+      data: listResult.value.rows.map((r) => r as unknown as Credential),
+    }
+  }
+
+  async findByType(type: string): Promise<Result<Credential[]>> {
     if (!isValidType(type)) {
       return {
         ok: false,
@@ -203,10 +241,22 @@ export class CredentialService {
         },
       }
     }
-    return { ok: true, data: CredentialRepo.findByType(this.db, type) }
+    const listResult = await this.elm.list('credentials', {
+      where: { credential_type: type },
+      orderBy: [{ field: 'label', direction: 'asc' }],
+      limit: 10000,
+      ...READ_OPTS,
+    })
+    if (!listResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(listResult.error) }
+    }
+    return {
+      ok: true,
+      data: listResult.value.rows.map((r) => r as unknown as Credential),
+    }
   }
 
-  update(id: string, input: UpdateCredential): Result<Credential> {
+  async update(id: string, input: UpdateCredential): Promise<Result<Credential>> {
     // Empty label rejected (if provided)
     if (input.label !== undefined && input.label.trim().length === 0) {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'label must not be empty' } }
@@ -224,8 +274,8 @@ export class CredentialService {
 
     // Organization FK validation (if provided and non-null)
     if (input.organization_id) {
-      const org = OrganizationRepo.get(this.db, input.organization_id)
-      if (!org) {
+      const orgResult = await this.elm.get('organizations', input.organization_id)
+      if (!orgResult.ok) {
         return {
           ok: false,
           error: {
@@ -236,37 +286,56 @@ export class CredentialService {
       }
     }
 
-    // Details validation: only run it for the fields being updated.
-    // We need the credential's type to know which schema to check, so
-    // fetch first. Partial merges are validated against the merged result.
+    // Fetch the existing credential so we can (a) surface NOT_FOUND,
+    // (b) look up credential_type for details validation, and (c)
+    // merge partial `details` updates with the existing JSON.
+    const existingResult = await this.elm.get('credentials', id, READ_OPTS)
+    if (!existingResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(existingResult.error) }
+    }
+    const existing = existingResult.value as unknown as Credential
+
+    const patch: Record<string, unknown> = {}
+    if (input.label !== undefined) patch.label = input.label.trim()
+    if (input.status !== undefined) patch.status = input.status
+    if (input.organization_id !== undefined) patch.organization_id = input.organization_id
+    if (input.issued_date !== undefined) patch.issued_date = input.issued_date
+    if (input.expiry_date !== undefined) patch.expiry_date = input.expiry_date
+
     if (input.details !== undefined) {
-      const existing = CredentialRepo.findById(this.db, id)
-      if (!existing) {
-        return { ok: false, error: { code: 'NOT_FOUND', message: `Credential ${id} not found` } }
-      }
-      const mergedDetails = { ...(existing.details as object), ...(input.details as object) } as CredentialDetails
-      const detailsError = validateDetails(existing.credential_type, mergedDetails)
+      const merged = {
+        ...(existing.details as object),
+        ...(input.details as object),
+      } as CredentialDetails
+      const detailsError = validateDetails(existing.credential_type, merged)
       if (detailsError) {
         return { ok: false, error: { code: 'VALIDATION_ERROR', message: detailsError } }
       }
+      patch.details = merged
     }
 
-    const updated = CredentialRepo.update(this.db, id, {
-      ...input,
-      ...(input.label !== undefined ? { label: input.label.trim() } : {}),
-    })
-    if (!updated) {
-      return { ok: false, error: { code: 'NOT_FOUND', message: `Credential ${id} not found` } }
+    const updateResult = await this.elm.update('credentials', id, patch)
+    if (!updateResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(updateResult.error) }
     }
-    return { ok: true, data: updated }
+    return this.fetchCredential(id)
   }
 
-  delete(id: string): Result<void> {
-    const existing = CredentialRepo.findById(this.db, id)
-    if (!existing) {
-      return { ok: false, error: { code: 'NOT_FOUND', message: `Credential ${id} not found` } }
+  async delete(id: string): Promise<Result<void>> {
+    const delResult = await this.elm.delete('credentials', id)
+    if (!delResult.ok) {
+      return { ok: false, error: storageErrorToForgeError(delResult.error) }
     }
-    CredentialRepo.del(this.db, id)
     return { ok: true, data: undefined }
+  }
+
+  // ── Internal helpers ─────────────────────────────────────────────
+
+  private async fetchCredential(id: string): Promise<Result<Credential>> {
+    const result = await this.elm.get('credentials', id, READ_OPTS)
+    if (!result.ok) {
+      return { ok: false, error: storageErrorToForgeError(result.error) }
+    }
+    return { ok: true, data: result.value as unknown as Credential }
   }
 }

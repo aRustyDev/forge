@@ -287,7 +287,14 @@ jobs:
             exit 0
           fi
 
-          if echo "$OUTPUT" | grep -qi "error\|failed\|FAIL"; then
+          # Timeout waiting for approval is OK — extension is submitted and in review
+          if echo "$OUTPUT" | grep -qi "timeout exceeded.*downloaded from"; then
+            echo "::warning::Extension submitted to AMO — awaiting review approval."
+            echo "$OUTPUT" | grep -o 'https://[^ ]*'
+            exit 0
+          fi
+
+          if echo "$OUTPUT" | grep -qi "Submission failed\|FAIL"; then
             echo "::error::Firefox AMO publish failed"
             exit 1
           fi

@@ -75,10 +75,11 @@ jobs:
       - name: Package artifacts
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          cd packages/extension/dist/chrome && zip -r ../../../../forge-job-tools-chrome-v${VERSION}.zip .
-          cd ../../firefox && zip -r ../../../../forge-job-tools-firefox-v${VERSION}.zip .
-          cd ../../../..
+          (cd packages/extension/dist/chrome && zip -r "$GITHUB_WORKSPACE/forge-job-tools-chrome-v${VERSION}.zip" .)
+          (cd packages/extension/dist/firefox && zip -r "$GITHUB_WORKSPACE/forge-job-tools-firefox-v${VERSION}.zip" .)
           git archive HEAD --prefix=forge-source/ -o forge-job-tools-source.zip
+          echo "Packaged:"
+          ls -la forge-job-tools-*.zip
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

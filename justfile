@@ -7,9 +7,9 @@ export FORGE_DB_PATH := absolute_path(env("FORGE_DB_PATH", "./data/forge.db"))
 
 # ─── Modules ──────────────────────────────────────────────
 
-mod docker ".docker/justfile"
-mod test "packages/justfile"
-mod data "data/justfile"
+# mod docker ".docker/justfile"   # TODO: add when Docker infra is set up
+# mod test "packages/justfile"     # TODO: add when test justfile exists
+# mod data "data/justfile"         # TODO: add when data justfile exists
 
 # ─── Local development ───────────────────────────────────
 

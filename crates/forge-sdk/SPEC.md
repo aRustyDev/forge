@@ -136,10 +136,19 @@ impl<'conn> SourceRepository<'conn> {
 - Fixtures: port key TS test fixtures, or seed via repository methods
 - IR compiler tests: golden-file testing (known input → expected output)
 
+## Hard Constraint: Zero Subprocess Calls
+
+After migration, all functionality must be compiled in. No shelling out
+to external binaries. Implications for forge-sdk:
+- **PDF generation**: tectonic compiled-in as library, not subprocess
+- **DB export**: `rusqlite::backup::Backup` API, not `sqlite3` CLI
+- **All I/O**: via Rust crates, never `std::process::Command`
+
 ## Dependencies
 
 - `forge-core` — types
 - `rusqlite` — SQLite access (with `bundled` feature)
+- `tectonic` — LaTeX → PDF (compiled-in engine)
 - `serde` + `serde_json` — serialization
 - `uuid` — ID generation
 - `thiserror` — error derive macros

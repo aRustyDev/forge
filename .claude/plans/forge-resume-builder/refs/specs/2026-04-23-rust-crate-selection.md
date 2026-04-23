@@ -28,14 +28,26 @@ No compile-time query checking needed (the TS version doesn't have it either).
 gives better control over request/response types, retries, and streaming.
 Lives in `forge-ai` crate, isolated from business logic.
 
-### 3. LaTeX/PDF: pdflatex subprocess
+### 3. LaTeX/PDF: tectonic (compiled-in) or typst
 
-**Chosen**: `std::process::Command` calling pdflatex/lualatex
-**Rejected**: tectonic (100MB+ binary bloat), typst (template rewrite needed)
+**Constraint**: Zero subprocess calls — all functionality must be compiled in.
 
-**Rationale**: The TS version already uses pdflatex subprocess and it works.
-Resume templates are simple — no exotic TeX packages needed. Keep the proven
-pattern. If portability becomes important, wrap in Docker.
+**Chosen**: `tectonic` as a Rust library (tectonic_engine crate)
+**Alternative**: `typst` as a Rust library (requires template rewrite)
+**Rejected**: subprocess calls to pdflatex/tectonic/lualatex (violates constraint),
+sqlite3 subprocess for DB dumps (use rusqlite backup API instead)
+
+**Rationale**: The TS codebase already uses tectonic via subprocess. Using
+tectonic as a compiled-in Rust library preserves existing LaTeX templates
+with zero changes. Binary size increases (~50-100MB) but eliminates the
+system dependency. The `tectonic_engine` crate provides the low-level API.
+
+**Future consideration**: typst is a native Rust typesetting engine — faster,
+lighter, and more Rust-idiomatic. Worth evaluating for a v2 template rewrite
+once the core migration is stable. Would eliminate LaTeX entirely.
+
+**DB dump**: The TS export-service shells out to `sqlite3 .dump`. In Rust,
+use `rusqlite::backup::Backup` or iterate tables with SQL — no subprocess.
 
 ### 4. Configuration: figment
 
@@ -87,6 +99,16 @@ Used by axum and tokio internally.
 **Rationale**: All entity IDs are UUIDs stored as TEXT. Matches TS
 `crypto.randomUUID()` usage.
 
+## Architectural Constraint: Zero Subprocess Calls
+
+After the TS→Rust migration is complete, there must be **zero subprocess
+calls or external binary dependencies**. All functionality must be compiled
+in. This affects:
+
+- **PDF generation**: compiled-in tectonic engine (not subprocess)
+- **DB dump/export**: rusqlite backup API (not `sqlite3` subprocess)
+- **LLM client**: compiled-in reqwest HTTP client (not CLI wrapper)
+
 ## Dependency Summary
 
 | Crate | forge-core | forge-sdk | forge-ai | forge-server | forge-mcp | forge-cli |
@@ -95,6 +117,7 @@ Used by axum and tokio internally.
 | serde_json | ✓ | ✓ | ✓ | | | |
 | chrono | ✓ | | | | | |
 | rusqlite | | ✓ | | | | |
+| tectonic | | ✓ | | | | |
 | thiserror | ✓ | ✓ | ✓ | | | |
 | uuid | | ✓ | | | | |
 | reqwest | | | ✓ | | | |

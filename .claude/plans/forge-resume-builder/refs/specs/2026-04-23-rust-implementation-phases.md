@@ -4,6 +4,15 @@
 **Status**: Accepted
 **Context**: Stubs (forge-dw4) and crate selection (forge-zng6) complete.
 
+## Hard Constraint
+
+**Zero subprocess calls.** After the TS→Rust migration, all functionality
+must be compiled in. No shelling out to external binaries (tectonic, sqlite3,
+pdflatex, etc.). This means:
+- PDF generation via compiled-in tectonic engine (or typst)
+- DB export via rusqlite backup API
+- LLM via compiled-in reqwest HTTP client
+
 ## R0 Implementation Order
 
 ### Phase R0.1: Foundation (forge-core + forge-sdk infra)

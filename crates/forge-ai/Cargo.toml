@@ -1,0 +1,11 @@
+[package]
+name = "forge-ai"
+version = "0.1.0"
+edition = "2021"
+description = "LLM client, prompts, and validation for Forge"
+
+[dependencies]
+forge-core = { workspace = true }
+serde = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true }

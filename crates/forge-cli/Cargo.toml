@@ -1,0 +1,15 @@
+[package]
+name = "forge-cli"
+version = "0.1.0"
+edition = "2021"
+description = "CLI binary for Forge"
+
+[[bin]]
+name = "forge-cli"
+path = "src/main.rs"
+
+[dependencies]
+forge-sdk = { workspace = true }
+forge-core = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true }

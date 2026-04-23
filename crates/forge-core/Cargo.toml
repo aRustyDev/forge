@@ -1,0 +1,10 @@
+[package]
+name = "forge-core"
+version = "0.1.0"
+edition = "2021"
+description = "Core types, enums, and shapes for Forge — no logic, no I/O"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = "1"
+chrono = { workspace = true }

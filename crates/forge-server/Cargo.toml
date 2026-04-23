@@ -1,0 +1,16 @@
+[package]
+name = "forge-server"
+version = "0.1.0"
+edition = "2021"
+description = "Axum HTTP API server for Forge"
+
+[[bin]]
+name = "forge-server"
+path = "src/main.rs"
+
+[dependencies]
+forge-sdk = { workspace = true }
+forge-core = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }

@@ -77,7 +77,7 @@ pub struct UpdateContact {
 // ── Source ────────────────────────────────────────────────────────────
 
 /// Input for creating a new Source (with optional extension fields).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CreateSource {
     pub title: String,
     pub description: String,

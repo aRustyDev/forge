@@ -7,5 +7,7 @@
 //! TS source: `packages/core/src/types/index.ts`
 
 pub mod types;
+pub mod util;
 
 pub use types::*;
+pub use util::{new_id, now_iso};

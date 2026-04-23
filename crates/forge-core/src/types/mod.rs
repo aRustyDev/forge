@@ -5,6 +5,8 @@ pub mod entities;
 pub mod enums;
 pub mod inputs;
 pub mod ir;
+#[cfg(test)]
+mod tests;
 
 pub use common::*;
 pub use entities::*;

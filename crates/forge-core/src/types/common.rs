@@ -6,23 +6,71 @@ use serde::{Deserialize, Serialize};
 
 use super::enums::*;
 
-// ── Error & Result ───────────────────────────────────────────────────
+// ── Error ────────────────────────────────────────────────────────────
 
-/// A structured error returned by Forge operations.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ForgeError {
-    pub code: String,
-    pub message: String,
-    pub details: Option<serde_json::Value>,
+/// Structured error type for all Forge operations.
+///
+/// Uses `thiserror` for Display/Error derives. Serializes to the same
+/// `{ code, message, details }` JSON shape as the TS `ForgeError` for
+/// API wire compatibility.
+#[derive(Debug, thiserror::Error)]
+pub enum ForgeError {
+    /// Entity not found by ID.
+    #[error("{entity_type} not found: {id}")]
+    NotFound {
+        entity_type: String,
+        id: String,
+    },
+
+    /// Input validation failure.
+    #[error("validation error: {message}")]
+    Validation {
+        message: String,
+        field: Option<String>,
+    },
+
+    /// Unique constraint or duplicate conflict.
+    #[error("conflict: {message}")]
+    Conflict { message: String },
+
+    /// Foreign key reference to a missing entity.
+    #[error("foreign key violation: {message}")]
+    ForeignKey { message: String },
+
+    /// Underlying database error (rusqlite).
+    #[error("database error: {source}")]
+    Database {
+        #[from]
+        source: rusqlite::Error,
+    },
+
+    /// Catch-all for internal/unexpected errors.
+    #[error("{0}")]
+    Internal(String),
 }
 
-/// Discriminated union for operation results.
-/// Mirrors TS `Result<T> = { ok: true; data: T } | { ok: false; error: ForgeError }`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ForgeResult<T> {
-    Ok { ok: bool, data: T },
-    Err { ok: bool, error: ForgeError },
+impl ForgeError {
+    /// Error code string for API responses.
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::NotFound { .. } => "NOT_FOUND",
+            Self::Validation { .. } => "VALIDATION_ERROR",
+            Self::Conflict { .. } => "CONFLICT",
+            Self::ForeignKey { .. } => "FK_VIOLATION",
+            Self::Database { .. } => "DATABASE_ERROR",
+            Self::Internal(_) => "INTERNAL_ERROR",
+        }
+    }
+}
+
+impl Serialize for ForgeError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut s = serializer.serialize_struct("ForgeError", 2)?;
+        s.serialize_field("code", self.code())?;
+        s.serialize_field("message", &self.to_string())?;
+        s.end()
+    }
 }
 
 // ── Pagination ───────────────────────────────────────────────────────
@@ -40,21 +88,6 @@ pub struct Pagination {
 pub struct PaginationParams {
     pub offset: Option<i64>,
     pub limit: Option<i64>,
-}
-
-/// Discriminated union for paginated results.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PaginatedResult<T> {
-    Ok {
-        ok: bool,
-        data: Vec<T>,
-        pagination: Pagination,
-    },
-    Err {
-        ok: bool,
-        error: ForgeError,
-    },
 }
 
 /// Lint result — ok or errors.

@@ -5,3 +5,4 @@
 //! Depends on `forge-core` for type definitions.
 
 pub mod db;
+pub mod services;

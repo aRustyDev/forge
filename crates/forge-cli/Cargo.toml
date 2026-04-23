@@ -13,3 +13,7 @@ forge-sdk = { workspace = true }
 forge-core = { workspace = true }
 clap = { workspace = true }
 tokio = { workspace = true }
+figment = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }

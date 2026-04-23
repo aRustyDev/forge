@@ -12,9 +12,18 @@ members = [
 [workspace.dependencies]
 forge-core = { path = "crates/forge-core" }
 forge-sdk = { path = "crates/forge-sdk" }
+forge-ai = { path = "crates/forge-ai" }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2"
+anyhow = "1"
+uuid = { version = "1", features = ["v4"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 clap = { version = "4", features = ["derive"] }
 reqwest = { version = "0.12", features = ["json"] }
+figment = { version = "0.10", features = ["toml", "env"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

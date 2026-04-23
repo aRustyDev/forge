@@ -6,5 +6,6 @@ description = "Core types, enums, and shapes for Forge — no logic, no I/O"
 
 [dependencies]
 serde = { workspace = true }
-serde_json = "1"
+serde_json = { workspace = true }
 chrono = { workspace = true }
+thiserror = { workspace = true }

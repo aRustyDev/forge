@@ -1,74 +1,420 @@
 //! Repository for job description persistence.
 //!
 //! Provides CRUD operations and query methods for the `job_descriptions` table.
-//! All method bodies are `todo!()` stubs awaiting storage adapter implementation.
+
+use rusqlite::{params, Connection, OptionalExtension};
 
 use forge_core::{
     CreateJobDescription, ForgeError, JobDescription, JobDescriptionFilter,
-    JobDescriptionWithOrg, Pagination, UpdateJobDescription,
+    JobDescriptionStatus, JobDescriptionWithOrg, Pagination, UpdateJobDescription,
+    new_id, now_iso,
 };
 
 /// Data-access repository for job descriptions.
 pub struct JdRepo;
 
 impl JdRepo {
-    /// Create a new `JdRepo` instance.
-    pub fn new() -> Self {
-        todo!()
-    }
+    // ── Create ───────────────────────────────────────────────────────
 
     /// Insert a new job description row.
-    pub fn create(&self, input: &CreateJobDescription) -> Result<JobDescription, ForgeError> {
-        todo!()
+    pub fn create(conn: &Connection, input: &CreateJobDescription) -> Result<JobDescription, ForgeError> {
+        let id = new_id();
+        let now = now_iso();
+        let status = input.status.unwrap_or(JobDescriptionStatus::Discovered);
+
+        conn.execute(
+            "INSERT INTO job_descriptions (id, organization_id, title, url, raw_text, status,
+                salary_range, salary_min, salary_max, location, parsed_sections,
+                work_posture, parsed_locations, salary_period, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15)",
+            params![
+                id,
+                input.organization_id,
+                input.title,
+                input.url,
+                input.raw_text,
+                status.as_ref(),
+                input.salary_range,
+                input.salary_min,
+                input.salary_max,
+                input.location,
+                input.parsed_sections,
+                input.work_posture,
+                input.parsed_locations,
+                input.salary_period,
+                now,
+            ],
+        )?;
+
+        Self::get(conn, &id)?
+            .ok_or_else(|| ForgeError::Internal("Job description created but not found".into()))
     }
 
+    // ── Read ─────────────────────────────────────────────────────────
+
     /// Fetch a single job description by primary key.
-    pub fn get(&self, id: &str) -> Result<Option<JobDescription>, ForgeError> {
-        todo!()
+    pub fn get(conn: &Connection, id: &str) -> Result<Option<JobDescription>, ForgeError> {
+        let mut stmt = conn.prepare(
+            "SELECT id, organization_id, title, url, raw_text, status,
+                    salary_range, salary_min, salary_max, location, parsed_sections,
+                    work_posture, parsed_locations, salary_period, created_at, updated_at
+             FROM job_descriptions WHERE id = ?1",
+        )?;
+
+        let result = stmt.query_row(params![id], Self::map_jd).optional()?;
+        Ok(result)
     }
 
     /// Fetch a job description with its hydrated organization name.
-    pub fn get_with_org(&self, id: &str) -> Result<Option<JobDescriptionWithOrg>, ForgeError> {
-        todo!()
+    pub fn get_with_org(conn: &Connection, id: &str) -> Result<Option<JobDescriptionWithOrg>, ForgeError> {
+        let jd = match Self::get(conn, id)? {
+            Some(jd) => jd,
+            None => return Ok(None),
+        };
+        let org_name = Self::lookup_org_name(conn, jd.organization_id.as_deref())?;
+        Ok(Some(JobDescriptionWithOrg { base: jd, organization_name: org_name }))
     }
 
     /// List job descriptions with optional filtering and pagination.
     pub fn list(
-        &self,
-        filter: Option<&JobDescriptionFilter>,
+        conn: &Connection,
+        filter: &JobDescriptionFilter,
         offset: i64,
         limit: i64,
     ) -> Result<(Vec<JobDescription>, Pagination), ForgeError> {
-        todo!()
+        let mut conditions = Vec::new();
+        let mut bind_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+        if let Some(ref status) = filter.status {
+            conditions.push(format!("status = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(status.to_string()));
+        }
+        if let Some(ref org_id) = filter.organization_id {
+            conditions.push(format!("organization_id = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(org_id.clone()));
+        }
+
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+
+        // Count
+        let count_sql = format!("SELECT COUNT(*) FROM job_descriptions {where_clause}");
+        let total: i64 = conn.query_row(
+            &count_sql,
+            rusqlite::params_from_iter(bind_values.iter().map(|b| b.as_ref())),
+            |row| row.get(0),
+        )?;
+
+        // Fetch page
+        let query_sql = format!(
+            "SELECT id, organization_id, title, url, raw_text, status,
+                    salary_range, salary_min, salary_max, location, parsed_sections,
+                    work_posture, parsed_locations, salary_period, created_at, updated_at
+             FROM job_descriptions {where_clause}
+             ORDER BY updated_at DESC
+             LIMIT ?{} OFFSET ?{}",
+            bind_values.len() + 1,
+            bind_values.len() + 2
+        );
+        bind_values.push(Box::new(limit));
+        bind_values.push(Box::new(offset));
+
+        let mut stmt = conn.prepare(&query_sql)?;
+        let rows: Vec<JobDescription> = stmt
+            .query_map(
+                rusqlite::params_from_iter(bind_values.iter().map(|b| b.as_ref())),
+                Self::map_jd,
+            )?
+            .collect::<Result<_, _>>()?;
+
+        Ok((rows, Pagination { total, offset, limit }))
     }
 
     /// List job descriptions with hydrated organization names.
     pub fn list_with_org(
-        &self,
-        filter: Option<&JobDescriptionFilter>,
+        conn: &Connection,
+        filter: &JobDescriptionFilter,
         offset: i64,
         limit: i64,
     ) -> Result<(Vec<JobDescriptionWithOrg>, Pagination), ForgeError> {
-        todo!()
+        let (rows, pagination) = Self::list(conn, filter, offset, limit)?;
+        let mut hydrated = Vec::with_capacity(rows.len());
+        for jd in rows {
+            let org_name = Self::lookup_org_name(conn, jd.organization_id.as_deref())?;
+            hydrated.push(JobDescriptionWithOrg { base: jd, organization_name: org_name });
+        }
+        Ok((hydrated, pagination))
     }
+
+    // ── Update ───────────────────────────────────────────────────────
 
     /// Apply a partial update to an existing job description.
-    pub fn update(&self, id: &str, input: &UpdateJobDescription) -> Result<(), ForgeError> {
-        todo!()
+    pub fn update(conn: &Connection, id: &str, input: &UpdateJobDescription) -> Result<JobDescription, ForgeError> {
+        // Verify existence
+        Self::get(conn, id)?
+            .ok_or_else(|| ForgeError::NotFound { entity_type: "job_description".into(), id: id.into() })?;
+
+        let mut sets = Vec::new();
+        let mut bind_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+        if let Some(ref v) = input.title {
+            sets.push(format!("title = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(v.clone()));
+        }
+        if let Some(ref v) = input.organization_id {
+            sets.push(format!("organization_id = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(v.clone()));
+        }
+        if let Some(ref v) = input.url {
+            sets.push(format!("url = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(v.clone()));
+        }
+        if let Some(ref v) = input.raw_text {
+            sets.push(format!("raw_text = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(v.clone()));
+        }
+        if let Some(ref v) = input.status {
+            sets.push(format!("status = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(v.to_string()));
+        }
+        if let Some(ref v) = input.salary_range {
+            sets.push(format!("salary_range = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(v.clone()));
+        }
+        if let Some(ref v) = input.salary_min {
+            sets.push(format!("salary_min = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(*v));
+        }
+        if let Some(ref v) = input.salary_max {
+            sets.push(format!("salary_max = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(*v));
+        }
+        if let Some(ref v) = input.location {
+            sets.push(format!("location = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(v.clone()));
+        }
+        if let Some(ref v) = input.parsed_sections {
+            sets.push(format!("parsed_sections = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(v.clone()));
+        }
+        if let Some(ref v) = input.work_posture {
+            sets.push(format!("work_posture = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(v.clone()));
+        }
+        if let Some(ref v) = input.parsed_locations {
+            sets.push(format!("parsed_locations = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(v.clone()));
+        }
+        if let Some(ref v) = input.salary_period {
+            sets.push(format!("salary_period = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(v.clone()));
+        }
+
+        if !sets.is_empty() {
+            let now = now_iso();
+            sets.push(format!("updated_at = ?{}", bind_values.len() + 1));
+            bind_values.push(Box::new(now));
+
+            let sql = format!(
+                "UPDATE job_descriptions SET {} WHERE id = ?{}",
+                sets.join(", "),
+                bind_values.len() + 1
+            );
+            bind_values.push(Box::new(id.to_string()));
+
+            conn.execute(
+                &sql,
+                rusqlite::params_from_iter(bind_values.iter().map(|b| b.as_ref())),
+            )?;
+        }
+
+        Self::get(conn, id)?
+            .ok_or_else(|| ForgeError::Internal("Job description updated but not found".into()))
     }
+
+    // ── Delete ───────────────────────────────────────────────────────
 
     /// Delete a job description by primary key.
-    pub fn delete(&self, id: &str) -> Result<(), ForgeError> {
-        todo!()
+    pub fn delete(conn: &Connection, id: &str) -> Result<(), ForgeError> {
+        let deleted = conn.execute("DELETE FROM job_descriptions WHERE id = ?1", params![id])?;
+        if deleted == 0 {
+            return Err(ForgeError::NotFound { entity_type: "job_description".into(), id: id.into() });
+        }
+        Ok(())
     }
+
+    // ── Lookup ───────────────────────────────────────────────────────
 
     /// Look up a job description by its URL field (exact match).
-    pub fn find_by_url(&self, url: &str) -> Result<Option<JobDescription>, ForgeError> {
-        todo!()
+    pub fn find_by_url(conn: &Connection, url: &str) -> Result<Option<JobDescription>, ForgeError> {
+        let mut stmt = conn.prepare(
+            "SELECT id, organization_id, title, url, raw_text, status,
+                    salary_range, salary_min, salary_max, location, parsed_sections,
+                    work_posture, parsed_locations, salary_period, created_at, updated_at
+             FROM job_descriptions WHERE url = ?1 LIMIT 1",
+        )?;
+
+        let result = stmt.query_row(params![url], Self::map_jd).optional()?;
+        Ok(result)
     }
 
-    /// Count job descriptions matching an optional filter.
-    pub fn count(&self, filter: Option<&JobDescriptionFilter>) -> Result<i64, ForgeError> {
-        todo!()
+    // ── Helpers ──────────────────────────────────────────────────────
+
+    fn lookup_org_name(conn: &Connection, org_id: Option<&str>) -> Result<Option<String>, ForgeError> {
+        match org_id {
+            Some(oid) => {
+                let name: Option<String> = conn.query_row(
+                    "SELECT name FROM organizations WHERE id = ?1",
+                    params![oid],
+                    |row| row.get(0),
+                ).optional()?;
+                Ok(name)
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn map_jd(row: &rusqlite::Row) -> rusqlite::Result<JobDescription> {
+        Ok(JobDescription {
+            id: row.get(0)?,
+            organization_id: row.get(1)?,
+            title: row.get(2)?,
+            url: row.get(3)?,
+            raw_text: row.get(4)?,
+            status: row.get::<_, String>(5)?.parse().unwrap_or(JobDescriptionStatus::Discovered),
+            salary_range: row.get(6)?,
+            salary_min: row.get(7)?,
+            salary_max: row.get(8)?,
+            location: row.get(9)?,
+            parsed_sections: row.get(10)?,
+            work_posture: row.get(11)?,
+            parsed_locations: row.get(12)?,
+            salary_period: row.get(13)?,
+            created_at: row.get(14)?,
+            updated_at: row.get(15)?,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::forge::Forge;
+
+    fn setup() -> Forge {
+        Forge::open_memory().unwrap()
+    }
+
+    fn sample_input() -> CreateJobDescription {
+        CreateJobDescription {
+            title: "Senior Rust Engineer".into(),
+            organization_id: None,
+            url: Some("https://example.com/jobs/123".into()),
+            raw_text: "We are looking for a senior Rust engineer...".into(),
+            status: None,
+            salary_range: Some("150k-200k".into()),
+            salary_min: Some(150_000.0),
+            salary_max: Some(200_000.0),
+            location: Some("Remote".into()),
+            parsed_sections: None,
+            work_posture: Some("remote".into()),
+            parsed_locations: None,
+            salary_period: Some("annual".into()),
+        }
+    }
+
+    #[test]
+    fn create_and_get() {
+        let forge = setup();
+        let jd = JdRepo::create(forge.conn(), &sample_input()).unwrap();
+        assert_eq!(jd.title, "Senior Rust Engineer");
+        assert_eq!(jd.status, JobDescriptionStatus::Discovered);
+        assert_eq!(jd.url, Some("https://example.com/jobs/123".into()));
+
+        let fetched = JdRepo::get(forge.conn(), &jd.id).unwrap().unwrap();
+        assert_eq!(fetched.id, jd.id);
+        assert_eq!(fetched.title, jd.title);
+    }
+
+    #[test]
+    fn get_returns_none_for_missing() {
+        let forge = setup();
+        let result = JdRepo::get(forge.conn(), "nonexistent").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn list_empty() {
+        let forge = setup();
+        let (rows, pagination) = JdRepo::list(
+            forge.conn(),
+            &JobDescriptionFilter::default(),
+            0,
+            50,
+        ).unwrap();
+        assert!(rows.is_empty());
+        assert_eq!(pagination.total, 0);
+    }
+
+    #[test]
+    fn list_with_status_filter() {
+        let forge = setup();
+        JdRepo::create(forge.conn(), &sample_input()).unwrap();
+        JdRepo::create(forge.conn(), &CreateJobDescription {
+            title: "Python Dev".into(),
+            raw_text: "Python job".into(),
+            status: Some(JobDescriptionStatus::Applied),
+            ..sample_input()
+        }).unwrap();
+
+        let (rows, _) = JdRepo::list(
+            forge.conn(),
+            &JobDescriptionFilter { status: Some(JobDescriptionStatus::Applied), ..Default::default() },
+            0,
+            50,
+        ).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].title, "Python Dev");
+    }
+
+    #[test]
+    fn update_title() {
+        let forge = setup();
+        let created = JdRepo::create(forge.conn(), &sample_input()).unwrap();
+        let updated = JdRepo::update(forge.conn(), &created.id, &UpdateJobDescription {
+            title: Some("Staff Rust Engineer".into()),
+            ..Default::default()
+        }).unwrap();
+        assert_eq!(updated.title, "Staff Rust Engineer");
+    }
+
+    #[test]
+    fn delete_jd() {
+        let forge = setup();
+        let created = JdRepo::create(forge.conn(), &sample_input()).unwrap();
+        JdRepo::delete(forge.conn(), &created.id).unwrap();
+        assert!(JdRepo::get(forge.conn(), &created.id).unwrap().is_none());
+    }
+
+    #[test]
+    fn delete_missing_returns_not_found() {
+        let forge = setup();
+        let result = JdRepo::delete(forge.conn(), "nonexistent");
+        assert!(matches!(result, Err(ForgeError::NotFound { .. })));
+    }
+
+    #[test]
+    fn find_by_url() {
+        let forge = setup();
+        let created = JdRepo::create(forge.conn(), &sample_input()).unwrap();
+        let found = JdRepo::find_by_url(forge.conn(), "https://example.com/jobs/123").unwrap();
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().id, created.id);
+
+        let missing = JdRepo::find_by_url(forge.conn(), "https://nope.com").unwrap();
+        assert!(missing.is_none());
     }
 }

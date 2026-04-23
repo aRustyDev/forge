@@ -1,5 +1,6 @@
 //! Data access repositories for Forge entities.
 
+pub mod migrate;
 pub mod bullet_repo;
 pub mod contact_repo;
 pub mod jd_repo;

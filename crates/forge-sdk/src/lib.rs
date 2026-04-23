@@ -5,4 +5,7 @@
 //! Depends on `forge-core` for type definitions.
 
 pub mod db;
+pub mod forge;
 pub mod services;
+
+pub use forge::Forge;

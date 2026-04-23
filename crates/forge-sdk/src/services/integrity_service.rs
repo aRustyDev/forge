@@ -1,67 +1,205 @@
 //! Integrity service — content drift detection for snapshot-based derivation chain.
 //!
 //! Scans all bullets and perspectives for stale content snapshots.
-//! A "drifted" entity is one where the snapshot stored at derivation time
-//! no longer matches the current content of its parent entity.
-//!
-//! Uses named queries for efficient cross-table comparison:
-//! - `listDriftedBullets`: bullets whose `source_content_snapshot` differs
-//!   from the primary source's current `description`.
-//! - `listDriftedPerspectives`: perspectives whose `bullet_content_snapshot`
-//!   differs from the bullet's current `content`.
-//!
-//! TS source: `packages/core/src/services/integrity-service.ts`
+
+use rusqlite::Connection;
 
 use forge_core::ForgeError;
 
 /// Entity type discriminator for drift reports.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DriftedEntityType {
-    /// A bullet whose `source_content_snapshot` is stale.
     Bullet,
-    /// A perspective whose `bullet_content_snapshot` is stale.
     Perspective,
 }
 
-/// A single entity with a stale snapshot detected by drift scanning.
+/// A single entity with a stale snapshot.
 #[derive(Debug, Clone)]
 pub struct DriftedEntity {
-    /// Whether this is a bullet or perspective.
     pub entity_type: DriftedEntityType,
-    /// The ID of the drifted entity.
     pub entity_id: String,
-    /// The snapshot field name that has drifted.
     pub snapshot_field: String,
-    /// The snapshot value stored at derivation time.
     pub snapshot_value: String,
-    /// The current value of the parent entity's content.
     pub current_value: String,
 }
 
 /// Content drift detection across the entire derivation chain.
-///
-/// Scans all bullets and perspectives, comparing their stored
-/// content snapshots against the current content of their parent
-/// entities to find stale/drifted data.
-pub struct IntegrityService {
-    // ELM / repository handle will be injected here
-}
+pub struct IntegrityService;
 
 impl IntegrityService {
-    /// Create a new IntegrityService instance.
-    pub fn new() -> Self {
-        todo!()
-    }
-
     /// Find all entities with stale snapshots across the entire database.
     ///
-    /// Checks two drift categories:
+    /// Checks:
     /// - **Bullets**: `source_content_snapshot` != primary source's `description`
     /// - **Perspectives**: `bullet_content_snapshot` != bullet's `content`
-    ///
-    /// Returns a flat list of all drifted entities, bullets first, then
-    /// perspectives.
-    pub fn get_drifted_entities(&self) -> Result<Vec<DriftedEntity>, ForgeError> {
-        todo!()
+    pub fn get_drifted_entities(conn: &Connection) -> Result<Vec<DriftedEntity>, ForgeError> {
+        let mut result = Vec::new();
+
+        // Drifted bullets
+        let mut bullet_stmt = conn.prepare(
+            "SELECT b.id, b.source_content_snapshot, s.description
+             FROM bullets b
+             JOIN bullet_sources bs ON b.id = bs.bullet_id AND bs.is_primary = 1
+             JOIN sources s ON bs.source_id = s.id
+             WHERE b.source_content_snapshot != s.description",
+        )?;
+
+        let drifted_bullets: Vec<DriftedEntity> = bullet_stmt
+            .query_map([], |row| {
+                Ok(DriftedEntity {
+                    entity_type: DriftedEntityType::Bullet,
+                    entity_id: row.get(0)?,
+                    snapshot_field: "source_content_snapshot".into(),
+                    snapshot_value: row.get(1)?,
+                    current_value: row.get(2)?,
+                })
+            })?
+            .collect::<Result<_, _>>()?;
+        result.extend(drifted_bullets);
+
+        // Drifted perspectives
+        let mut perspective_stmt = conn.prepare(
+            "SELECT p.id, p.bullet_content_snapshot, b.content
+             FROM perspectives p
+             JOIN bullets b ON p.bullet_id = b.id
+             WHERE p.bullet_content_snapshot != b.content",
+        )?;
+
+        let drifted_perspectives: Vec<DriftedEntity> = perspective_stmt
+            .query_map([], |row| {
+                Ok(DriftedEntity {
+                    entity_type: DriftedEntityType::Perspective,
+                    entity_id: row.get(0)?,
+                    snapshot_field: "bullet_content_snapshot".into(),
+                    snapshot_value: row.get(1)?,
+                    current_value: row.get(2)?,
+                })
+            })?
+            .collect::<Result<_, _>>()?;
+        result.extend(drifted_perspectives);
+
+        Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::bullet_repo::BulletRepository;
+    use crate::db::perspective_repo::PerspectiveRepository;
+    use crate::db::source_repo::SourceRepository;
+    use crate::forge::Forge;
+    use forge_core::{CreatePerspectiveInput, CreateSource, Framing, SourceType};
+    use rusqlite::params;
+
+    fn setup() -> Forge {
+        Forge::open_memory().unwrap()
+    }
+
+    fn create_chain(conn: &Connection) -> (String, String, String) {
+        let source = SourceRepository::create(
+            conn,
+            &CreateSource {
+                title: "Source".into(),
+                description: "Original description".into(),
+                source_type: Some(SourceType::General),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        let bullet = BulletRepository::create(
+            conn,
+            "Original bullet",
+            Some("Original description"),
+            None,
+            None,
+            &[(source.base.id.clone(), true)],
+            &[],
+        )
+        .unwrap();
+
+        let perspective = PerspectiveRepository::create(
+            conn,
+            &CreatePerspectiveInput {
+                bullet_id: bullet.id.clone(),
+                content: "Perspective content".into(),
+                bullet_content_snapshot: "Original bullet".into(),
+                target_archetype: "sre".into(),
+                domain: "infra".into(),
+                framing: Framing::Responsibility,
+                status: None,
+                prompt_log_id: None,
+            },
+        )
+        .unwrap();
+
+        (source.base.id, bullet.id, perspective.id)
+    }
+
+    #[test]
+    fn no_drift_when_all_in_sync() {
+        let forge = setup();
+        create_chain(forge.conn());
+
+        let drifted = IntegrityService::get_drifted_entities(forge.conn()).unwrap();
+        assert!(drifted.is_empty());
+    }
+
+    #[test]
+    fn detects_bullet_drift() {
+        let forge = setup();
+        let (source_id, bullet_id, _) = create_chain(forge.conn());
+
+        // Mutate source description
+        forge.conn().execute(
+            "UPDATE sources SET description = 'Changed description' WHERE id = ?1",
+            params![source_id],
+        ).unwrap();
+
+        let drifted = IntegrityService::get_drifted_entities(forge.conn()).unwrap();
+        assert_eq!(drifted.len(), 1);
+        assert_eq!(drifted[0].entity_type, DriftedEntityType::Bullet);
+        assert_eq!(drifted[0].entity_id, bullet_id);
+        assert_eq!(drifted[0].snapshot_value, "Original description");
+        assert_eq!(drifted[0].current_value, "Changed description");
+    }
+
+    #[test]
+    fn detects_perspective_drift() {
+        let forge = setup();
+        let (_, bullet_id, perspective_id) = create_chain(forge.conn());
+
+        // Mutate bullet content
+        forge.conn().execute(
+            "UPDATE bullets SET content = 'Changed bullet' WHERE id = ?1",
+            params![bullet_id],
+        ).unwrap();
+
+        let drifted = IntegrityService::get_drifted_entities(forge.conn()).unwrap();
+        assert_eq!(drifted.len(), 1);
+        assert_eq!(drifted[0].entity_type, DriftedEntityType::Perspective);
+        assert_eq!(drifted[0].entity_id, perspective_id);
+    }
+
+    #[test]
+    fn detects_both_bullet_and_perspective_drift() {
+        let forge = setup();
+        let (source_id, bullet_id, _) = create_chain(forge.conn());
+
+        // Mutate both source and bullet
+        forge.conn().execute(
+            "UPDATE sources SET description = 'Changed source' WHERE id = ?1",
+            params![source_id],
+        ).unwrap();
+        forge.conn().execute(
+            "UPDATE bullets SET content = 'Changed bullet' WHERE id = ?1",
+            params![bullet_id],
+        ).unwrap();
+
+        let drifted = IntegrityService::get_drifted_entities(forge.conn()).unwrap();
+        assert_eq!(drifted.len(), 2);
+        assert_eq!(drifted[0].entity_type, DriftedEntityType::Bullet);
+        assert_eq!(drifted[1].entity_type, DriftedEntityType::Perspective);
     }
 }

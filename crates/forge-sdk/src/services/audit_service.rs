@@ -1,46 +1,184 @@
 //! Audit service — chain tracing and integrity checking.
 //!
 //! Provides full derivation chain traversal (perspective -> bullet -> source)
-//! and snapshot integrity comparison. Used to verify that content snapshots
-//! stored at derivation time still match the current content of their
-//! parent entities.
-//!
-//! TS source: `packages/core/src/services/audit-service.ts`
+//! and snapshot integrity comparison.
 
-use forge_core::{ChainTrace, ForgeError, IntegrityReport};
+use rusqlite::Connection;
 
-/// Audit operations for the derivation chain: trace provenance and
-/// verify snapshot integrity between perspectives, bullets, and sources.
-pub struct AuditService {
-    // ELM / repository handle will be injected here
-}
+use forge_core::{ChainTrace, ForgeError, IntegrityReport, SnapshotDiff};
+
+use crate::db::perspective_repo::PerspectiveRepository;
+
+/// Audit operations for the derivation chain.
+pub struct AuditService;
 
 impl AuditService {
-    /// Create a new AuditService instance.
-    pub fn new() -> Self {
-        todo!()
-    }
-
     /// Trace the full derivation chain for a perspective.
     ///
-    /// Resolves: perspective -> bullet (via `bullet_id`) -> primary source
-    /// (via `bullet_sources` junction with `is_primary = 1`).
-    ///
-    /// Returns a `NOT_FOUND` error if any link in the chain is broken
-    /// (missing perspective, missing bullet, or no primary source).
-    pub fn trace_chain(&self, perspective_id: &str) -> Result<ChainTrace, ForgeError> {
-        todo!()
+    /// Resolves: perspective -> bullet -> primary source.
+    pub fn trace_chain(conn: &Connection, perspective_id: &str) -> Result<ChainTrace, ForgeError> {
+        let chain = PerspectiveRepository::get_with_chain(conn, perspective_id)?
+            .ok_or_else(|| ForgeError::NotFound {
+                entity_type: "perspective".into(),
+                id: perspective_id.into(),
+            })?;
+
+        Ok(ChainTrace {
+            perspective: chain.base,
+            bullet: chain.bullet,
+            source: chain.source,
+        })
     }
 
     /// Check integrity of a perspective's content snapshots.
     ///
-    /// Traces the derivation chain and then compares:
+    /// Compares:
     /// - `perspective.bullet_content_snapshot` against `bullet.content`
     /// - `bullet.source_content_snapshot` against `source.description`
-    ///
-    /// Returns an `IntegrityReport` indicating whether each snapshot
-    /// matches and, if not, the diff between snapshot and current values.
-    pub fn check_integrity(&self, perspective_id: &str) -> Result<IntegrityReport, ForgeError> {
-        todo!()
+    pub fn check_integrity(conn: &Connection, perspective_id: &str) -> Result<IntegrityReport, ForgeError> {
+        let chain = Self::trace_chain(conn, perspective_id)?;
+
+        let bullet_matches = chain.perspective.bullet_content_snapshot == chain.bullet.content;
+        let source_matches = chain.bullet.source_content_snapshot == chain.source.description;
+
+        Ok(IntegrityReport {
+            perspective_id: perspective_id.to_string(),
+            bullet_snapshot_matches: bullet_matches,
+            source_snapshot_matches: source_matches,
+            bullet_diff: if bullet_matches {
+                None
+            } else {
+                Some(SnapshotDiff {
+                    snapshot: chain.perspective.bullet_content_snapshot,
+                    current: chain.bullet.content,
+                })
+            },
+            source_diff: if source_matches {
+                None
+            } else {
+                Some(SnapshotDiff {
+                    snapshot: chain.bullet.source_content_snapshot,
+                    current: chain.source.description,
+                })
+            },
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::bullet_repo::BulletRepository;
+    use crate::db::perspective_repo::PerspectiveRepository;
+    use crate::db::source_repo::SourceRepository;
+    use crate::forge::Forge;
+    use forge_core::{
+        CreatePerspectiveInput, CreateSource, Framing, SourceType,
+    };
+
+    fn setup() -> (Forge, String, String, String) {
+        let forge = Forge::open_memory().unwrap();
+        let source = SourceRepository::create(
+            forge.conn(),
+            &CreateSource {
+                title: "Test Source".into(),
+                description: "Original source description".into(),
+                source_type: Some(SourceType::General),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let bullet = BulletRepository::create(
+            forge.conn(),
+            "Original bullet content",
+            Some("Original source description"),
+            None,
+            Some("backend"),
+            &[(source.base.id.clone(), true)],
+            &[],
+        )
+        .unwrap();
+        let perspective = PerspectiveRepository::create(
+            forge.conn(),
+            &CreatePerspectiveInput {
+                bullet_id: bullet.id.clone(),
+                content: "Reframed for SRE".into(),
+                bullet_content_snapshot: "Original bullet content".into(),
+                target_archetype: "sre".into(),
+                domain: "infra".into(),
+                framing: Framing::Responsibility,
+                status: None,
+                prompt_log_id: None,
+            },
+        )
+        .unwrap();
+
+        (forge, source.base.id, bullet.id, perspective.id)
+    }
+
+    #[test]
+    fn trace_chain_returns_full_chain() {
+        let (forge, source_id, bullet_id, perspective_id) = setup();
+        let chain = AuditService::trace_chain(forge.conn(), &perspective_id).unwrap();
+
+        assert_eq!(chain.perspective.id, perspective_id);
+        assert_eq!(chain.bullet.id, bullet_id);
+        assert_eq!(chain.source.id, source_id);
+    }
+
+    #[test]
+    fn trace_chain_not_found() {
+        let forge = Forge::open_memory().unwrap();
+        let result = AuditService::trace_chain(forge.conn(), "nonexistent");
+        assert!(matches!(result, Err(ForgeError::NotFound { .. })));
+    }
+
+    #[test]
+    fn check_integrity_all_matching() {
+        let (forge, _, _, perspective_id) = setup();
+        let report = AuditService::check_integrity(forge.conn(), &perspective_id).unwrap();
+
+        assert!(report.bullet_snapshot_matches);
+        assert!(report.source_snapshot_matches);
+        assert!(report.bullet_diff.is_none());
+        assert!(report.source_diff.is_none());
+    }
+
+    #[test]
+    fn check_integrity_detects_bullet_drift() {
+        let (forge, _, bullet_id, perspective_id) = setup();
+
+        // Mutate the bullet content directly
+        forge.conn().execute(
+            "UPDATE bullets SET content = 'Changed bullet content' WHERE id = ?1",
+            rusqlite::params![bullet_id],
+        ).unwrap();
+
+        let report = AuditService::check_integrity(forge.conn(), &perspective_id).unwrap();
+
+        assert!(!report.bullet_snapshot_matches);
+        assert!(report.source_snapshot_matches);
+        let diff = report.bullet_diff.unwrap();
+        assert_eq!(diff.snapshot, "Original bullet content");
+        assert_eq!(diff.current, "Changed bullet content");
+    }
+
+    #[test]
+    fn check_integrity_detects_source_drift() {
+        let (forge, source_id, _, perspective_id) = setup();
+
+        // Mutate the source description directly
+        forge.conn().execute(
+            "UPDATE sources SET description = 'Changed source description' WHERE id = ?1",
+            rusqlite::params![source_id],
+        ).unwrap();
+
+        let report = AuditService::check_integrity(forge.conn(), &perspective_id).unwrap();
+
+        assert!(report.bullet_snapshot_matches);
+        assert!(!report.source_snapshot_matches);
+        let diff = report.source_diff.unwrap();
+        assert_eq!(diff.snapshot, "Original source description");
+        assert_eq!(diff.current, "Changed source description");
     }
 }

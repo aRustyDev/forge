@@ -129,7 +129,7 @@ pub fn validate(data: &Value) -> ValidationResult<SkillExtractionResponse> {
                 message: format!("{prefix}.confidence must be a number"),
             })?;
 
-        let clamped = if confidence < 0.0 || confidence > 1.0 {
+        let clamped = if !(0.0..=1.0).contains(&confidence) {
             warnings.push(Warning {
                 field: format!("{prefix}.confidence"),
                 message: format!(

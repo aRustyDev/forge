@@ -18,9 +18,9 @@ fn capitalize_first(s: &str) -> String {
 ///
 /// Skills have a `UNIQUE(name)` constraint (case-insensitive at the app layer)
 /// and a `category` column that is an FK to `skill_categories.slug`.
-pub struct SkillRepository;
+pub struct SkillStore;
 
-impl SkillRepository {
+impl SkillStore {
     // ── Skill CRUD ──────────────────────────────────────────────────
 
     /// Insert a new skill row. The `name` is capitalized on the first
@@ -367,11 +367,11 @@ mod tests {
     #[test]
     fn create_and_get_skill() {
         let forge = setup();
-        let skill = SkillRepository::create(forge.conn(), "typescript", Some(SkillCategory::Language)).unwrap();
+        let skill = SkillStore::create(forge.conn(), "typescript", Some(SkillCategory::Language)).unwrap();
         assert_eq!(skill.name, "Typescript"); // first char capitalized
         assert_eq!(skill.category, SkillCategory::Language);
 
-        let fetched = SkillRepository::get(forge.conn(), &skill.id).unwrap().unwrap();
+        let fetched = SkillStore::get(forge.conn(), &skill.id).unwrap().unwrap();
         assert_eq!(fetched.id, skill.id);
         assert_eq!(fetched.name, "Typescript");
     }
@@ -379,21 +379,21 @@ mod tests {
     #[test]
     fn create_preserves_case_after_first_char() {
         let forge = setup();
-        let skill = SkillRepository::create(forge.conn(), "SAFe", None).unwrap();
+        let skill = SkillStore::create(forge.conn(), "SAFe", None).unwrap();
         assert_eq!(skill.name, "SAFe");
     }
 
     #[test]
     fn get_returns_none_for_missing() {
         let forge = setup();
-        let result = SkillRepository::get(forge.conn(), "nonexistent").unwrap();
+        let result = SkillStore::get(forge.conn(), "nonexistent").unwrap();
         assert!(result.is_none());
     }
 
     #[test]
     fn list_empty() {
         let forge = setup();
-        let skills = SkillRepository::list(forge.conn(), None, None, None).unwrap();
+        let skills = SkillStore::list(forge.conn(), None, None, None).unwrap();
         // May contain seed data from migrations, but at minimum should not error
         let _ = skills;
     }
@@ -401,10 +401,10 @@ mod tests {
     #[test]
     fn list_with_category_filter() {
         let forge = setup();
-        SkillRepository::create(forge.conn(), "Rust", Some(SkillCategory::Language)).unwrap();
-        SkillRepository::create(forge.conn(), "Docker", Some(SkillCategory::Tool)).unwrap();
+        SkillStore::create(forge.conn(), "Rust", Some(SkillCategory::Language)).unwrap();
+        SkillStore::create(forge.conn(), "Docker", Some(SkillCategory::Tool)).unwrap();
 
-        let langs = SkillRepository::list(forge.conn(), Some(SkillCategory::Language), None, None).unwrap();
+        let langs = SkillStore::list(forge.conn(), Some(SkillCategory::Language), None, None).unwrap();
         assert!(langs.iter().any(|s| s.name == "Rust"));
         assert!(!langs.iter().any(|s| s.name == "Docker"));
     }
@@ -412,10 +412,10 @@ mod tests {
     #[test]
     fn list_with_search() {
         let forge = setup();
-        SkillRepository::create(forge.conn(), "Kubernetes", Some(SkillCategory::Tool)).unwrap();
-        SkillRepository::create(forge.conn(), "Python", Some(SkillCategory::Language)).unwrap();
+        SkillStore::create(forge.conn(), "Kubernetes", Some(SkillCategory::Tool)).unwrap();
+        SkillStore::create(forge.conn(), "Python", Some(SkillCategory::Language)).unwrap();
 
-        let results = SkillRepository::list(forge.conn(), None, None, Some("kube")).unwrap();
+        let results = SkillStore::list(forge.conn(), None, None, Some("kube")).unwrap();
         assert!(results.iter().any(|s| s.name == "Kubernetes"));
         assert!(!results.iter().any(|s| s.name == "Python"));
     }
@@ -423,9 +423,9 @@ mod tests {
     #[test]
     fn find_by_name_case_insensitive() {
         let forge = setup();
-        SkillRepository::create(forge.conn(), "TypeScript", Some(SkillCategory::Language)).unwrap();
+        SkillStore::create(forge.conn(), "TypeScript", Some(SkillCategory::Language)).unwrap();
 
-        let found = SkillRepository::find_by_name(forge.conn(), "typescript").unwrap();
+        let found = SkillStore::find_by_name(forge.conn(), "typescript").unwrap();
         assert!(found.is_some());
         assert_eq!(found.unwrap().name, "TypeScript");
     }
@@ -433,8 +433,8 @@ mod tests {
     #[test]
     fn get_or_create_returns_existing() {
         let forge = setup();
-        let created = SkillRepository::create(forge.conn(), "Go", Some(SkillCategory::Language)).unwrap();
-        let got = SkillRepository::get_or_create(forge.conn(), "go", Some(SkillCategory::Tool)).unwrap();
+        let created = SkillStore::create(forge.conn(), "Go", Some(SkillCategory::Language)).unwrap();
+        let got = SkillStore::get_or_create(forge.conn(), "go", Some(SkillCategory::Tool)).unwrap();
         assert_eq!(got.id, created.id);
         assert_eq!(got.category, SkillCategory::Language); // keeps original category
     }
@@ -442,7 +442,7 @@ mod tests {
     #[test]
     fn get_or_create_creates_new() {
         let forge = setup();
-        let skill = SkillRepository::get_or_create(forge.conn(), "Elixir", Some(SkillCategory::Language)).unwrap();
+        let skill = SkillStore::get_or_create(forge.conn(), "Elixir", Some(SkillCategory::Language)).unwrap();
         assert_eq!(skill.name, "Elixir");
         assert_eq!(skill.category, SkillCategory::Language);
     }
@@ -450,8 +450,8 @@ mod tests {
     #[test]
     fn update_skill() {
         let forge = setup();
-        let skill = SkillRepository::create(forge.conn(), "Pythn", Some(SkillCategory::Language)).unwrap();
-        let updated = SkillRepository::update(forge.conn(), &skill.id, Some("Python"), None).unwrap();
+        let skill = SkillStore::create(forge.conn(), "Pythn", Some(SkillCategory::Language)).unwrap();
+        let updated = SkillStore::update(forge.conn(), &skill.id, Some("Python"), None).unwrap();
         assert_eq!(updated.name, "Python");
         assert_eq!(updated.category, SkillCategory::Language);
     }
@@ -459,23 +459,23 @@ mod tests {
     #[test]
     fn delete_skill() {
         let forge = setup();
-        let skill = SkillRepository::create(forge.conn(), "ToDelete", None).unwrap();
-        SkillRepository::delete(forge.conn(), &skill.id).unwrap();
-        assert!(SkillRepository::get(forge.conn(), &skill.id).unwrap().is_none());
+        let skill = SkillStore::create(forge.conn(), "ToDelete", None).unwrap();
+        SkillStore::delete(forge.conn(), &skill.id).unwrap();
+        assert!(SkillStore::get(forge.conn(), &skill.id).unwrap().is_none());
     }
 
     #[test]
     fn delete_missing_returns_not_found() {
         let forge = setup();
-        let result = SkillRepository::delete(forge.conn(), "nonexistent");
+        let result = SkillStore::delete(forge.conn(), "nonexistent");
         assert!(matches!(result, Err(ForgeError::NotFound { .. })));
     }
 
     #[test]
     fn duplicate_name_returns_conflict() {
         let forge = setup();
-        SkillRepository::create(forge.conn(), "React", Some(SkillCategory::Framework)).unwrap();
-        let result = SkillRepository::create(forge.conn(), "React", Some(SkillCategory::Library));
+        SkillStore::create(forge.conn(), "React", Some(SkillCategory::Framework)).unwrap();
+        let result = SkillStore::create(forge.conn(), "React", Some(SkillCategory::Library));
         assert!(matches!(result, Err(ForgeError::Conflict { .. })));
     }
 }

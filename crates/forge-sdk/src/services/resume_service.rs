@@ -4,7 +4,7 @@
 //! This is the most complex service in Forge: ~10 tables, multiple transaction
 //! scopes, and the largest API surface area. It validates inputs, enforces
 //! status constraints, manages override timestamps, and delegates data access
-//! to `ResumeRepository`.
+//! to `ResumeStore`.
 
 use forge_core::{
     AddResumeCertification, AddResumeEntry, CreateResume, ForgeError, GapAnalysis, Pagination,

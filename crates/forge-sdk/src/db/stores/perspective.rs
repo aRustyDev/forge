@@ -23,9 +23,9 @@ fn valid_transitions(from: &PerspectiveStatus) -> &'static [PerspectiveStatus] {
     }
 }
 
-pub struct PerspectiveRepository;
+pub struct PerspectiveStore;
 
-impl PerspectiveRepository {
+impl PerspectiveStore {
     // ── Create ───────────────────────────────────────────────────────
 
     pub fn create(conn: &Connection, input: &CreatePerspectiveInput) -> Result<Perspective, ForgeError> {
@@ -331,20 +331,20 @@ impl PerspectiveRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::bullet_repo::BulletRepository;
-    use crate::db::source_repo::SourceRepository;
+    use crate::db::stores::bullet::BulletStore;
+    use crate::db::stores::source::SourceStore;
     use crate::forge::Forge;
     use forge_core::{CreateSource, SourceType};
 
     fn setup() -> (Forge, String, String) {
         let forge = Forge::open_memory().unwrap();
-        let source = SourceRepository::create(forge.conn(), &CreateSource {
+        let source = SourceStore::create(forge.conn(), &CreateSource {
             title: "Test Source".into(),
             description: "Test".into(),
             source_type: Some(SourceType::General),
             ..Default::default()
         }).unwrap();
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             forge.conn(), "Built APIs", None, None, Some("backend"),
             &[(source.base.id.clone(), true)], &[],
         ).unwrap();
@@ -354,7 +354,7 @@ mod tests {
     #[test]
     fn create_perspective() {
         let (forge, _, bullet_id) = setup();
-        let p = PerspectiveRepository::create(forge.conn(), &CreatePerspectiveInput {
+        let p = PerspectiveStore::create(forge.conn(), &CreatePerspectiveInput {
             bullet_id: bullet_id.clone(),
             content: "Designed and built scalable REST APIs".into(),
             bullet_content_snapshot: "Built APIs".into(),
@@ -374,7 +374,7 @@ mod tests {
     #[test]
     fn get_with_chain() {
         let (forge, _, bullet_id) = setup();
-        let p = PerspectiveRepository::create(forge.conn(), &CreatePerspectiveInput {
+        let p = PerspectiveStore::create(forge.conn(), &CreatePerspectiveInput {
             bullet_id: bullet_id.clone(),
             content: "Reframed bullet".into(),
             bullet_content_snapshot: "Built APIs".into(),
@@ -385,7 +385,7 @@ mod tests {
             prompt_log_id: None,
         }).unwrap();
 
-        let chain = PerspectiveRepository::get_with_chain(forge.conn(), &p.id).unwrap().unwrap();
+        let chain = PerspectiveStore::get_with_chain(forge.conn(), &p.id).unwrap().unwrap();
         assert_eq!(chain.base.id, p.id);
         assert_eq!(chain.bullet.id, bullet_id);
         assert_eq!(chain.source.title, "Test Source");
@@ -394,7 +394,7 @@ mod tests {
     #[test]
     fn list_with_archetype_filter() {
         let (forge, _, bullet_id) = setup();
-        PerspectiveRepository::create(forge.conn(), &CreatePerspectiveInput {
+        PerspectiveStore::create(forge.conn(), &CreatePerspectiveInput {
             bullet_id: bullet_id.clone(),
             content: "P1".into(),
             bullet_content_snapshot: "snap".into(),
@@ -404,7 +404,7 @@ mod tests {
             status: None,
             prompt_log_id: None,
         }).unwrap();
-        PerspectiveRepository::create(forge.conn(), &CreatePerspectiveInput {
+        PerspectiveStore::create(forge.conn(), &CreatePerspectiveInput {
             bullet_id: bullet_id.clone(),
             content: "P2".into(),
             bullet_content_snapshot: "snap".into(),
@@ -415,7 +415,7 @@ mod tests {
             prompt_log_id: None,
         }).unwrap();
 
-        let (perspectives, _) = PerspectiveRepository::list(
+        let (perspectives, _) = PerspectiveStore::list(
             forge.conn(),
             &PerspectiveFilter { target_archetype: Some("backend".into()), ..Default::default() },
             &PaginationParams::default(),
@@ -427,7 +427,7 @@ mod tests {
     #[test]
     fn status_transitions() {
         let (forge, _, bullet_id) = setup();
-        let p = PerspectiveRepository::create(forge.conn(), &CreatePerspectiveInput {
+        let p = PerspectiveStore::create(forge.conn(), &CreatePerspectiveInput {
             bullet_id,
             content: "Test".into(),
             bullet_content_snapshot: "snap".into(),
@@ -438,10 +438,10 @@ mod tests {
             prompt_log_id: None,
         }).unwrap();
 
-        let p = PerspectiveRepository::transition_status(forge.conn(), &p.id, PerspectiveStatus::InReview, None).unwrap();
+        let p = PerspectiveStore::transition_status(forge.conn(), &p.id, PerspectiveStatus::InReview, None).unwrap();
         assert_eq!(p.status, PerspectiveStatus::InReview);
 
-        let p = PerspectiveRepository::transition_status(forge.conn(), &p.id, PerspectiveStatus::Approved, None).unwrap();
+        let p = PerspectiveStore::transition_status(forge.conn(), &p.id, PerspectiveStatus::Approved, None).unwrap();
         assert_eq!(p.status, PerspectiveStatus::Approved);
         assert!(p.approved_at.is_some());
     }
@@ -449,7 +449,7 @@ mod tests {
     #[test]
     fn delete_perspective() {
         let (forge, _, bullet_id) = setup();
-        let p = PerspectiveRepository::create(forge.conn(), &CreatePerspectiveInput {
+        let p = PerspectiveStore::create(forge.conn(), &CreatePerspectiveInput {
             bullet_id,
             content: "To delete".into(),
             bullet_content_snapshot: "snap".into(),
@@ -460,7 +460,7 @@ mod tests {
             prompt_log_id: None,
         }).unwrap();
 
-        PerspectiveRepository::delete(forge.conn(), &p.id).unwrap();
-        assert!(PerspectiveRepository::get(forge.conn(), &p.id).unwrap().is_none());
+        PerspectiveStore::delete(forge.conn(), &p.id).unwrap();
+        assert!(PerspectiveStore::get(forge.conn(), &p.id).unwrap().is_none());
     }
 }

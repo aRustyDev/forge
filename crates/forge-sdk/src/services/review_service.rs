@@ -146,9 +146,9 @@ impl ReviewService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::bullet_repo::BulletRepository;
-    use crate::db::perspective_repo::PerspectiveRepository;
-    use crate::db::source_repo::SourceRepository;
+    use crate::db::stores::bullet::BulletStore;
+    use crate::db::stores::perspective::PerspectiveStore;
+    use crate::db::stores::source::SourceStore;
     use crate::forge::Forge;
     use forge_core::{CreatePerspectiveInput, CreateSource, Framing, SourceType};
 
@@ -157,7 +157,7 @@ mod tests {
     }
 
     fn create_source(conn: &Connection) -> String {
-        let src = SourceRepository::create(
+        let src = SourceStore::create(
             conn,
             &CreateSource {
                 title: "Test Source".into(),
@@ -183,7 +183,7 @@ mod tests {
         let forge = setup();
         let source_id = create_source(forge.conn());
 
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             forge.conn(),
             "Test bullet",
             None,
@@ -195,7 +195,7 @@ mod tests {
         .unwrap();
 
         // Move to in_review
-        BulletRepository::transition_status(
+        BulletStore::transition_status(
             forge.conn(),
             &bullet.id,
             BulletStatus::InReview,
@@ -216,7 +216,7 @@ mod tests {
         let forge = setup();
         let source_id = create_source(forge.conn());
 
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             forge.conn(),
             "Test bullet",
             None,
@@ -227,7 +227,7 @@ mod tests {
         )
         .unwrap();
 
-        let perspective = PerspectiveRepository::create(
+        let perspective = PerspectiveStore::create(
             forge.conn(),
             &CreatePerspectiveInput {
                 bullet_id: bullet.id.clone(),
@@ -243,7 +243,7 @@ mod tests {
         .unwrap();
 
         // Move to in_review
-        PerspectiveRepository::transition_status(
+        PerspectiveStore::transition_status(
             forge.conn(),
             &perspective.id,
             PerspectiveStatus::InReview,
@@ -263,14 +263,14 @@ mod tests {
         let forge = setup();
         let source_id = create_source(forge.conn());
 
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             forge.conn(), "Test bullet", None, None, None,
             &[(source_id, true)], &[],
         ).unwrap();
 
         // Move to in_review then approved
-        BulletRepository::transition_status(forge.conn(), &bullet.id, BulletStatus::InReview, None).unwrap();
-        BulletRepository::transition_status(forge.conn(), &bullet.id, BulletStatus::Approved, None).unwrap();
+        BulletStore::transition_status(forge.conn(), &bullet.id, BulletStatus::InReview, None).unwrap();
+        BulletStore::transition_status(forge.conn(), &bullet.id, BulletStatus::Approved, None).unwrap();
 
         let queue = ReviewService::get_pending_review(forge.conn()).unwrap();
         assert_eq!(queue.bullets.count, 0);

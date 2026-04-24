@@ -1400,8 +1400,8 @@ fn latex_escape(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::resume_repo::ResumeRepository;
-    use crate::db::skill_repo::SkillRepository;
+    use crate::db::stores::resume::ResumeStore;
+    use crate::db::stores::skill::SkillStore;
     use crate::forge::Forge;
     use forge_core::{AddResumeEntry, CreateResume, SkillCategory};
 
@@ -1418,7 +1418,7 @@ mod tests {
     }
 
     fn create_resume(conn: &Connection) -> String {
-        let resume = ResumeRepository::create(
+        let resume = ResumeStore::create(
             conn,
             &CreateResume {
                 name: "SRE Resume".into(),
@@ -1500,11 +1500,11 @@ mod tests {
         let resume_id = create_resume(forge.conn());
 
         // Create experience section with a simple entry
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume_id, "Experience", "experience", Some(0),
         ).unwrap();
 
-        ResumeRepository::add_entry(forge.conn(), &resume_id, &AddResumeEntry {
+        ResumeStore::add_entry(forge.conn(), &resume_id, &AddResumeEntry {
             section_id: section.id.clone(),
             perspective_id: None,
             source_id: None,
@@ -1527,17 +1527,17 @@ mod tests {
         create_profile(forge.conn());
         let resume_id = create_resume(forge.conn());
 
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume_id, "Skills", "skills", Some(0),
         ).unwrap();
 
-        let rust = SkillRepository::create(forge.conn(), "Rust", Some(SkillCategory::Language)).unwrap();
-        let go = SkillRepository::create(forge.conn(), "Go", Some(SkillCategory::Language)).unwrap();
-        let docker = SkillRepository::create(forge.conn(), "Docker", Some(SkillCategory::Tool)).unwrap();
+        let rust = SkillStore::create(forge.conn(), "Rust", Some(SkillCategory::Language)).unwrap();
+        let go = SkillStore::create(forge.conn(), "Go", Some(SkillCategory::Language)).unwrap();
+        let docker = SkillStore::create(forge.conn(), "Docker", Some(SkillCategory::Tool)).unwrap();
 
-        ResumeRepository::add_skill(forge.conn(), &resume_id, &section.id, &rust.id).unwrap();
-        ResumeRepository::add_skill(forge.conn(), &resume_id, &section.id, &go.id).unwrap();
-        ResumeRepository::add_skill(forge.conn(), &resume_id, &section.id, &docker.id).unwrap();
+        ResumeStore::add_skill(forge.conn(), &resume_id, &section.id, &rust.id).unwrap();
+        ResumeStore::add_skill(forge.conn(), &resume_id, &section.id, &go.id).unwrap();
+        ResumeStore::add_skill(forge.conn(), &resume_id, &section.id, &docker.id).unwrap();
 
         let doc = CompilerService::compile(forge.conn(), &resume_id).unwrap().unwrap();
         let skills_section = doc.sections.iter()
@@ -1561,7 +1561,7 @@ mod tests {
         create_profile(forge.conn());
         let resume_id = create_resume(forge.conn());
 
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume_id, "Certifications", "certifications", Some(0),
         ).unwrap();
 
@@ -1579,7 +1579,7 @@ mod tests {
             params![cert_id, org_id, now],
         ).unwrap();
 
-        ResumeRepository::add_certification(
+        ResumeStore::add_certification(
             forge.conn(), &resume_id,
             &forge_core::AddResumeCertification {
                 certification_id: cert_id,

@@ -16,9 +16,9 @@ use forge_core::{
 
 /// Data access for the `organizations`, `org_tags`, `org_aliases`, and
 /// `org_locations` tables.
-pub struct OrganizationRepository;
+pub struct OrganizationStore;
 
-impl OrganizationRepository {
+impl OrganizationStore {
     // ── Organization CRUD ───────────────────────────────────────────
 
     /// Insert a new organization row and seed its tags.
@@ -383,13 +383,13 @@ mod tests {
             glassdoor_rating: None,
             status: Some(OrganizationStatus::Interested),
         };
-        let org = OrganizationRepository::create(forge.conn(), &input).unwrap();
+        let org = OrganizationStore::create(forge.conn(), &input).unwrap();
         assert_eq!(org.name, "Acme Corp");
         assert_eq!(org.org_type, "company");
         assert_eq!(org.worked, 1);
         assert!(org.tags.contains(&OrgTag::Company)); // default tag from org_type
 
-        let fetched = OrganizationRepository::get(forge.conn(), &org.id).unwrap().unwrap();
+        let fetched = OrganizationStore::get(forge.conn(), &org.id).unwrap().unwrap();
         assert_eq!(fetched.id, org.id);
         assert_eq!(fetched.name, "Acme Corp");
     }
@@ -411,7 +411,7 @@ mod tests {
             glassdoor_rating: None,
             status: None,
         };
-        let org = OrganizationRepository::create(forge.conn(), &input).unwrap();
+        let org = OrganizationStore::create(forge.conn(), &input).unwrap();
         assert!(org.tags.contains(&OrgTag::Company));
         assert!(org.tags.contains(&OrgTag::Vendor));
     }
@@ -419,14 +419,14 @@ mod tests {
     #[test]
     fn get_returns_none_for_missing() {
         let forge = setup();
-        let result = OrganizationRepository::get(forge.conn(), "nonexistent").unwrap();
+        let result = OrganizationStore::get(forge.conn(), "nonexistent").unwrap();
         assert!(result.is_none());
     }
 
     #[test]
     fn list_empty() {
         let forge = setup();
-        let (orgs, pagination) = OrganizationRepository::list(
+        let (orgs, pagination) = OrganizationStore::list(
             forge.conn(),
             None,
             None,
@@ -453,14 +453,14 @@ mod tests {
             glassdoor_rating: None,
             status: None,
         };
-        OrganizationRepository::create(forge.conn(), &mk("CompanyA", "company")).unwrap();
-        OrganizationRepository::create(forge.conn(), &mk("University", "education")).unwrap();
+        OrganizationStore::create(forge.conn(), &mk("CompanyA", "company")).unwrap();
+        OrganizationStore::create(forge.conn(), &mk("University", "education")).unwrap();
 
         let filter = OrganizationFilter {
             org_type: Some("company".into()),
             ..Default::default()
         };
-        let (orgs, _) = OrganizationRepository::list(
+        let (orgs, _) = OrganizationStore::list(
             forge.conn(), Some(&filter), None, None,
         ).unwrap();
         assert_eq!(orgs.len(), 1);
@@ -484,14 +484,14 @@ mod tests {
             glassdoor_rating: None,
             status: None,
         };
-        OrganizationRepository::create(forge.conn(), &mk("Google")).unwrap();
-        OrganizationRepository::create(forge.conn(), &mk("Amazon")).unwrap();
+        OrganizationStore::create(forge.conn(), &mk("Google")).unwrap();
+        OrganizationStore::create(forge.conn(), &mk("Amazon")).unwrap();
 
         let filter = OrganizationFilter {
             search: Some("goo".into()),
             ..Default::default()
         };
-        let (orgs, _) = OrganizationRepository::list(
+        let (orgs, _) = OrganizationStore::list(
             forge.conn(), Some(&filter), None, None,
         ).unwrap();
         assert_eq!(orgs.len(), 1);
@@ -515,7 +515,7 @@ mod tests {
             glassdoor_rating: None,
             status: None,
         };
-        let org = OrganizationRepository::create(forge.conn(), &input).unwrap();
+        let org = OrganizationStore::create(forge.conn(), &input).unwrap();
 
         let update_input = CreateOrganizationInput {
             name: "New Name".into(),
@@ -531,7 +531,7 @@ mod tests {
             glassdoor_rating: None,
             status: None,
         };
-        let updated = OrganizationRepository::update(forge.conn(), &org.id, &update_input).unwrap();
+        let updated = OrganizationStore::update(forge.conn(), &org.id, &update_input).unwrap();
         assert_eq!(updated.name, "New Name");
         assert_eq!(updated.org_type, "nonprofit");
         assert!(updated.tags.contains(&OrgTag::Nonprofit));
@@ -554,15 +554,15 @@ mod tests {
             glassdoor_rating: None,
             status: None,
         };
-        let org = OrganizationRepository::create(forge.conn(), &input).unwrap();
-        OrganizationRepository::delete(forge.conn(), &org.id).unwrap();
-        assert!(OrganizationRepository::get(forge.conn(), &org.id).unwrap().is_none());
+        let org = OrganizationStore::create(forge.conn(), &input).unwrap();
+        OrganizationStore::delete(forge.conn(), &org.id).unwrap();
+        assert!(OrganizationStore::get(forge.conn(), &org.id).unwrap().is_none());
     }
 
     #[test]
     fn delete_missing_returns_not_found() {
         let forge = setup();
-        let result = OrganizationRepository::delete(forge.conn(), "nonexistent");
+        let result = OrganizationStore::delete(forge.conn(), "nonexistent");
         assert!(matches!(result, Err(ForgeError::NotFound { .. })));
     }
 
@@ -583,11 +583,11 @@ mod tests {
             glassdoor_rating: None,
             status: None,
         };
-        let org = OrganizationRepository::create(forge.conn(), &input).unwrap();
+        let org = OrganizationStore::create(forge.conn(), &input).unwrap();
         assert!(org.tags.contains(&OrgTag::Company));
 
-        OrganizationRepository::replace_tags(forge.conn(), &org.id, &["vendor".into(), "platform".into()]).unwrap();
-        let tags = OrganizationRepository::get_tags(forge.conn(), &org.id).unwrap();
+        OrganizationStore::replace_tags(forge.conn(), &org.id, &["vendor".into(), "platform".into()]).unwrap();
+        let tags = OrganizationStore::get_tags(forge.conn(), &org.id).unwrap();
         assert!(!tags.contains(&OrgTag::Company));
         assert!(tags.contains(&OrgTag::Vendor));
         assert!(tags.contains(&OrgTag::Platform));

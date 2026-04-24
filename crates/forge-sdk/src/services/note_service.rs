@@ -1,6 +1,6 @@
 //! Business logic service for user notes.
 //!
-//! Validates input, delegates to `NoteRepo`, and manages the polymorphic
+//! Validates input, delegates to `NoteStore`, and manages the polymorphic
 //! `note_references` junction table for linking notes to arbitrary entities.
 //!
 //! All method bodies are `todo!()` stubs.

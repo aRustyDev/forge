@@ -1,6 +1,6 @@
 //! Business logic service for job descriptions.
 //!
-//! Validates input, delegates to `JdRepo` for persistence, and hydrates
+//! Validates input, delegates to `JdStore` for persistence, and hydrates
 //! `JobDescriptionWithOrg` by joining organization names. Owns the
 //! embedding lifecycle for JD requirement parsing.
 //!

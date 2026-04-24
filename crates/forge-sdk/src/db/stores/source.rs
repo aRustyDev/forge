@@ -13,9 +13,9 @@ use forge_core::{
     SourceType, SourceWithExtension, UpdateSource, UpdatedBy, new_id, now_iso,
 };
 
-pub struct SourceRepository;
+pub struct SourceStore;
 
-impl SourceRepository {
+impl SourceStore {
     // ── Create ───────────────────────────────────────────────────────
 
     /// Insert a source base row + extension row. Returns the full hydrated source.
@@ -406,7 +406,7 @@ mod tests {
             source_type: None,
             ..Default::default()
         };
-        let source = SourceRepository::create(forge.conn(), &input).unwrap();
+        let source = SourceStore::create(forge.conn(), &input).unwrap();
         assert_eq!(source.base.title, "Backend Engineer at Acme");
         assert_eq!(source.base.source_type, SourceType::General);
         assert_eq!(source.base.status, SourceStatus::Draft);
@@ -424,7 +424,7 @@ mod tests {
             work_arrangement: Some("remote".into()),
             ..Default::default()
         };
-        let source = SourceRepository::create(forge.conn(), &input).unwrap();
+        let source = SourceStore::create(forge.conn(), &input).unwrap();
         assert_eq!(source.base.source_type, SourceType::Role);
         match source.extension {
             Some(SourceExtension::Role(role)) => {
@@ -438,14 +438,14 @@ mod tests {
     #[test]
     fn get_returns_none_for_missing() {
         let forge = setup();
-        let result = SourceRepository::get(forge.conn(), "nonexistent").unwrap();
+        let result = SourceStore::get(forge.conn(), "nonexistent").unwrap();
         assert!(result.is_none());
     }
 
     #[test]
     fn list_empty() {
         let forge = setup();
-        let (sources, pagination) = SourceRepository::list(
+        let (sources, pagination) = SourceStore::list(
             forge.conn(),
             &SourceFilter::default(),
             &PaginationParams::default(),
@@ -457,20 +457,20 @@ mod tests {
     #[test]
     fn list_with_type_filter() {
         let forge = setup();
-        SourceRepository::create(forge.conn(), &CreateSource {
+        SourceStore::create(forge.conn(), &CreateSource {
             title: "Role".into(),
             description: "d".into(),
             source_type: Some(SourceType::Role),
             ..Default::default()
         }).unwrap();
-        SourceRepository::create(forge.conn(), &CreateSource {
+        SourceStore::create(forge.conn(), &CreateSource {
             title: "General".into(),
             description: "d".into(),
             source_type: None,
             ..Default::default()
         }).unwrap();
 
-        let (sources, _) = SourceRepository::list(
+        let (sources, _) = SourceStore::list(
             forge.conn(),
             &SourceFilter { source_type: Some(SourceType::Role), ..Default::default() },
             &PaginationParams::default(),
@@ -482,13 +482,13 @@ mod tests {
     #[test]
     fn update_source_title() {
         let forge = setup();
-        let created = SourceRepository::create(forge.conn(), &CreateSource {
+        let created = SourceStore::create(forge.conn(), &CreateSource {
             title: "Old Title".into(),
             description: "desc".into(),
             ..Default::default()
         }).unwrap();
 
-        let updated = SourceRepository::update(forge.conn(), &created.base.id, &UpdateSource {
+        let updated = SourceStore::update(forge.conn(), &created.base.id, &UpdateSource {
             title: Some("New Title".into()),
             ..Default::default()
         }).unwrap();
@@ -498,38 +498,38 @@ mod tests {
     #[test]
     fn delete_source() {
         let forge = setup();
-        let created = SourceRepository::create(forge.conn(), &CreateSource {
+        let created = SourceStore::create(forge.conn(), &CreateSource {
             title: "To Delete".into(),
             description: "desc".into(),
             ..Default::default()
         }).unwrap();
 
-        SourceRepository::delete(forge.conn(), &created.base.id).unwrap();
-        assert!(SourceRepository::get(forge.conn(), &created.base.id).unwrap().is_none());
+        SourceStore::delete(forge.conn(), &created.base.id).unwrap();
+        assert!(SourceStore::get(forge.conn(), &created.base.id).unwrap().is_none());
     }
 
     #[test]
     fn delete_missing_returns_not_found() {
         let forge = setup();
-        let result = SourceRepository::delete(forge.conn(), "nonexistent");
+        let result = SourceStore::delete(forge.conn(), "nonexistent");
         assert!(matches!(result, Err(ForgeError::NotFound { .. })));
     }
 
     #[test]
     fn search_filter() {
         let forge = setup();
-        SourceRepository::create(forge.conn(), &CreateSource {
+        SourceStore::create(forge.conn(), &CreateSource {
             title: "Rust Developer".into(),
             description: "Systems programming".into(),
             ..Default::default()
         }).unwrap();
-        SourceRepository::create(forge.conn(), &CreateSource {
+        SourceStore::create(forge.conn(), &CreateSource {
             title: "Python Dev".into(),
             description: "Data science".into(),
             ..Default::default()
         }).unwrap();
 
-        let (sources, _) = SourceRepository::list(
+        let (sources, _) = SourceStore::list(
             forge.conn(),
             &SourceFilter { search: Some("rust".into()), ..Default::default() },
             &PaginationParams::default(),

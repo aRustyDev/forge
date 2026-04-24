@@ -11,9 +11,9 @@ use forge_core::{
 };
 
 /// Data-access repository for job descriptions.
-pub struct JdRepo;
+pub struct JdStore;
 
-impl JdRepo {
+impl JdStore {
     // ── Create ───────────────────────────────────────────────────────
 
     /// Insert a new job description row.
@@ -329,12 +329,12 @@ mod tests {
     #[test]
     fn create_and_get() {
         let forge = setup();
-        let jd = JdRepo::create(forge.conn(), &sample_input()).unwrap();
+        let jd = JdStore::create(forge.conn(), &sample_input()).unwrap();
         assert_eq!(jd.title, "Senior Rust Engineer");
         assert_eq!(jd.status, JobDescriptionStatus::Discovered);
         assert_eq!(jd.url, Some("https://example.com/jobs/123".into()));
 
-        let fetched = JdRepo::get(forge.conn(), &jd.id).unwrap().unwrap();
+        let fetched = JdStore::get(forge.conn(), &jd.id).unwrap().unwrap();
         assert_eq!(fetched.id, jd.id);
         assert_eq!(fetched.title, jd.title);
     }
@@ -342,14 +342,14 @@ mod tests {
     #[test]
     fn get_returns_none_for_missing() {
         let forge = setup();
-        let result = JdRepo::get(forge.conn(), "nonexistent").unwrap();
+        let result = JdStore::get(forge.conn(), "nonexistent").unwrap();
         assert!(result.is_none());
     }
 
     #[test]
     fn list_empty() {
         let forge = setup();
-        let (rows, pagination) = JdRepo::list(
+        let (rows, pagination) = JdStore::list(
             forge.conn(),
             &JobDescriptionFilter::default(),
             0,
@@ -362,15 +362,15 @@ mod tests {
     #[test]
     fn list_with_status_filter() {
         let forge = setup();
-        JdRepo::create(forge.conn(), &sample_input()).unwrap();
-        JdRepo::create(forge.conn(), &CreateJobDescription {
+        JdStore::create(forge.conn(), &sample_input()).unwrap();
+        JdStore::create(forge.conn(), &CreateJobDescription {
             title: "Python Dev".into(),
             raw_text: "Python job".into(),
             status: Some(JobDescriptionStatus::Applied),
             ..sample_input()
         }).unwrap();
 
-        let (rows, _) = JdRepo::list(
+        let (rows, _) = JdStore::list(
             forge.conn(),
             &JobDescriptionFilter { status: Some(JobDescriptionStatus::Applied), ..Default::default() },
             0,
@@ -383,8 +383,8 @@ mod tests {
     #[test]
     fn update_title() {
         let forge = setup();
-        let created = JdRepo::create(forge.conn(), &sample_input()).unwrap();
-        let updated = JdRepo::update(forge.conn(), &created.id, &UpdateJobDescription {
+        let created = JdStore::create(forge.conn(), &sample_input()).unwrap();
+        let updated = JdStore::update(forge.conn(), &created.id, &UpdateJobDescription {
             title: Some("Staff Rust Engineer".into()),
             ..Default::default()
         }).unwrap();
@@ -394,27 +394,27 @@ mod tests {
     #[test]
     fn delete_jd() {
         let forge = setup();
-        let created = JdRepo::create(forge.conn(), &sample_input()).unwrap();
-        JdRepo::delete(forge.conn(), &created.id).unwrap();
-        assert!(JdRepo::get(forge.conn(), &created.id).unwrap().is_none());
+        let created = JdStore::create(forge.conn(), &sample_input()).unwrap();
+        JdStore::delete(forge.conn(), &created.id).unwrap();
+        assert!(JdStore::get(forge.conn(), &created.id).unwrap().is_none());
     }
 
     #[test]
     fn delete_missing_returns_not_found() {
         let forge = setup();
-        let result = JdRepo::delete(forge.conn(), "nonexistent");
+        let result = JdStore::delete(forge.conn(), "nonexistent");
         assert!(matches!(result, Err(ForgeError::NotFound { .. })));
     }
 
     #[test]
     fn find_by_url() {
         let forge = setup();
-        let created = JdRepo::create(forge.conn(), &sample_input()).unwrap();
-        let found = JdRepo::find_by_url(forge.conn(), "https://example.com/jobs/123").unwrap();
+        let created = JdStore::create(forge.conn(), &sample_input()).unwrap();
+        let found = JdStore::find_by_url(forge.conn(), "https://example.com/jobs/123").unwrap();
         assert!(found.is_some());
         assert_eq!(found.unwrap().id, created.id);
 
-        let missing = JdRepo::find_by_url(forge.conn(), "https://nope.com").unwrap();
+        let missing = JdStore::find_by_url(forge.conn(), "https://nope.com").unwrap();
         assert!(missing.is_none());
     }
 }

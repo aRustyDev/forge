@@ -12,9 +12,9 @@ use forge_core::{
 };
 
 /// Data-access repository for summaries and the `summary_skills` junction.
-pub struct SummaryRepo;
+pub struct SummaryStore;
 
-impl SummaryRepo {
+impl SummaryStore {
     // ── Core CRUD ───────────────────────────────────────────────────
 
     /// Insert a new summary row.
@@ -449,13 +449,13 @@ mod tests {
             role_type_id: None,
             notes: Some("For cloud roles".into()),
         };
-        let summary = SummaryRepo::create(forge.conn(), &input).unwrap();
+        let summary = SummaryStore::create(forge.conn(), &input).unwrap();
         assert_eq!(summary.title, "Senior SRE Summary");
         assert_eq!(summary.role, Some("Senior SRE".into()));
         assert_eq!(summary.is_template, 0);
         assert_eq!(summary.linked_resume_count, 0);
 
-        let fetched = SummaryRepo::get(forge.conn(), &summary.id).unwrap().unwrap();
+        let fetched = SummaryStore::get(forge.conn(), &summary.id).unwrap().unwrap();
         assert_eq!(fetched.id, summary.id);
         assert_eq!(fetched.title, "Senior SRE Summary");
     }
@@ -472,21 +472,21 @@ mod tests {
             role_type_id: None,
             notes: None,
         };
-        let summary = SummaryRepo::create(forge.conn(), &input).unwrap();
+        let summary = SummaryStore::create(forge.conn(), &input).unwrap();
         assert_eq!(summary.is_template, 1);
     }
 
     #[test]
     fn get_returns_none_for_missing() {
         let forge = setup();
-        let result = SummaryRepo::get(forge.conn(), "nonexistent").unwrap();
+        let result = SummaryStore::get(forge.conn(), "nonexistent").unwrap();
         assert!(result.is_none());
     }
 
     #[test]
     fn list_empty() {
         let forge = setup();
-        let (summaries, pagination) = SummaryRepo::list(
+        let (summaries, pagination) = SummaryStore::list(
             forge.conn(), None, None, 0, 50,
         ).unwrap();
         assert!(summaries.is_empty());
@@ -496,7 +496,7 @@ mod tests {
     #[test]
     fn list_with_template_filter() {
         let forge = setup();
-        SummaryRepo::create(forge.conn(), &CreateSummary {
+        SummaryStore::create(forge.conn(), &CreateSummary {
             title: "Template".into(),
             role: None,
             description: None,
@@ -505,7 +505,7 @@ mod tests {
             role_type_id: None,
             notes: None,
         }).unwrap();
-        SummaryRepo::create(forge.conn(), &CreateSummary {
+        SummaryStore::create(forge.conn(), &CreateSummary {
             title: "Regular".into(),
             role: None,
             description: None,
@@ -516,7 +516,7 @@ mod tests {
         }).unwrap();
 
         let filter = SummaryFilter { is_template: Some(1), ..Default::default() };
-        let (summaries, _) = SummaryRepo::list(
+        let (summaries, _) = SummaryStore::list(
             forge.conn(), Some(&filter), None, 0, 50,
         ).unwrap();
         assert_eq!(summaries.len(), 1);
@@ -526,7 +526,7 @@ mod tests {
     #[test]
     fn list_with_search() {
         let forge = setup();
-        SummaryRepo::create(forge.conn(), &CreateSummary {
+        SummaryStore::create(forge.conn(), &CreateSummary {
             title: "Cloud Engineer".into(),
             role: None,
             description: Some("AWS and GCP expert".into()),
@@ -535,7 +535,7 @@ mod tests {
             role_type_id: None,
             notes: None,
         }).unwrap();
-        SummaryRepo::create(forge.conn(), &CreateSummary {
+        SummaryStore::create(forge.conn(), &CreateSummary {
             title: "Security Analyst".into(),
             role: None,
             description: None,
@@ -546,7 +546,7 @@ mod tests {
         }).unwrap();
 
         let filter = SummaryFilter { search: Some("cloud".into()), ..Default::default() };
-        let (summaries, _) = SummaryRepo::list(
+        let (summaries, _) = SummaryStore::list(
             forge.conn(), Some(&filter), None, 0, 50,
         ).unwrap();
         assert_eq!(summaries.len(), 1);
@@ -556,7 +556,7 @@ mod tests {
     #[test]
     fn update_summary() {
         let forge = setup();
-        let summary = SummaryRepo::create(forge.conn(), &CreateSummary {
+        let summary = SummaryStore::create(forge.conn(), &CreateSummary {
             title: "Old Title".into(),
             role: Some("Old Role".into()),
             description: None,
@@ -566,7 +566,7 @@ mod tests {
             notes: None,
         }).unwrap();
 
-        let updated = SummaryRepo::update(forge.conn(), &summary.id, &UpdateSummary {
+        let updated = SummaryStore::update(forge.conn(), &summary.id, &UpdateSummary {
             title: Some("New Title".into()),
             role: Some(Some("New Role".into())),
             ..Default::default()
@@ -578,7 +578,7 @@ mod tests {
     #[test]
     fn delete_summary() {
         let forge = setup();
-        let summary = SummaryRepo::create(forge.conn(), &CreateSummary {
+        let summary = SummaryStore::create(forge.conn(), &CreateSummary {
             title: "To Delete".into(),
             role: None,
             description: None,
@@ -588,21 +588,21 @@ mod tests {
             notes: None,
         }).unwrap();
 
-        SummaryRepo::delete(forge.conn(), &summary.id).unwrap();
-        assert!(SummaryRepo::get(forge.conn(), &summary.id).unwrap().is_none());
+        SummaryStore::delete(forge.conn(), &summary.id).unwrap();
+        assert!(SummaryStore::get(forge.conn(), &summary.id).unwrap().is_none());
     }
 
     #[test]
     fn delete_missing_returns_not_found() {
         let forge = setup();
-        let result = SummaryRepo::delete(forge.conn(), "nonexistent");
+        let result = SummaryStore::delete(forge.conn(), "nonexistent");
         assert!(matches!(result, Err(ForgeError::NotFound { .. })));
     }
 
     #[test]
     fn toggle_template() {
         let forge = setup();
-        let summary = SummaryRepo::create(forge.conn(), &CreateSummary {
+        let summary = SummaryStore::create(forge.conn(), &CreateSummary {
             title: "Toggle Test".into(),
             role: None,
             description: None,
@@ -613,17 +613,17 @@ mod tests {
         }).unwrap();
         assert_eq!(summary.is_template, 0);
 
-        let toggled = SummaryRepo::toggle_template(forge.conn(), &summary.id).unwrap();
+        let toggled = SummaryStore::toggle_template(forge.conn(), &summary.id).unwrap();
         assert_eq!(toggled.is_template, 1);
 
-        let toggled_back = SummaryRepo::toggle_template(forge.conn(), &summary.id).unwrap();
+        let toggled_back = SummaryStore::toggle_template(forge.conn(), &summary.id).unwrap();
         assert_eq!(toggled_back.is_template, 0);
     }
 
     #[test]
     fn clone_summary() {
         let forge = setup();
-        let original = SummaryRepo::create(forge.conn(), &CreateSummary {
+        let original = SummaryStore::create(forge.conn(), &CreateSummary {
             title: "Original".into(),
             role: Some("Dev".into()),
             description: Some("Desc".into()),
@@ -633,7 +633,7 @@ mod tests {
             notes: Some("Notes".into()),
         }).unwrap();
 
-        let cloned = SummaryRepo::clone_summary(forge.conn(), &original.id).unwrap();
+        let cloned = SummaryStore::clone_summary(forge.conn(), &original.id).unwrap();
         assert_eq!(cloned.title, "Copy of Original");
         assert_eq!(cloned.role, Some("Dev".into()));
         assert_eq!(cloned.description, Some("Desc".into()));
@@ -645,7 +645,7 @@ mod tests {
     fn list_templates_float_to_top() {
         let forge = setup();
         // Create regular first, then template
-        SummaryRepo::create(forge.conn(), &CreateSummary {
+        SummaryStore::create(forge.conn(), &CreateSummary {
             title: "Regular Summary".into(),
             role: None,
             description: None,
@@ -654,7 +654,7 @@ mod tests {
             role_type_id: None,
             notes: None,
         }).unwrap();
-        SummaryRepo::create(forge.conn(), &CreateSummary {
+        SummaryStore::create(forge.conn(), &CreateSummary {
             title: "Template Summary".into(),
             role: None,
             description: None,
@@ -664,7 +664,7 @@ mod tests {
             notes: None,
         }).unwrap();
 
-        let (summaries, _) = SummaryRepo::list(
+        let (summaries, _) = SummaryStore::list(
             forge.conn(), None, None, 0, 50,
         ).unwrap();
         assert_eq!(summaries.len(), 2);

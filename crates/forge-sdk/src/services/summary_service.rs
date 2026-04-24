@@ -1,6 +1,6 @@
 //! Business logic service for summaries.
 //!
-//! Validates input, delegates to `SummaryRepo`, and hydrates
+//! Validates input, delegates to `SummaryStore`, and hydrates
 //! `SummaryWithRelations` by joining industry, role_type, and keyword skills.
 //! Supports cloning, template toggling, and skill keyword junction management.
 //!

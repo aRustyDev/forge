@@ -7,7 +7,7 @@ use rusqlite::Connection;
 
 use forge_core::{ChainTrace, ForgeError, IntegrityReport, SnapshotDiff};
 
-use crate::db::perspective_repo::PerspectiveRepository;
+use crate::db::stores::perspective::PerspectiveStore;
 
 /// Audit operations for the derivation chain.
 pub struct AuditService;
@@ -17,7 +17,7 @@ impl AuditService {
     ///
     /// Resolves: perspective -> bullet -> primary source.
     pub fn trace_chain(conn: &Connection, perspective_id: &str) -> Result<ChainTrace, ForgeError> {
-        let chain = PerspectiveRepository::get_with_chain(conn, perspective_id)?
+        let chain = PerspectiveStore::get_with_chain(conn, perspective_id)?
             .ok_or_else(|| ForgeError::NotFound {
                 entity_type: "perspective".into(),
                 id: perspective_id.into(),
@@ -68,9 +68,9 @@ impl AuditService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::bullet_repo::BulletRepository;
-    use crate::db::perspective_repo::PerspectiveRepository;
-    use crate::db::source_repo::SourceRepository;
+    use crate::db::stores::bullet::BulletStore;
+    use crate::db::stores::perspective::PerspectiveStore;
+    use crate::db::stores::source::SourceStore;
     use crate::forge::Forge;
     use forge_core::{
         CreatePerspectiveInput, CreateSource, Framing, SourceType,
@@ -78,7 +78,7 @@ mod tests {
 
     fn setup() -> (Forge, String, String, String) {
         let forge = Forge::open_memory().unwrap();
-        let source = SourceRepository::create(
+        let source = SourceStore::create(
             forge.conn(),
             &CreateSource {
                 title: "Test Source".into(),
@@ -88,7 +88,7 @@ mod tests {
             },
         )
         .unwrap();
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             forge.conn(),
             "Original bullet content",
             Some("Original source description"),
@@ -98,7 +98,7 @@ mod tests {
             &[],
         )
         .unwrap();
-        let perspective = PerspectiveRepository::create(
+        let perspective = PerspectiveStore::create(
             forge.conn(),
             &CreatePerspectiveInput {
                 bullet_id: bullet.id.clone(),

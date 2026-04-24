@@ -21,9 +21,9 @@ fn valid_transitions(from: &BulletStatus) -> &'static [BulletStatus] {
     }
 }
 
-pub struct BulletRepository;
+pub struct BulletStore;
 
-impl BulletRepository {
+impl BulletStore {
     // ── Create ───────────────────────────────────────────────────────
 
     /// Create a bullet, optionally linking to sources and technologies.
@@ -346,7 +346,7 @@ impl BulletRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::source_repo::SourceRepository;
+    use crate::db::stores::source::SourceStore;
     use crate::forge::Forge;
     use forge_core::{CreateSource, SourceType};
 
@@ -355,7 +355,7 @@ mod tests {
     }
 
     fn create_source(conn: &Connection) -> String {
-        let src = SourceRepository::create(conn, &CreateSource {
+        let src = SourceStore::create(conn, &CreateSource {
             title: "Test Source".into(),
             description: "Test description".into(),
             source_type: Some(SourceType::General),
@@ -368,7 +368,7 @@ mod tests {
     fn create_bullet_basic() {
         let forge = setup();
         let source_id = create_source(forge.conn());
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             forge.conn(),
             "Built high-performance REST APIs",
             None,
@@ -388,7 +388,7 @@ mod tests {
     #[test]
     fn get_returns_none_for_missing() {
         let forge = setup();
-        assert!(BulletRepository::get_hydrated(forge.conn(), "nonexistent").unwrap().is_none());
+        assert!(BulletStore::get_hydrated(forge.conn(), "nonexistent").unwrap().is_none());
     }
 
     #[test]
@@ -397,10 +397,10 @@ mod tests {
         let s1 = create_source(forge.conn());
         let s2 = create_source(forge.conn());
 
-        BulletRepository::create(forge.conn(), "Bullet A", None, None, None, &[(s1.clone(), true)], &[]).unwrap();
-        BulletRepository::create(forge.conn(), "Bullet B", None, None, None, &[(s2, true)], &[]).unwrap();
+        BulletStore::create(forge.conn(), "Bullet A", None, None, None, &[(s1.clone(), true)], &[]).unwrap();
+        BulletStore::create(forge.conn(), "Bullet B", None, None, None, &[(s2, true)], &[]).unwrap();
 
-        let (bullets, _) = BulletRepository::list(
+        let (bullets, _) = BulletStore::list(
             forge.conn(),
             &BulletFilter { source_id: Some(s1), ..Default::default() },
             &PaginationParams::default(),
@@ -413,21 +413,21 @@ mod tests {
     fn status_transitions() {
         let forge = setup();
         let source_id = create_source(forge.conn());
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             forge.conn(), "Test bullet", None, None, None, &[(source_id, true)], &[],
         ).unwrap();
 
         // draft → in_review
-        let b = BulletRepository::transition_status(forge.conn(), &bullet.id, BulletStatus::InReview, None).unwrap();
+        let b = BulletStore::transition_status(forge.conn(), &bullet.id, BulletStatus::InReview, None).unwrap();
         assert_eq!(b.status, BulletStatus::InReview);
 
         // in_review → approved
-        let b = BulletRepository::transition_status(forge.conn(), &b.id, BulletStatus::Approved, None).unwrap();
+        let b = BulletStore::transition_status(forge.conn(), &b.id, BulletStatus::Approved, None).unwrap();
         assert_eq!(b.status, BulletStatus::Approved);
         assert!(b.approved_at.is_some());
 
         // approved → draft (invalid)
-        let result = BulletRepository::transition_status(forge.conn(), &b.id, BulletStatus::Draft, None);
+        let result = BulletStore::transition_status(forge.conn(), &b.id, BulletStatus::Draft, None);
         assert!(result.is_err());
     }
 
@@ -435,12 +435,12 @@ mod tests {
     fn reject_with_reason() {
         let forge = setup();
         let source_id = create_source(forge.conn());
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             forge.conn(), "Test", None, None, None, &[(source_id, true)], &[],
         ).unwrap();
 
-        BulletRepository::transition_status(forge.conn(), &bullet.id, BulletStatus::InReview, None).unwrap();
-        let b = BulletRepository::transition_status(
+        BulletStore::transition_status(forge.conn(), &bullet.id, BulletStatus::InReview, None).unwrap();
+        let b = BulletStore::transition_status(
             forge.conn(), &bullet.id, BulletStatus::Rejected, Some("Too vague"),
         ).unwrap();
         assert_eq!(b.status, BulletStatus::Rejected);
@@ -451,12 +451,12 @@ mod tests {
     fn update_technologies() {
         let forge = setup();
         let source_id = create_source(forge.conn());
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             forge.conn(), "Test", None, None, None, &[(source_id, true)], &["python".into()],
         ).unwrap();
         assert_eq!(bullet.technologies, vec!["python"]);
 
-        let updated = BulletRepository::update(forge.conn(), &bullet.id, &UpdateBulletInput {
+        let updated = BulletStore::update(forge.conn(), &bullet.id, &UpdateBulletInput {
             technologies: Some(vec!["rust".into(), "go".into()]),
             ..Default::default()
         }).unwrap();
@@ -467,11 +467,11 @@ mod tests {
     fn delete_bullet() {
         let forge = setup();
         let source_id = create_source(forge.conn());
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             forge.conn(), "To delete", None, None, None, &[(source_id, true)], &[],
         ).unwrap();
 
-        BulletRepository::delete(forge.conn(), &bullet.id).unwrap();
-        assert!(BulletRepository::get_hydrated(forge.conn(), &bullet.id).unwrap().is_none());
+        BulletStore::delete(forge.conn(), &bullet.id).unwrap();
+        assert!(BulletStore::get_hydrated(forge.conn(), &bullet.id).unwrap().is_none());
     }
 }

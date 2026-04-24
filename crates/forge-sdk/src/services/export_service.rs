@@ -323,9 +323,9 @@ impl ExportService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::bullet_repo::BulletRepository;
-    use crate::db::source_repo::SourceRepository;
-    use crate::db::skill_repo::SkillRepository;
+    use crate::db::stores::bullet::BulletStore;
+    use crate::db::stores::source::SourceStore;
+    use crate::db::stores::skill::SkillStore;
     use crate::forge::Forge;
     use forge_core::{CreateSource, SourceType};
 
@@ -345,7 +345,7 @@ mod tests {
     #[test]
     fn export_sources() {
         let forge = setup();
-        SourceRepository::create(
+        SourceStore::create(
             forge.conn(),
             &CreateSource {
                 title: "Test Source".into(),
@@ -364,7 +364,7 @@ mod tests {
     #[test]
     fn export_bullets_with_technologies() {
         let forge = setup();
-        let src = SourceRepository::create(
+        let src = SourceStore::create(
             forge.conn(),
             &CreateSource {
                 title: "Source".into(),
@@ -374,7 +374,7 @@ mod tests {
             },
         ).unwrap();
 
-        BulletRepository::create(
+        BulletStore::create(
             forge.conn(),
             "Built APIs",
             None,
@@ -393,8 +393,8 @@ mod tests {
     #[test]
     fn export_skills() {
         let forge = setup();
-        SkillRepository::create(forge.conn(), "Rust", Some(SkillCategory::Language)).unwrap();
-        SkillRepository::create(forge.conn(), "Docker", Some(SkillCategory::Tool)).unwrap();
+        SkillStore::create(forge.conn(), "Rust", Some(SkillCategory::Language)).unwrap();
+        SkillStore::create(forge.conn(), "Docker", Some(SkillCategory::Tool)).unwrap();
 
         let bundle = ExportService::export_data(forge.conn(), &["skills".into()]).unwrap();
         let skills = bundle.skills.unwrap();
@@ -439,7 +439,7 @@ mod tests {
     #[test]
     fn dump_database_contains_data() {
         let forge = setup();
-        SourceRepository::create(
+        SourceStore::create(
             forge.conn(),
             &CreateSource {
                 title: "Dump Test".into(),

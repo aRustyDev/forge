@@ -14,9 +14,9 @@ use forge_core::{
 };
 
 /// Data access for resume-related tables.
-pub struct ResumeRepository;
+pub struct ResumeStore;
 
-impl ResumeRepository {
+impl ResumeStore {
     // ── Resume CRUD ─────────────────────────────────────────────────
 
     /// Insert a new resume row. Returns the hydrated `Resume`.
@@ -1046,10 +1046,10 @@ impl ResumeRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::source_repo::SourceRepository;
-    use crate::db::bullet_repo::BulletRepository;
-    use crate::db::perspective_repo::PerspectiveRepository;
-    use crate::db::skill_repo::SkillRepository;
+    use crate::db::stores::source::SourceStore;
+    use crate::db::stores::bullet::BulletStore;
+    use crate::db::stores::perspective::PerspectiveStore;
+    use crate::db::stores::skill::SkillStore;
     use crate::forge::Forge;
     use forge_core::{CreateSource, SourceType, CreatePerspectiveInput, Framing, SkillCategory};
 
@@ -1058,7 +1058,7 @@ mod tests {
     }
 
     fn create_resume(conn: &Connection) -> Resume {
-        ResumeRepository::create(
+        ResumeStore::create(
             conn,
             &CreateResume {
                 name: "SRE Resume".into(),
@@ -1072,7 +1072,7 @@ mod tests {
     }
 
     fn create_source(conn: &Connection) -> String {
-        let src = SourceRepository::create(
+        let src = SourceStore::create(
             conn,
             &CreateSource {
                 title: "Test Source".into(),
@@ -1087,7 +1087,7 @@ mod tests {
 
     fn create_approved_perspective(conn: &Connection) -> (String, String) {
         let source_id = create_source(conn);
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             conn,
             "Built distributed systems",
             None,
@@ -1099,14 +1099,14 @@ mod tests {
         .unwrap();
 
         // Transition bullet to approved
-        BulletRepository::transition_status(
+        BulletStore::transition_status(
             conn,
             &bullet.id,
             forge_core::BulletStatus::InReview,
             None,
         )
         .unwrap();
-        BulletRepository::transition_status(
+        BulletStore::transition_status(
             conn,
             &bullet.id,
             forge_core::BulletStatus::Approved,
@@ -1114,7 +1114,7 @@ mod tests {
         )
         .unwrap();
 
-        let perspective = PerspectiveRepository::create(
+        let perspective = PerspectiveStore::create(
             conn,
             &CreatePerspectiveInput {
                 bullet_id: bullet.id.clone(),
@@ -1130,14 +1130,14 @@ mod tests {
         .unwrap();
 
         // Approve perspective
-        PerspectiveRepository::transition_status(
+        PerspectiveStore::transition_status(
             conn,
             &perspective.id,
             forge_core::PerspectiveStatus::InReview,
             None,
         )
         .unwrap();
-        PerspectiveRepository::transition_status(
+        PerspectiveStore::transition_status(
             conn,
             &perspective.id,
             forge_core::PerspectiveStatus::Approved,
@@ -1164,13 +1164,13 @@ mod tests {
     #[test]
     fn get_resume_returns_none_for_missing() {
         let forge = setup();
-        assert!(ResumeRepository::get(forge.conn(), "nonexistent").unwrap().is_none());
+        assert!(ResumeStore::get(forge.conn(), "nonexistent").unwrap().is_none());
     }
 
     #[test]
     fn list_empty() {
         let forge = setup();
-        let (resumes, pagination) = ResumeRepository::list(forge.conn(), 0, 50).unwrap();
+        let (resumes, pagination) = ResumeStore::list(forge.conn(), 0, 50).unwrap();
         assert!(resumes.is_empty());
         assert_eq!(pagination.total, 0);
     }
@@ -1179,7 +1179,7 @@ mod tests {
     fn list_with_pagination() {
         let forge = setup();
         for i in 0..5 {
-            ResumeRepository::create(
+            ResumeStore::create(
                 forge.conn(),
                 &CreateResume {
                     name: format!("Resume {i}"),
@@ -1192,11 +1192,11 @@ mod tests {
             .unwrap();
         }
 
-        let (page, pagination) = ResumeRepository::list(forge.conn(), 0, 2).unwrap();
+        let (page, pagination) = ResumeStore::list(forge.conn(), 0, 2).unwrap();
         assert_eq!(page.len(), 2);
         assert_eq!(pagination.total, 5);
 
-        let (page2, _) = ResumeRepository::list(forge.conn(), 2, 2).unwrap();
+        let (page2, _) = ResumeStore::list(forge.conn(), 2, 2).unwrap();
         assert_eq!(page2.len(), 2);
         // Pages should not overlap
         assert_ne!(page[0].id, page2[0].id);
@@ -1207,7 +1207,7 @@ mod tests {
         let forge = setup();
         let resume = create_resume(forge.conn());
 
-        let updated = ResumeRepository::update(
+        let updated = ResumeStore::update(
             forge.conn(),
             &resume.id,
             &UpdateResume {
@@ -1230,7 +1230,7 @@ mod tests {
         let resume = create_resume(forge.conn());
 
         // Set markdown override
-        let updated = ResumeRepository::update(
+        let updated = ResumeStore::update(
             forge.conn(),
             &resume.id,
             &UpdateResume {
@@ -1243,7 +1243,7 @@ mod tests {
         assert!(updated.markdown_override_updated_at.is_some());
 
         // Clear markdown override
-        let cleared = ResumeRepository::update(
+        let cleared = ResumeStore::update(
             forge.conn(),
             &resume.id,
             &UpdateResume {
@@ -1259,14 +1259,14 @@ mod tests {
     fn delete_resume() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        ResumeRepository::delete(forge.conn(), &resume.id).unwrap();
-        assert!(ResumeRepository::get(forge.conn(), &resume.id).unwrap().is_none());
+        ResumeStore::delete(forge.conn(), &resume.id).unwrap();
+        assert!(ResumeStore::get(forge.conn(), &resume.id).unwrap().is_none());
     }
 
     #[test]
     fn delete_missing_returns_not_found() {
         let forge = setup();
-        let result = ResumeRepository::delete(forge.conn(), "nonexistent");
+        let result = ResumeStore::delete(forge.conn(), "nonexistent");
         assert!(matches!(result, Err(ForgeError::NotFound { .. })));
     }
 
@@ -1277,10 +1277,10 @@ mod tests {
         let forge = setup();
         let resume = create_resume(forge.conn());
 
-        let s1 = ResumeRepository::create_section(
+        let s1 = ResumeStore::create_section(
             forge.conn(), &resume.id, "Experience", "experience", None,
         ).unwrap();
-        let s2 = ResumeRepository::create_section(
+        let s2 = ResumeStore::create_section(
             forge.conn(), &resume.id, "Skills", "skills", None,
         ).unwrap();
 
@@ -1293,7 +1293,7 @@ mod tests {
         let forge = setup();
         let resume = create_resume(forge.conn());
 
-        let s = ResumeRepository::create_section(
+        let s = ResumeStore::create_section(
             forge.conn(), &resume.id, "Awards", "awards", Some(5),
         ).unwrap();
         assert_eq!(s.position, 5);
@@ -1304,11 +1304,11 @@ mod tests {
         let forge = setup();
         let resume = create_resume(forge.conn());
 
-        ResumeRepository::create_section(forge.conn(), &resume.id, "Skills", "skills", Some(2)).unwrap();
-        ResumeRepository::create_section(forge.conn(), &resume.id, "Experience", "experience", Some(0)).unwrap();
-        ResumeRepository::create_section(forge.conn(), &resume.id, "Education", "education", Some(1)).unwrap();
+        ResumeStore::create_section(forge.conn(), &resume.id, "Skills", "skills", Some(2)).unwrap();
+        ResumeStore::create_section(forge.conn(), &resume.id, "Experience", "experience", Some(0)).unwrap();
+        ResumeStore::create_section(forge.conn(), &resume.id, "Education", "education", Some(1)).unwrap();
 
-        let sections = ResumeRepository::list_sections(forge.conn(), &resume.id).unwrap();
+        let sections = ResumeStore::list_sections(forge.conn(), &resume.id).unwrap();
         assert_eq!(sections.len(), 3);
         assert_eq!(sections[0].title, "Experience");
         assert_eq!(sections[1].title, "Education");
@@ -1319,11 +1319,11 @@ mod tests {
     fn update_section_title() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Old Title", "experience", None,
         ).unwrap();
 
-        let updated = ResumeRepository::update_section(
+        let updated = ResumeStore::update_section(
             forge.conn(), &resume.id, &section.id, Some("Work History"), None,
         ).unwrap();
         assert_eq!(updated.title, "Work History");
@@ -1333,12 +1333,12 @@ mod tests {
     fn delete_section() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Experience", "experience", None,
         ).unwrap();
 
-        ResumeRepository::delete_section(forge.conn(), &resume.id, &section.id).unwrap();
-        let sections = ResumeRepository::list_sections(forge.conn(), &resume.id).unwrap();
+        ResumeStore::delete_section(forge.conn(), &resume.id, &section.id).unwrap();
+        let sections = ResumeStore::list_sections(forge.conn(), &resume.id).unwrap();
         assert!(sections.is_empty());
     }
 
@@ -1346,7 +1346,7 @@ mod tests {
     fn delete_section_wrong_resume() {
         let forge = setup();
         let r1 = create_resume(forge.conn());
-        let r2 = ResumeRepository::create(
+        let r2 = ResumeStore::create(
             forge.conn(),
             &CreateResume {
                 name: "Other".into(),
@@ -1357,11 +1357,11 @@ mod tests {
             },
         ).unwrap();
 
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &r1.id, "Experience", "experience", None,
         ).unwrap();
 
-        let result = ResumeRepository::delete_section(forge.conn(), &r2.id, &section.id);
+        let result = ResumeStore::delete_section(forge.conn(), &r2.id, &section.id);
         assert!(matches!(result, Err(ForgeError::NotFound { .. })));
     }
 
@@ -1371,11 +1371,11 @@ mod tests {
     fn add_entry_auto_position() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Experience", "experience", None,
         ).unwrap();
 
-        let e1 = ResumeRepository::add_entry(
+        let e1 = ResumeStore::add_entry(
             forge.conn(),
             &resume.id,
             &AddResumeEntry {
@@ -1387,7 +1387,7 @@ mod tests {
             },
         ).unwrap();
 
-        let e2 = ResumeRepository::add_entry(
+        let e2 = ResumeStore::add_entry(
             forge.conn(),
             &resume.id,
             &AddResumeEntry {
@@ -1407,12 +1407,12 @@ mod tests {
     fn add_entry_with_approved_perspective() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Experience", "experience", None,
         ).unwrap();
         let (perspective_id, _) = create_approved_perspective(forge.conn());
 
-        let entry = ResumeRepository::add_entry(
+        let entry = ResumeStore::add_entry(
             forge.conn(),
             &resume.id,
             &AddResumeEntry {
@@ -1433,17 +1433,17 @@ mod tests {
     fn add_entry_rejects_unapproved_perspective() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Experience", "experience", None,
         ).unwrap();
 
         // Create a draft perspective (not approved)
         let source_id = create_source(forge.conn());
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             forge.conn(), "Test bullet", None, None, None,
             &[(source_id, true)], &[],
         ).unwrap();
-        let perspective = PerspectiveRepository::create(
+        let perspective = PerspectiveStore::create(
             forge.conn(),
             &CreatePerspectiveInput {
                 bullet_id: bullet.id,
@@ -1457,7 +1457,7 @@ mod tests {
             },
         ).unwrap();
 
-        let result = ResumeRepository::add_entry(
+        let result = ResumeStore::add_entry(
             forge.conn(),
             &resume.id,
             &AddResumeEntry {
@@ -1475,11 +1475,11 @@ mod tests {
     fn update_entry_content() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Experience", "experience", None,
         ).unwrap();
 
-        let entry = ResumeRepository::add_entry(
+        let entry = ResumeStore::add_entry(
             forge.conn(),
             &resume.id,
             &AddResumeEntry {
@@ -1491,7 +1491,7 @@ mod tests {
             },
         ).unwrap();
 
-        let updated = ResumeRepository::update_entry(
+        let updated = ResumeStore::update_entry(
             forge.conn(),
             &resume.id,
             &entry.id,
@@ -1507,11 +1507,11 @@ mod tests {
     fn remove_entry() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Experience", "experience", None,
         ).unwrap();
 
-        let entry = ResumeRepository::add_entry(
+        let entry = ResumeStore::add_entry(
             forge.conn(),
             &resume.id,
             &AddResumeEntry {
@@ -1523,15 +1523,15 @@ mod tests {
             },
         ).unwrap();
 
-        ResumeRepository::remove_entry(forge.conn(), &resume.id, &entry.id).unwrap();
-        assert!(ResumeRepository::get_entry(forge.conn(), &entry.id).unwrap().is_none());
+        ResumeStore::remove_entry(forge.conn(), &resume.id, &entry.id).unwrap();
+        assert!(ResumeStore::get_entry(forge.conn(), &entry.id).unwrap().is_none());
     }
 
     #[test]
     fn remove_entry_wrong_resume() {
         let forge = setup();
         let r1 = create_resume(forge.conn());
-        let r2 = ResumeRepository::create(
+        let r2 = ResumeStore::create(
             forge.conn(),
             &CreateResume {
                 name: "Other".into(),
@@ -1542,10 +1542,10 @@ mod tests {
             },
         ).unwrap();
 
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &r1.id, "Experience", "experience", None,
         ).unwrap();
-        let entry = ResumeRepository::add_entry(
+        let entry = ResumeStore::add_entry(
             forge.conn(),
             &r1.id,
             &AddResumeEntry {
@@ -1557,7 +1557,7 @@ mod tests {
             },
         ).unwrap();
 
-        let result = ResumeRepository::remove_entry(forge.conn(), &r2.id, &entry.id);
+        let result = ResumeStore::remove_entry(forge.conn(), &r2.id, &entry.id);
         assert!(matches!(result, Err(ForgeError::NotFound { .. })));
     }
 
@@ -1565,21 +1565,21 @@ mod tests {
     fn reorder_entries() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Experience", "experience", None,
         ).unwrap();
 
-        let e1 = ResumeRepository::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
+        let e1 = ResumeStore::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
             section_id: section.id.clone(), perspective_id: None, source_id: None,
             position: None, content: Some("First".into()),
         }).unwrap();
-        let e2 = ResumeRepository::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
+        let e2 = ResumeStore::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
             section_id: section.id.clone(), perspective_id: None, source_id: None,
             position: None, content: Some("Second".into()),
         }).unwrap();
 
         // Swap positions
-        ResumeRepository::reorder_entries(
+        ResumeStore::reorder_entries(
             forge.conn(),
             &resume.id,
             &[
@@ -1588,8 +1588,8 @@ mod tests {
             ],
         ).unwrap();
 
-        let e1_after = ResumeRepository::get_entry(forge.conn(), &e1.id).unwrap().unwrap();
-        let e2_after = ResumeRepository::get_entry(forge.conn(), &e2.id).unwrap().unwrap();
+        let e1_after = ResumeStore::get_entry(forge.conn(), &e1.id).unwrap().unwrap();
+        let e2_after = ResumeStore::get_entry(forge.conn(), &e2.id).unwrap().unwrap();
         assert_eq!(e1_after.position, 1);
         assert_eq!(e2_after.position, 0);
     }
@@ -1600,12 +1600,12 @@ mod tests {
     fn add_skill_to_skills_section() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Skills", "skills", None,
         ).unwrap();
-        let skill = SkillRepository::create(forge.conn(), "Rust", Some(SkillCategory::Language)).unwrap();
+        let skill = SkillStore::create(forge.conn(), "Rust", Some(SkillCategory::Language)).unwrap();
 
-        let rs = ResumeRepository::add_skill(forge.conn(), &resume.id, &section.id, &skill.id).unwrap();
+        let rs = ResumeStore::add_skill(forge.conn(), &resume.id, &section.id, &skill.id).unwrap();
         assert_eq!(rs.skill_id, skill.id);
         assert_eq!(rs.position, 0);
     }
@@ -1614,12 +1614,12 @@ mod tests {
     fn add_skill_rejects_non_skills_section() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Experience", "experience", None,
         ).unwrap();
-        let skill = SkillRepository::create(forge.conn(), "Rust", Some(SkillCategory::Language)).unwrap();
+        let skill = SkillStore::create(forge.conn(), "Rust", Some(SkillCategory::Language)).unwrap();
 
-        let result = ResumeRepository::add_skill(forge.conn(), &resume.id, &section.id, &skill.id);
+        let result = ResumeStore::add_skill(forge.conn(), &resume.id, &section.id, &skill.id);
         assert!(matches!(result, Err(ForgeError::Validation { .. })));
     }
 
@@ -1627,13 +1627,13 @@ mod tests {
     fn add_skill_duplicate_conflict() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Skills", "skills", None,
         ).unwrap();
-        let skill = SkillRepository::create(forge.conn(), "Go", Some(SkillCategory::Language)).unwrap();
+        let skill = SkillStore::create(forge.conn(), "Go", Some(SkillCategory::Language)).unwrap();
 
-        ResumeRepository::add_skill(forge.conn(), &resume.id, &section.id, &skill.id).unwrap();
-        let result = ResumeRepository::add_skill(forge.conn(), &resume.id, &section.id, &skill.id);
+        ResumeStore::add_skill(forge.conn(), &resume.id, &section.id, &skill.id).unwrap();
+        let result = ResumeStore::add_skill(forge.conn(), &resume.id, &section.id, &skill.id);
         assert!(matches!(result, Err(ForgeError::Conflict { .. })));
     }
 
@@ -1641,15 +1641,15 @@ mod tests {
     fn remove_skill() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Skills", "skills", None,
         ).unwrap();
-        let skill = SkillRepository::create(forge.conn(), "Python", Some(SkillCategory::Language)).unwrap();
+        let skill = SkillStore::create(forge.conn(), "Python", Some(SkillCategory::Language)).unwrap();
 
-        ResumeRepository::add_skill(forge.conn(), &resume.id, &section.id, &skill.id).unwrap();
-        ResumeRepository::remove_skill(forge.conn(), &resume.id, &section.id, &skill.id).unwrap();
+        ResumeStore::add_skill(forge.conn(), &resume.id, &section.id, &skill.id).unwrap();
+        ResumeStore::remove_skill(forge.conn(), &resume.id, &section.id, &skill.id).unwrap();
 
-        let skills = ResumeRepository::list_skills_for_section(forge.conn(), &resume.id, &section.id).unwrap();
+        let skills = ResumeStore::list_skills_for_section(forge.conn(), &resume.id, &section.id).unwrap();
         assert!(skills.is_empty());
     }
 
@@ -1657,25 +1657,25 @@ mod tests {
     fn reorder_skills() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Skills", "skills", None,
         ).unwrap();
 
-        let s1 = SkillRepository::create(forge.conn(), "Rust", Some(SkillCategory::Language)).unwrap();
-        let s2 = SkillRepository::create(forge.conn(), "Go", Some(SkillCategory::Language)).unwrap();
+        let s1 = SkillStore::create(forge.conn(), "Rust", Some(SkillCategory::Language)).unwrap();
+        let s2 = SkillStore::create(forge.conn(), "Go", Some(SkillCategory::Language)).unwrap();
 
-        let rs1 = ResumeRepository::add_skill(forge.conn(), &resume.id, &section.id, &s1.id).unwrap();
-        let rs2 = ResumeRepository::add_skill(forge.conn(), &resume.id, &section.id, &s2.id).unwrap();
+        let rs1 = ResumeStore::add_skill(forge.conn(), &resume.id, &section.id, &s1.id).unwrap();
+        let rs2 = ResumeStore::add_skill(forge.conn(), &resume.id, &section.id, &s2.id).unwrap();
 
         // Swap
-        ResumeRepository::reorder_skills(
+        ResumeStore::reorder_skills(
             forge.conn(),
             &resume.id,
             &section.id,
             &[(rs1.id.clone(), 1), (rs2.id.clone(), 0)],
         ).unwrap();
 
-        let skills = ResumeRepository::list_skills_for_section(forge.conn(), &resume.id, &section.id).unwrap();
+        let skills = ResumeStore::list_skills_for_section(forge.conn(), &resume.id, &section.id).unwrap();
         assert_eq!(skills[0].skill_id, s2.id);
         assert_eq!(skills[1].skill_id, s1.id);
     }
@@ -1686,7 +1686,7 @@ mod tests {
     fn add_certification_to_certifications_section() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Certifications", "certifications", None,
         ).unwrap();
 
@@ -1698,7 +1698,7 @@ mod tests {
             params![cert_id, "AWS SAA", "AWS Solutions Architect Associate", now],
         ).unwrap();
 
-        let rc = ResumeRepository::add_certification(
+        let rc = ResumeStore::add_certification(
             forge.conn(),
             &resume.id,
             &AddResumeCertification {
@@ -1716,7 +1716,7 @@ mod tests {
     fn add_certification_duplicate_conflict() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Certifications", "certifications", None,
         ).unwrap();
 
@@ -1727,12 +1727,12 @@ mod tests {
             params![cert_id, "CKA", "Certified Kubernetes Administrator", now],
         ).unwrap();
 
-        ResumeRepository::add_certification(
+        ResumeStore::add_certification(
             forge.conn(), &resume.id,
             &AddResumeCertification { certification_id: cert_id.clone(), section_id: section.id.clone(), position: None },
         ).unwrap();
 
-        let result = ResumeRepository::add_certification(
+        let result = ResumeStore::add_certification(
             forge.conn(), &resume.id,
             &AddResumeCertification { certification_id: cert_id, section_id: section.id, position: None },
         );
@@ -1743,7 +1743,7 @@ mod tests {
     fn remove_certification() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Certifications", "certifications", None,
         ).unwrap();
 
@@ -1754,13 +1754,13 @@ mod tests {
             params![cert_id, "OSCP", "Offensive Security Certified Professional", now],
         ).unwrap();
 
-        let rc = ResumeRepository::add_certification(
+        let rc = ResumeStore::add_certification(
             forge.conn(), &resume.id,
             &AddResumeCertification { certification_id: cert_id, section_id: section.id, position: None },
         ).unwrap();
 
-        ResumeRepository::remove_certification(forge.conn(), &resume.id, &rc.id).unwrap();
-        let certs = ResumeRepository::list_certifications(forge.conn(), &resume.id).unwrap();
+        ResumeStore::remove_certification(forge.conn(), &resume.id, &rc.id).unwrap();
+        let certs = ResumeStore::list_certifications(forge.conn(), &resume.id).unwrap();
         assert!(certs.is_empty());
     }
 
@@ -1771,23 +1771,23 @@ mod tests {
         let forge = setup();
         let resume = create_resume(forge.conn());
 
-        let exp_section = ResumeRepository::create_section(
+        let exp_section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Experience", "experience", Some(0),
         ).unwrap();
-        ResumeRepository::create_section(
+        ResumeStore::create_section(
             forge.conn(), &resume.id, "Skills", "skills", Some(1),
         ).unwrap();
 
-        ResumeRepository::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
+        ResumeStore::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
             section_id: exp_section.id.clone(), perspective_id: None, source_id: None,
             position: None, content: Some("Built APIs".into()),
         }).unwrap();
-        ResumeRepository::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
+        ResumeStore::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
             section_id: exp_section.id.clone(), perspective_id: None, source_id: None,
             position: None, content: Some("Led team".into()),
         }).unwrap();
 
-        let result = ResumeRepository::get_with_entries(forge.conn(), &resume.id)
+        let result = ResumeStore::get_with_entries(forge.conn(), &resume.id)
             .unwrap()
             .unwrap();
 
@@ -1803,12 +1803,12 @@ mod tests {
     fn get_with_entries_includes_perspective_content() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Experience", "experience", None,
         ).unwrap();
         let (perspective_id, _) = create_approved_perspective(forge.conn());
 
-        ResumeRepository::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
+        ResumeStore::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
             section_id: section.id.clone(),
             perspective_id: Some(perspective_id),
             source_id: None,
@@ -1816,7 +1816,7 @@ mod tests {
             content: None,
         }).unwrap();
 
-        let result = ResumeRepository::get_with_entries(forge.conn(), &resume.id)
+        let result = ResumeStore::get_with_entries(forge.conn(), &resume.id)
             .unwrap()
             .unwrap();
         let entry = &result.sections[0].entries[0];
@@ -1835,7 +1835,7 @@ mod tests {
             "email": "adam@example.com"
         });
 
-        let updated = ResumeRepository::update_header(forge.conn(), &resume.id, &header).unwrap();
+        let updated = ResumeStore::update_header(forge.conn(), &resume.id, &header).unwrap();
         assert!(updated.header.is_some());
         let parsed: serde_json::Value = serde_json::from_str(updated.header.as_ref().unwrap()).unwrap();
         assert_eq!(parsed["name"], "Adam");
@@ -1846,11 +1846,11 @@ mod tests {
         let forge = setup();
         let resume = create_resume(forge.conn());
 
-        let set = ResumeRepository::update_markdown_override(forge.conn(), &resume.id, Some("# Hello")).unwrap();
+        let set = ResumeStore::update_markdown_override(forge.conn(), &resume.id, Some("# Hello")).unwrap();
         assert_eq!(set.markdown_override.as_deref(), Some("# Hello"));
         assert!(set.markdown_override_updated_at.is_some());
 
-        let cleared = ResumeRepository::update_markdown_override(forge.conn(), &resume.id, None).unwrap();
+        let cleared = ResumeStore::update_markdown_override(forge.conn(), &resume.id, None).unwrap();
         assert!(cleared.markdown_override.is_none());
         assert!(cleared.markdown_override_updated_at.is_none());
     }
@@ -1860,11 +1860,11 @@ mod tests {
         let forge = setup();
         let resume = create_resume(forge.conn());
 
-        let set = ResumeRepository::update_latex_override(forge.conn(), &resume.id, Some("\\documentclass{}")).unwrap();
+        let set = ResumeStore::update_latex_override(forge.conn(), &resume.id, Some("\\documentclass{}")).unwrap();
         assert_eq!(set.latex_override.as_deref(), Some("\\documentclass{}"));
         assert!(set.latex_override_updated_at.is_some());
 
-        let cleared = ResumeRepository::update_latex_override(forge.conn(), &resume.id, None).unwrap();
+        let cleared = ResumeStore::update_latex_override(forge.conn(), &resume.id, None).unwrap();
         assert!(cleared.latex_override.is_none());
         assert!(cleared.latex_override_updated_at.is_none());
     }
@@ -1877,22 +1877,22 @@ mod tests {
         let source_id = create_source(forge.conn());
 
         // Create two approved bullets
-        let b1 = BulletRepository::create(
+        let b1 = BulletStore::create(
             forge.conn(), "Bullet A", None, None, Some("infra"),
             &[(source_id.clone(), true)], &[],
         ).unwrap();
-        BulletRepository::transition_status(forge.conn(), &b1.id, forge_core::BulletStatus::InReview, None).unwrap();
-        BulletRepository::transition_status(forge.conn(), &b1.id, forge_core::BulletStatus::Approved, None).unwrap();
+        BulletStore::transition_status(forge.conn(), &b1.id, forge_core::BulletStatus::InReview, None).unwrap();
+        BulletStore::transition_status(forge.conn(), &b1.id, forge_core::BulletStatus::Approved, None).unwrap();
 
-        let b2 = BulletRepository::create(
+        let b2 = BulletStore::create(
             forge.conn(), "Bullet B", None, None, Some("backend"),
             &[(source_id.clone(), true)], &[],
         ).unwrap();
-        BulletRepository::transition_status(forge.conn(), &b2.id, forge_core::BulletStatus::InReview, None).unwrap();
-        BulletRepository::transition_status(forge.conn(), &b2.id, forge_core::BulletStatus::Approved, None).unwrap();
+        BulletStore::transition_status(forge.conn(), &b2.id, forge_core::BulletStatus::InReview, None).unwrap();
+        BulletStore::transition_status(forge.conn(), &b2.id, forge_core::BulletStatus::Approved, None).unwrap();
 
         // Create approved perspective for b1 only
-        let p = PerspectiveRepository::create(forge.conn(), &CreatePerspectiveInput {
+        let p = PerspectiveStore::create(forge.conn(), &CreatePerspectiveInput {
             bullet_id: b1.id.clone(),
             content: "SRE perspective".into(),
             bullet_content_snapshot: "Bullet A".into(),
@@ -1902,11 +1902,11 @@ mod tests {
             status: None,
             prompt_log_id: None,
         }).unwrap();
-        PerspectiveRepository::transition_status(forge.conn(), &p.id, forge_core::PerspectiveStatus::InReview, None).unwrap();
-        PerspectiveRepository::transition_status(forge.conn(), &p.id, forge_core::PerspectiveStatus::Approved, None).unwrap();
+        PerspectiveStore::transition_status(forge.conn(), &p.id, forge_core::PerspectiveStatus::InReview, None).unwrap();
+        PerspectiveStore::transition_status(forge.conn(), &p.id, forge_core::PerspectiveStatus::Approved, None).unwrap();
 
         // b1 is covered for sre/infra, b2 is not
-        let gaps = ResumeRepository::find_bullets_for_gap(forge.conn(), "sre", "infra").unwrap();
+        let gaps = ResumeStore::find_bullets_for_gap(forge.conn(), "sre", "infra").unwrap();
         assert_eq!(gaps.len(), 1);
         assert_eq!(gaps[0].id, b2.id);
         assert_eq!(gaps[0].content, "Bullet B");
@@ -1916,19 +1916,19 @@ mod tests {
     fn get_source_title_for_bullet_returns_primary() {
         let forge = setup();
         let source_id = create_source(forge.conn());
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             forge.conn(), "Test", None, None, None,
             &[(source_id, true)], &[],
         ).unwrap();
 
-        let title = ResumeRepository::get_source_title_for_bullet(forge.conn(), &bullet.id).unwrap();
+        let title = ResumeStore::get_source_title_for_bullet(forge.conn(), &bullet.id).unwrap();
         assert_eq!(title, "Test Source");
     }
 
     #[test]
     fn get_source_title_for_bullet_returns_unknown() {
         let forge = setup();
-        let title = ResumeRepository::get_source_title_for_bullet(forge.conn(), "nonexistent").unwrap();
+        let title = ResumeStore::get_source_title_for_bullet(forge.conn(), "nonexistent").unwrap();
         assert_eq!(title, "Unknown Source");
     }
 
@@ -1938,18 +1938,18 @@ mod tests {
     fn delete_resume_cascades_sections_and_entries() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Experience", "experience", None,
         ).unwrap();
-        ResumeRepository::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
+        ResumeStore::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
             section_id: section.id.clone(), perspective_id: None, source_id: None,
             position: None, content: Some("Test".into()),
         }).unwrap();
 
-        ResumeRepository::delete(forge.conn(), &resume.id).unwrap();
+        ResumeStore::delete(forge.conn(), &resume.id).unwrap();
 
         // Sections and entries should be gone
-        let sections = ResumeRepository::list_sections(forge.conn(), &resume.id).unwrap();
+        let sections = ResumeStore::list_sections(forge.conn(), &resume.id).unwrap();
         assert!(sections.is_empty());
     }
 
@@ -1957,15 +1957,15 @@ mod tests {
     fn delete_section_cascades_entries() {
         let forge = setup();
         let resume = create_resume(forge.conn());
-        let section = ResumeRepository::create_section(
+        let section = ResumeStore::create_section(
             forge.conn(), &resume.id, "Experience", "experience", None,
         ).unwrap();
-        let entry = ResumeRepository::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
+        let entry = ResumeStore::add_entry(forge.conn(), &resume.id, &AddResumeEntry {
             section_id: section.id.clone(), perspective_id: None, source_id: None,
             position: None, content: Some("Test".into()),
         }).unwrap();
 
-        ResumeRepository::delete_section(forge.conn(), &resume.id, &section.id).unwrap();
-        assert!(ResumeRepository::get_entry(forge.conn(), &entry.id).unwrap().is_none());
+        ResumeStore::delete_section(forge.conn(), &resume.id, &section.id).unwrap();
+        assert!(ResumeStore::get_entry(forge.conn(), &entry.id).unwrap().is_none());
     }
 }

@@ -85,9 +85,9 @@ impl IntegrityService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::bullet_repo::BulletRepository;
-    use crate::db::perspective_repo::PerspectiveRepository;
-    use crate::db::source_repo::SourceRepository;
+    use crate::db::stores::bullet::BulletStore;
+    use crate::db::stores::perspective::PerspectiveStore;
+    use crate::db::stores::source::SourceStore;
     use crate::forge::Forge;
     use forge_core::{CreatePerspectiveInput, CreateSource, Framing, SourceType};
     use rusqlite::params;
@@ -97,7 +97,7 @@ mod tests {
     }
 
     fn create_chain(conn: &Connection) -> (String, String, String) {
-        let source = SourceRepository::create(
+        let source = SourceStore::create(
             conn,
             &CreateSource {
                 title: "Source".into(),
@@ -108,7 +108,7 @@ mod tests {
         )
         .unwrap();
 
-        let bullet = BulletRepository::create(
+        let bullet = BulletStore::create(
             conn,
             "Original bullet",
             Some("Original description"),
@@ -119,7 +119,7 @@ mod tests {
         )
         .unwrap();
 
-        let perspective = PerspectiveRepository::create(
+        let perspective = PerspectiveStore::create(
             conn,
             &CreatePerspectiveInput {
                 bullet_id: bullet.id.clone(),

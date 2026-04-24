@@ -1,7 +1,7 @@
 //! Business logic service for contacts.
 //!
 //! Validates input (name, email format, LinkedIn URL), delegates to
-//! `ContactRepo` for persistence, and manages three many-to-many junction
+//! `ContactStore` for persistence, and manages three many-to-many junction
 //! tables: `contact_organizations`, `contact_job_descriptions`, and
 //! `contact_resumes`. Each junction uses a composite PK
 //! `(contact_id, other_id, relationship)`.

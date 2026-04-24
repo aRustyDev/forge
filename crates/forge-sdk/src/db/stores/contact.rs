@@ -14,9 +14,9 @@ use forge_core::{
 };
 
 /// Data-access repository for contacts and their junction tables.
-pub struct ContactRepo;
+pub struct ContactStore;
 
-impl ContactRepo {
+impl ContactStore {
     // ── Core CRUD ───────────────────────────────────────────────────
 
     /// Insert a new contact row.
@@ -507,11 +507,11 @@ mod tests {
     #[test]
     fn create_and_get() {
         let forge = setup();
-        let contact = ContactRepo::create(forge.conn(), &sample_input()).unwrap();
+        let contact = ContactStore::create(forge.conn(), &sample_input()).unwrap();
         assert_eq!(contact.name, "Jane Doe");
         assert_eq!(contact.email, Some("jane@example.com".into()));
 
-        let fetched = ContactRepo::get(forge.conn(), &contact.id).unwrap().unwrap();
+        let fetched = ContactStore::get(forge.conn(), &contact.id).unwrap().unwrap();
         assert_eq!(fetched.id, contact.id);
         assert_eq!(fetched.name, contact.name);
     }
@@ -519,14 +519,14 @@ mod tests {
     #[test]
     fn get_returns_none_for_missing() {
         let forge = setup();
-        let result = ContactRepo::get(forge.conn(), "nonexistent").unwrap();
+        let result = ContactStore::get(forge.conn(), "nonexistent").unwrap();
         assert!(result.is_none());
     }
 
     #[test]
     fn list_empty() {
         let forge = setup();
-        let (rows, pagination) = ContactRepo::list(
+        let (rows, pagination) = ContactStore::list(
             forge.conn(),
             &ContactFilter::default(),
             0,
@@ -539,14 +539,14 @@ mod tests {
     #[test]
     fn list_with_search() {
         let forge = setup();
-        ContactRepo::create(forge.conn(), &sample_input()).unwrap();
-        ContactRepo::create(forge.conn(), &CreateContact {
+        ContactStore::create(forge.conn(), &sample_input()).unwrap();
+        ContactStore::create(forge.conn(), &CreateContact {
             name: "John Smith".into(),
             email: Some("john@example.com".into()),
             ..sample_input()
         }).unwrap();
 
-        let (rows, _) = ContactRepo::list(
+        let (rows, _) = ContactStore::list(
             forge.conn(),
             &ContactFilter { search: Some("jane".into()), ..Default::default() },
             0,
@@ -559,8 +559,8 @@ mod tests {
     #[test]
     fn update_contact() {
         let forge = setup();
-        let created = ContactRepo::create(forge.conn(), &sample_input()).unwrap();
-        let updated = ContactRepo::update(forge.conn(), &created.id, &UpdateContact {
+        let created = ContactStore::create(forge.conn(), &sample_input()).unwrap();
+        let updated = ContactStore::update(forge.conn(), &created.id, &UpdateContact {
             name: Some("Jane Smith".into()),
             ..Default::default()
         }).unwrap();
@@ -570,15 +570,15 @@ mod tests {
     #[test]
     fn delete_contact() {
         let forge = setup();
-        let created = ContactRepo::create(forge.conn(), &sample_input()).unwrap();
-        ContactRepo::delete(forge.conn(), &created.id).unwrap();
-        assert!(ContactRepo::get(forge.conn(), &created.id).unwrap().is_none());
+        let created = ContactStore::create(forge.conn(), &sample_input()).unwrap();
+        ContactStore::delete(forge.conn(), &created.id).unwrap();
+        assert!(ContactStore::get(forge.conn(), &created.id).unwrap().is_none());
     }
 
     #[test]
     fn delete_missing_returns_not_found() {
         let forge = setup();
-        let result = ContactRepo::delete(forge.conn(), "nonexistent");
+        let result = ContactStore::delete(forge.conn(), "nonexistent");
         assert!(matches!(result, Err(ForgeError::NotFound { .. })));
     }
 }

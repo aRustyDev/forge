@@ -11,9 +11,9 @@ use forge_core::{
 };
 
 /// Data-access repository for user notes and note references.
-pub struct NoteRepo;
+pub struct NoteStore;
 
-impl NoteRepo {
+impl NoteStore {
     // ── Core CRUD ───────────────────────────────────────────────────
 
     /// Insert a new user note row.
@@ -261,7 +261,7 @@ mod tests {
     #[test]
     fn create_and_get() {
         let forge = setup();
-        let note = NoteRepo::create(
+        let note = NoteStore::create(
             forge.conn(),
             Some("My Note"),
             "This is the content of my note.",
@@ -269,7 +269,7 @@ mod tests {
         assert_eq!(note.title, Some("My Note".into()));
         assert_eq!(note.content, "This is the content of my note.");
 
-        let fetched = NoteRepo::get(forge.conn(), &note.id).unwrap().unwrap();
+        let fetched = NoteStore::get(forge.conn(), &note.id).unwrap().unwrap();
         assert_eq!(fetched.id, note.id);
         assert_eq!(fetched.content, note.content);
     }
@@ -277,7 +277,7 @@ mod tests {
     #[test]
     fn create_without_title() {
         let forge = setup();
-        let note = NoteRepo::create(forge.conn(), None, "Untitled content").unwrap();
+        let note = NoteStore::create(forge.conn(), None, "Untitled content").unwrap();
         assert_eq!(note.title, None);
         assert_eq!(note.content, "Untitled content");
     }
@@ -285,14 +285,14 @@ mod tests {
     #[test]
     fn get_returns_none_for_missing() {
         let forge = setup();
-        let result = NoteRepo::get(forge.conn(), "nonexistent").unwrap();
+        let result = NoteStore::get(forge.conn(), "nonexistent").unwrap();
         assert!(result.is_none());
     }
 
     #[test]
     fn list_empty() {
         let forge = setup();
-        let (rows, pagination) = NoteRepo::list(forge.conn(), None, 0, 50).unwrap();
+        let (rows, pagination) = NoteStore::list(forge.conn(), None, 0, 50).unwrap();
         assert!(rows.is_empty());
         assert_eq!(pagination.total, 0);
     }
@@ -300,10 +300,10 @@ mod tests {
     #[test]
     fn list_with_search() {
         let forge = setup();
-        NoteRepo::create(forge.conn(), Some("Rust Notes"), "Learning Rust programming").unwrap();
-        NoteRepo::create(forge.conn(), Some("Python Notes"), "Learning Python scripting").unwrap();
+        NoteStore::create(forge.conn(), Some("Rust Notes"), "Learning Rust programming").unwrap();
+        NoteStore::create(forge.conn(), Some("Python Notes"), "Learning Python scripting").unwrap();
 
-        let (rows, _) = NoteRepo::list(forge.conn(), Some("rust"), 0, 50).unwrap();
+        let (rows, _) = NoteStore::list(forge.conn(), Some("rust"), 0, 50).unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].title, Some("Rust Notes".into()));
     }
@@ -311,8 +311,8 @@ mod tests {
     #[test]
     fn update_note() {
         let forge = setup();
-        let created = NoteRepo::create(forge.conn(), Some("Old Title"), "Old content").unwrap();
-        let updated = NoteRepo::update(
+        let created = NoteStore::create(forge.conn(), Some("Old Title"), "Old content").unwrap();
+        let updated = NoteStore::update(
             forge.conn(),
             &created.id,
             Some("New Title"),
@@ -325,68 +325,68 @@ mod tests {
     #[test]
     fn delete_note() {
         let forge = setup();
-        let created = NoteRepo::create(forge.conn(), Some("To Delete"), "content").unwrap();
-        NoteRepo::delete(forge.conn(), &created.id).unwrap();
-        assert!(NoteRepo::get(forge.conn(), &created.id).unwrap().is_none());
+        let created = NoteStore::create(forge.conn(), Some("To Delete"), "content").unwrap();
+        NoteStore::delete(forge.conn(), &created.id).unwrap();
+        assert!(NoteStore::get(forge.conn(), &created.id).unwrap().is_none());
     }
 
     #[test]
     fn delete_missing_returns_not_found() {
         let forge = setup();
-        let result = NoteRepo::delete(forge.conn(), "nonexistent");
+        let result = NoteStore::delete(forge.conn(), "nonexistent");
         assert!(matches!(result, Err(ForgeError::NotFound { .. })));
     }
 
     #[test]
     fn add_and_list_references() {
         let forge = setup();
-        let note = NoteRepo::create(forge.conn(), Some("Ref Note"), "content").unwrap();
+        let note = NoteStore::create(forge.conn(), Some("Ref Note"), "content").unwrap();
 
-        NoteRepo::add_reference(
+        NoteStore::add_reference(
             forge.conn(),
             &note.id,
             NoteReferenceEntityType::Source,
             "source-123",
         ).unwrap();
-        NoteRepo::add_reference(
+        NoteStore::add_reference(
             forge.conn(),
             &note.id,
             NoteReferenceEntityType::Bullet,
             "bullet-456",
         ).unwrap();
 
-        let refs = NoteRepo::list_references(forge.conn(), &note.id).unwrap();
+        let refs = NoteStore::list_references(forge.conn(), &note.id).unwrap();
         assert_eq!(refs.len(), 2);
     }
 
     #[test]
     fn remove_reference() {
         let forge = setup();
-        let note = NoteRepo::create(forge.conn(), Some("Ref Note"), "content").unwrap();
+        let note = NoteStore::create(forge.conn(), Some("Ref Note"), "content").unwrap();
 
-        NoteRepo::add_reference(
+        NoteStore::add_reference(
             forge.conn(),
             &note.id,
             NoteReferenceEntityType::Source,
             "source-123",
         ).unwrap();
 
-        NoteRepo::remove_reference(
+        NoteStore::remove_reference(
             forge.conn(),
             &note.id,
             NoteReferenceEntityType::Source,
             "source-123",
         ).unwrap();
 
-        let refs = NoteRepo::list_references(forge.conn(), &note.id).unwrap();
+        let refs = NoteStore::list_references(forge.conn(), &note.id).unwrap();
         assert!(refs.is_empty());
     }
 
     #[test]
     fn remove_missing_reference_returns_not_found() {
         let forge = setup();
-        let note = NoteRepo::create(forge.conn(), Some("Note"), "content").unwrap();
-        let result = NoteRepo::remove_reference(
+        let note = NoteStore::create(forge.conn(), Some("Note"), "content").unwrap();
+        let result = NoteStore::remove_reference(
             forge.conn(),
             &note.id,
             NoteReferenceEntityType::Source,
@@ -398,23 +398,23 @@ mod tests {
     #[test]
     fn find_by_entity() {
         let forge = setup();
-        let note1 = NoteRepo::create(forge.conn(), Some("Note 1"), "first").unwrap();
-        let note2 = NoteRepo::create(forge.conn(), Some("Note 2"), "second").unwrap();
+        let note1 = NoteStore::create(forge.conn(), Some("Note 1"), "first").unwrap();
+        let note2 = NoteStore::create(forge.conn(), Some("Note 2"), "second").unwrap();
 
-        NoteRepo::add_reference(
+        NoteStore::add_reference(
             forge.conn(),
             &note1.id,
             NoteReferenceEntityType::Source,
             "source-abc",
         ).unwrap();
-        NoteRepo::add_reference(
+        NoteStore::add_reference(
             forge.conn(),
             &note2.id,
             NoteReferenceEntityType::Source,
             "source-abc",
         ).unwrap();
 
-        let notes = NoteRepo::find_by_entity(
+        let notes = NoteStore::find_by_entity(
             forge.conn(),
             NoteReferenceEntityType::Source,
             "source-abc",

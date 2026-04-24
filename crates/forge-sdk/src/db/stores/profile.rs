@@ -15,9 +15,9 @@ use forge_core::{
 
 /// Data access layer for the singleton user profile and related entities
 /// (addresses, profile URLs).
-pub struct ProfileRepo;
+pub struct ProfileStore;
 
-impl ProfileRepo {
+impl ProfileStore {
     // ── Profile ─────────────────────────────────────────────────────
 
     /// Fetch the singleton user profile row.
@@ -329,7 +329,7 @@ mod tests {
         let forge = setup();
         // If migrations don't seed a profile row, this returns None.
         // If they do seed one, it returns a valid profile. Either is acceptable.
-        let _result = ProfileRepo::get_profile(forge.conn());
+        let _result = ProfileStore::get_profile(forge.conn());
         // Just verify it doesn't panic or error
     }
 
@@ -339,7 +339,7 @@ mod tests {
         // Delete any seeded profile row to test auto-creation
         let _ = forge.conn().execute("DELETE FROM user_profile", []);
 
-        let profile = ProfileRepo::update_profile(forge.conn(), &UpdateProfile {
+        let profile = ProfileStore::update_profile(forge.conn(), &UpdateProfile {
             name: Some("Adam".into()),
             email: Some(Some("adam@example.com".into())),
             ..Default::default()
@@ -353,12 +353,12 @@ mod tests {
         let forge = setup();
         // Ensure a profile exists
         let _ = forge.conn().execute("DELETE FROM user_profile", []);
-        ProfileRepo::update_profile(forge.conn(), &UpdateProfile {
+        ProfileStore::update_profile(forge.conn(), &UpdateProfile {
             name: Some("Initial".into()),
             ..Default::default()
         }).unwrap();
 
-        let updated = ProfileRepo::update_profile(forge.conn(), &UpdateProfile {
+        let updated = ProfileStore::update_profile(forge.conn(), &UpdateProfile {
             name: Some("Updated Name".into()),
             ..Default::default()
         }).unwrap();
@@ -369,12 +369,12 @@ mod tests {
     fn update_profile_salary() {
         let forge = setup();
         let _ = forge.conn().execute("DELETE FROM user_profile", []);
-        ProfileRepo::update_profile(forge.conn(), &UpdateProfile {
+        ProfileStore::update_profile(forge.conn(), &UpdateProfile {
             name: Some("Test".into()),
             ..Default::default()
         }).unwrap();
 
-        let updated = ProfileRepo::update_profile(forge.conn(), &UpdateProfile {
+        let updated = ProfileStore::update_profile(forge.conn(), &UpdateProfile {
             salary_minimum: Some(Some(120_000.0)),
             salary_target: Some(Some(150_000.0)),
             salary_stretch: Some(Some(180_000.0)),
@@ -389,7 +389,7 @@ mod tests {
     fn update_profile_with_urls() {
         let forge = setup();
         let _ = forge.conn().execute("DELETE FROM user_profile", []);
-        let profile = ProfileRepo::update_profile(forge.conn(), &UpdateProfile {
+        let profile = ProfileStore::update_profile(forge.conn(), &UpdateProfile {
             name: Some("Test".into()),
             urls: Some(vec![
                 ProfileUrlInput { key: "github".into(), url: "https://github.com/test".into() },
@@ -408,7 +408,7 @@ mod tests {
     fn update_profile_with_address() {
         let forge = setup();
         let _ = forge.conn().execute("DELETE FROM user_profile", []);
-        let profile = ProfileRepo::update_profile(forge.conn(), &UpdateProfile {
+        let profile = ProfileStore::update_profile(forge.conn(), &UpdateProfile {
             name: Some("Test".into()),
             address: Some(CreateAddress {
                 name: "Home".into(),
@@ -433,7 +433,7 @@ mod tests {
         let _ = forge.conn().execute("DELETE FROM user_profile", []);
 
         // Create with initial URLs
-        let profile = ProfileRepo::update_profile(forge.conn(), &UpdateProfile {
+        let profile = ProfileStore::update_profile(forge.conn(), &UpdateProfile {
             name: Some("Test".into()),
             urls: Some(vec![
                 ProfileUrlInput { key: "github".into(), url: "https://github.com/old".into() },
@@ -443,7 +443,7 @@ mod tests {
         assert_eq!(profile.urls.len(), 1);
 
         // Replace with new URLs
-        let updated = ProfileRepo::update_profile(forge.conn(), &UpdateProfile {
+        let updated = ProfileStore::update_profile(forge.conn(), &UpdateProfile {
             urls: Some(vec![
                 ProfileUrlInput { key: "blog".into(), url: "https://blog.example.com".into() },
                 ProfileUrlInput { key: "portfolio".into(), url: "https://portfolio.example.com".into() },

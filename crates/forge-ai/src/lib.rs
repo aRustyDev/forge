@@ -1,5 +1,9 @@
-//! LLM client, prompts, and validation for Forge.
+//! LLM prompts, response validation, and text analysis for Forge.
 //!
-//! This crate handles all AI/LLM interactions: prompt construction,
-//! API client wrappers, and response validation. Separated from `forge-sdk`
-//! to keep the core business logic free of LLM dependencies.
+//! This crate handles prompt construction, AI response validation, and
+//! JD parsing. It does NOT call LLM APIs — Forge uses a split-handshake
+//! model where the MCP client invokes the LLM.
+
+pub mod jd_parser;
+pub mod prompts;
+pub mod validators;

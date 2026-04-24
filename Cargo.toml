@@ -23,8 +23,11 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 clap = { version = "4", features = ["derive"] }
+regex = "1"
 reqwest = { version = "0.12", features = ["json"] }
 figment = { version = "0.10", features = ["toml", "env"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace", "request-id", "util"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 strum = { version = "0.27", features = ["derive"] }

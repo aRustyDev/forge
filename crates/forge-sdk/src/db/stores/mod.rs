@@ -1,10 +1,12 @@
 //! Data access stores for Forge entities.
 
 pub mod address;
+pub mod answer_bank;
 pub mod archetype;
 pub mod bullet;
 pub mod campus;
 pub mod certification;
+pub mod credential;
 pub mod contact;
 pub mod domain;
 pub mod industry;
@@ -21,10 +23,12 @@ pub mod summary;
 pub mod template;
 
 pub use address::AddressStore;
+pub use answer_bank::AnswerBankStore;
 pub use archetype::ArchetypeStore;
 pub use bullet::BulletStore;
 pub use campus::CampusStore;
 pub use certification::CertificationStore;
+pub use credential::CredentialStore;
 pub use contact::ContactStore;
 pub use domain::DomainStore;
 pub use industry::IndustryStore;

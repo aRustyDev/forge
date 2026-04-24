@@ -478,6 +478,41 @@ pub struct CreateRoleTypeInput {
     pub description: Option<String>,
 }
 
+// ── Credential ──────────────────────────────────────────────────────
+
+/// Input for creating a Credential.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCredential {
+    pub credential_type: CredentialType,
+    pub label: String,
+    pub status: Option<CredentialStatus>,
+    pub organization_id: Option<String>,
+    pub details: Option<String>,
+    pub issued_date: Option<String>,
+    pub expiry_date: Option<String>,
+}
+
+/// Input for partially updating a Credential.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UpdateCredential {
+    pub label: Option<String>,
+    pub status: Option<CredentialStatus>,
+    pub organization_id: Option<Option<String>>,
+    pub details: Option<String>,
+    pub issued_date: Option<Option<String>>,
+    pub expiry_date: Option<Option<String>>,
+}
+
+// ── Answer Bank ─────────────────────────────────────────────────────
+
+/// Input for upserting an AnswerBankEntry (keyed by field_kind).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpsertAnswerInput {
+    pub field_kind: String,
+    pub label: String,
+    pub value: String,
+}
+
 // ── Derivation ───────────────────────────────────────────────────────
 
 /// Input for creating a PendingDerivation.

@@ -1,12 +1,14 @@
 //! Route modules and top-level router construction.
 
 pub mod addresses;
+pub mod answer_bank;
 pub mod archetypes;
 pub mod audit;
 pub mod bullets;
 pub mod campuses;
 pub mod certifications;
 pub mod contacts;
+pub mod credentials;
 pub mod domains;
 pub mod export;
 pub mod health;
@@ -57,6 +59,8 @@ pub fn api_router() -> Router<SharedState> {
         .merge(certifications::router())
         .merge(archetypes::router())
         .merge(campuses::router())
+        .merge(credentials::router())
+        .merge(answer_bank::router())
         .merge(audit::router())
         .merge(review::router())
         .merge(integrity::router())

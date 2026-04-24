@@ -770,3 +770,33 @@ pub struct ReviewQueueSection<T> {
     pub count: i64,
     pub items: Vec<T>,
 }
+
+// ── Credential ──────────────────────────────────────────────────────
+
+/// A non-certification credential (clearance, drivers license, bar admission, etc.).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Credential {
+    pub id: String,
+    pub credential_type: CredentialType,
+    pub label: String,
+    pub status: CredentialStatus,
+    pub organization_id: Option<String>,
+    pub details: String,
+    pub issued_date: Option<String>,
+    pub expiry_date: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+// ── Answer Bank ─────────────────────────────────────────────────────
+
+/// A reusable answer for form fields (EEO, work-auth, etc.).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnswerBankEntry {
+    pub id: String,
+    pub field_kind: String,
+    pub label: String,
+    pub value: String,
+    pub created_at: String,
+    pub updated_at: String,
+}

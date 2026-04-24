@@ -229,6 +229,27 @@ pub enum OrgTag {
     Other,
 }
 
+/// Credential type discriminator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display, strum::EnumString, strum::AsRefStr)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum CredentialType {
+    Clearance,
+    DriversLicense,
+    BarAdmission,
+    MedicalLicense,
+}
+
+/// Credential lifecycle status.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display, strum::EnumString, strum::AsRefStr)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum CredentialStatus {
+    Active,
+    Inactive,
+    Expired,
+}
+
 /// Valid statuses for a JobDescription record.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display, strum::EnumString, strum::AsRefStr)]
 #[serde(rename_all = "snake_case")]

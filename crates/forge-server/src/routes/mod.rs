@@ -1,10 +1,14 @@
 //! Route modules and top-level router construction.
 
+pub mod addresses;
 pub mod audit;
 pub mod bullets;
+pub mod certifications;
 pub mod contacts;
+pub mod domains;
 pub mod export;
 pub mod health;
+pub mod industries;
 pub mod integrity;
 pub mod job_descriptions;
 pub mod notes;
@@ -13,9 +17,11 @@ pub mod perspectives;
 pub mod profile;
 pub mod resumes;
 pub mod review;
+pub mod role_types;
 pub mod skills;
 pub mod sources;
 pub mod summaries;
+pub mod supporting;
 pub mod templates;
 
 use axum::http::StatusCode;
@@ -35,12 +41,18 @@ pub fn api_router() -> Router<SharedState> {
         .merge(perspectives::router())
         .merge(organizations::router())
         .merge(skills::router())
+        .merge(supporting::router())
         .merge(profile::router())
         .merge(notes::router())
         .merge(resumes::router())
         .merge(summaries::router())
         .merge(contacts::router())
         .merge(job_descriptions::router())
+        .merge(addresses::router())
+        .merge(domains::router())
+        .merge(industries::router())
+        .merge(role_types::router())
+        .merge(certifications::router())
         .merge(audit::router())
         .merge(review::router())
         .merge(integrity::router())

@@ -1,17 +1,22 @@
 //! Route modules and top-level router construction.
 
+pub mod audit;
 pub mod bullets;
 pub mod contacts;
+pub mod export;
 pub mod health;
+pub mod integrity;
 pub mod job_descriptions;
 pub mod notes;
 pub mod organizations;
 pub mod perspectives;
 pub mod profile;
 pub mod resumes;
+pub mod review;
 pub mod skills;
 pub mod sources;
 pub mod summaries;
+pub mod templates;
 
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -35,7 +40,12 @@ pub fn api_router() -> Router<SharedState> {
         .merge(resumes::router())
         .merge(summaries::router())
         .merge(contacts::router())
-        .merge(job_descriptions::router());
+        .merge(job_descriptions::router())
+        .merge(audit::router())
+        .merge(review::router())
+        .merge(integrity::router())
+        .merge(export::router())
+        .merge(templates::router());
 
     Router::new()
         .nest("/api", api)

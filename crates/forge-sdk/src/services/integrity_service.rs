@@ -3,18 +3,19 @@
 //! Scans all bullets and perspectives for stale content snapshots.
 
 use rusqlite::Connection;
+use serde::Serialize;
 
 use forge_core::ForgeError;
 
 /// Entity type discriminator for drift reports.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum DriftedEntityType {
     Bullet,
     Perspective,
 }
 
 /// A single entity with a stale snapshot.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DriftedEntity {
     pub entity_type: DriftedEntityType,
     pub entity_id: String,

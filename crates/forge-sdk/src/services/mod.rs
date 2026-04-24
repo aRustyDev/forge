@@ -22,7 +22,7 @@ pub use bullet_service::BulletService;
 pub use compiler_service::CompilerService;
 pub use contact_service::ContactService;
 pub use export_service::ExportService;
-pub use integrity_service::IntegrityService;
+pub use integrity_service::{DriftedEntity, DriftedEntityType, IntegrityService};
 pub use jd_service::JdService;
 pub use note_service::NoteService;
 pub use organization_service::OrganizationService;

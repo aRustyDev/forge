@@ -346,6 +346,40 @@ pub struct CreateArchetypeInput {
     pub description: Option<String>,
 }
 
+/// Input for partially updating an Archetype.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UpdateArchetypeInput {
+    pub name: Option<String>,
+    pub description: Option<Option<String>>,
+}
+
+// ── Org Location ────────────────────────────────────────────────────
+
+/// Input for creating an OrgLocation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateOrgLocation {
+    pub organization_id: String,
+    pub name: String,
+    pub modality: Option<LocationModality>,
+    pub address_id: Option<String>,
+    pub is_headquarters: Option<bool>,
+}
+
+/// Input for partially updating an OrgLocation.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UpdateOrgLocation {
+    pub name: Option<String>,
+    pub modality: Option<LocationModality>,
+    pub address_id: Option<Option<String>>,
+    pub is_headquarters: Option<bool>,
+}
+
+/// Input for creating an OrgAlias.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateOrgAlias {
+    pub alias: String,
+}
+
 // ── Summary ──────────────────────────────────────────────────────────
 
 /// Input for creating a new Summary.

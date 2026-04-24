@@ -1,25 +1,37 @@
 //! Data access stores for Forge entities.
 
+pub mod address;
 pub mod bullet;
+pub mod certification;
 pub mod contact;
+pub mod domain;
+pub mod industry;
 pub mod jd;
 pub mod note;
 pub mod organization;
 pub mod perspective;
 pub mod profile;
 pub mod resume;
+pub mod role_type;
 pub mod skill;
 pub mod source;
 pub mod summary;
+pub mod template;
 
+pub use address::AddressStore;
 pub use bullet::BulletStore;
+pub use certification::CertificationStore;
 pub use contact::ContactStore;
+pub use domain::DomainStore;
+pub use industry::IndustryStore;
 pub use jd::JdStore;
 pub use note::NoteStore;
 pub use organization::OrganizationStore;
 pub use perspective::PerspectiveStore;
 pub use profile::ProfileStore;
 pub use resume::ResumeStore;
+pub use role_type::RoleTypeStore;
 pub use skill::SkillStore;
 pub use source::SourceStore;
 pub use summary::SummaryStore;
+pub use template::TemplateStore;

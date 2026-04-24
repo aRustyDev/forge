@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 description = "Axum HTTP API server for Forge"
 
+[lib]
+name = "forge_server"
+path = "src/lib.rs"
+
 [[bin]]
 name = "forge-server"
 path = "src/main.rs"
@@ -12,6 +16,7 @@ path = "src/main.rs"
 forge-sdk = { workspace = true }
 forge-core = { workspace = true }
 forge-ai = { workspace = true }
+chrono = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
@@ -19,4 +24,11 @@ serde_json = { workspace = true }
 figment = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+rusqlite = { workspace = true }
 anyhow = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+axum-test = "20"

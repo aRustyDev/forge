@@ -9,6 +9,7 @@ pub mod campuses;
 pub mod certifications;
 pub mod contacts;
 pub mod credentials;
+pub mod derivations;
 pub mod domains;
 pub mod export;
 pub mod health;
@@ -61,6 +62,7 @@ pub fn api_router() -> Router<SharedState> {
         .merge(campuses::router())
         .merge(credentials::router())
         .merge(answer_bank::router())
+        .merge(derivations::router())
         .merge(audit::router())
         .merge(review::router())
         .merge(integrity::router())

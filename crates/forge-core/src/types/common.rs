@@ -44,6 +44,10 @@ pub enum ForgeError {
         source: rusqlite::Error,
     },
 
+    /// Resource expired (HTTP 410 Gone).
+    #[error("gone: {message}")]
+    Gone { message: String },
+
     /// Catch-all for internal/unexpected errors.
     #[error("{0}")]
     Internal(String),
@@ -58,6 +62,7 @@ impl ForgeError {
             Self::Conflict { .. } => "CONFLICT",
             Self::ForeignKey { .. } => "FK_VIOLATION",
             Self::Database { .. } => "DATABASE_ERROR",
+            Self::Gone { .. } => "GONE",
             Self::Internal(_) => "INTERNAL_ERROR",
         }
     }

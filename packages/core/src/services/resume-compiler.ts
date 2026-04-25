@@ -1079,9 +1079,12 @@ export function formatDateRange(
 /**
  * Build the organization display string for experience sections.
  *
- * Format: `{org_name}{ (employment_type)}` — e.g. "Cisco (Contract)".
- * Location and work arrangement are now on the role subheading level,
- * not the organization level.
+ * Prioritizes location over work arrangement:
+ *   1. city + state → "Org (City, ST)"
+ *   2. city only    → "Org (City)"
+ *   3. state only   → "Org (State)"
+ *   4. work_arrangement → "Org (Remote)" / "Org (Hybrid)"
+ *   5. nothing      → "Org"
  *
  * Examples:
  *   - "Raytheon Intelligence & Space (Arlington, VA)" — HQ location

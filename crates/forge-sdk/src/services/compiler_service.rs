@@ -687,7 +687,12 @@ impl CompilerService {
         let mut items = Vec::new();
         for (org_key, org_rows) in &org_map {
             let first = org_rows[0];
-            let org_display = first.org_name.clone().unwrap_or_else(|| org_key.clone());
+            let org_display = build_org_display_string(
+                first.org_name.as_deref(),
+                first.org_city.as_deref(),
+                first.org_state.as_deref(),
+                first.work_arrangement.as_deref(),
+            );
 
             // Group by role (source_title)
             let mut role_map: BTreeMap<String, Vec<&&ExperienceRow>> = BTreeMap::new();
@@ -1367,6 +1372,33 @@ fn format_date_range(start: Option<&str>, end: Option<&str>, is_current: i32) ->
     }
 }
 
+/// Build the organization display string for experience sections.
+/// Prioritizes location over work arrangement.
+fn build_org_display_string(
+    org_name: Option<&str>,
+    city: Option<&str>,
+    state: Option<&str>,
+    work_arrangement: Option<&str>,
+) -> String {
+    let name = org_name.unwrap_or("Other");
+    match (city, state) {
+        (Some(c), Some(s)) => format!("{name} ({c}, {s})"),
+        (Some(c), None) => format!("{name} ({c})"),
+        (None, Some(s)) => format!("{name} ({s})"),
+        (None, None) => match work_arrangement {
+            Some(w) => {
+                let mut chars = w.chars();
+                let label: String = match chars.next() {
+                    Some(first) => first.to_uppercase().chain(chars).collect(),
+                    None => return name.to_string(),
+                };
+                format!("{name} ({label})")
+            }
+            None => name.to_string(),
+        },
+    }
+}
+
 fn build_location_string(city: Option<&str>, state: Option<&str>, work_arrangement: Option<&str>) -> Option<String> {
     match (city, state) {
         (Some(c), Some(s)) => Some(format!("{}, {}", c, s)),
@@ -1665,5 +1697,61 @@ mod tests {
         assert_eq!(format_date_range(Some("2024-03-01"), Some("2025-07-15"), 0), "Mar 2024 - Jul 2025");
         assert_eq!(format_date_range(Some("2024-03-01"), None, 1), "Mar 2024 - Present");
         assert_eq!(format_date_range(None, None, 0), "");
+    }
+
+    #[test]
+    fn build_org_display_city_and_state() {
+        assert_eq!(
+            build_org_display_string(Some("Raytheon"), Some("Arlington"), Some("VA"), Some("hybrid")),
+            "Raytheon (Arlington, VA)"
+        );
+    }
+
+    #[test]
+    fn build_org_display_city_only() {
+        assert_eq!(
+            build_org_display_string(Some("Acme"), Some("Austin"), None, None),
+            "Acme (Austin)"
+        );
+    }
+
+    #[test]
+    fn build_org_display_state_only() {
+        assert_eq!(
+            build_org_display_string(Some("Acme"), None, Some("TX"), None),
+            "Acme (TX)"
+        );
+    }
+
+    #[test]
+    fn build_org_display_work_arrangement_fallback() {
+        assert_eq!(
+            build_org_display_string(Some("Cisco"), None, None, Some("remote")),
+            "Cisco (Remote)"
+        );
+    }
+
+    #[test]
+    fn build_org_display_no_location_or_arrangement() {
+        assert_eq!(
+            build_org_display_string(Some("SomeCo"), None, None, None),
+            "SomeCo"
+        );
+    }
+
+    #[test]
+    fn build_org_display_null_org_name() {
+        assert_eq!(
+            build_org_display_string(None, None, None, Some("hybrid")),
+            "Other (Hybrid)"
+        );
+    }
+
+    #[test]
+    fn build_org_display_location_wins_over_arrangement() {
+        assert_eq!(
+            build_org_display_string(Some("Cisco"), Some("San Jose"), Some("CA"), Some("contract")),
+            "Cisco (San Jose, CA)"
+        );
     }
 }

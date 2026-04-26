@@ -1,0 +1,130 @@
+# Docker module — containerized Forge environments
+#
+# Profiles:
+#   dev  — hot-reload, bind mounts, forge.localhost (:80/:8080)
+#   test — seeded data, test.localhost (:9080/:9081)
+#   prod — compiled build, prod.localhost (:7080/:7081)
+#
+# All compose commands pass --project-directory so relative paths in
+# compose.yml resolve from the repo root, not the .docker/ directory.
+
+root := justfile_directory()
+compose_file := root / ".docker" / "compose.yml"
+compose := "docker compose -f " + compose_file + " --project-directory " + root
+
+# ─── Environment stacks ─────────────────────────────────
+
+# Start dev stack: hot-reload, bind mounts, forge.localhost
+dev:
+    @mkdir -p "{{root}}/data-docker"
+    {{compose}} --profile dev up -d --build
+    @echo ""
+    @echo "Forge dev:"
+    @echo "  UI       → http://forge.localhost/ui/"
+    @echo "  API      → http://forge.localhost/api/v1/"
+    @echo "  MCP      → http://forge.localhost/mcp"
+    @echo "  MCP dbg  → http://forge.localhost/mcp-dbg"
+    @echo "  Traefik  → http://localhost:8080"
+
+# Start dev + HelixDB (both storage backends)
+dev-helix:
+    @mkdir -p "{{root}}/data-docker"
+    just -f "{{root}}/justfile" data gen
+    just -f "{{root}}/justfile" data build
+    {{compose}} --profile dev --profile helix up -d --build
+    @echo ""
+    @echo "Forge dev (both backends, hot-reload):"
+    @echo "  UI       → http://forge.localhost/ui/"
+    @echo "  API      → http://forge.localhost/api/v1/"
+    @echo "  MCP      → http://forge.localhost/mcp"
+    @echo "  MCP dbg  → http://forge.localhost/mcp-dbg"
+    @echo "  Traefik  → http://localhost:8080"
+    @echo "  HelixDB  → http://localhost:6969"
+    @echo ""
+    @echo "Default backend: SQLite. Set FORGE_STORAGE=helix to use HelixDB."
+
+# Ephemeral test run: build → seed → test → teardown
+test:
+    @mkdir -p "{{root}}/data-test"
+    {{compose}} --profile test up -d --build
+    @echo "Waiting for test-core health check..."
+    @{{compose}} exec test-core bun -e "while(true){try{const r=await fetch('http://localhost:3000/api/health');if(r.ok)break}catch{};await Bun.sleep(1000)}" 2>/dev/null || true
+    @echo "Running tests..."
+    -{{compose}} exec test-core bun test
+    @EXIT_CODE=$$?; \
+        {{compose}} --profile test down -v; \
+        rm -rf "{{root}}/data-test"; \
+        exit $$EXIT_CODE
+
+# Start test stack with seed data, leave running (for manual testing)
+test-seed:
+    @mkdir -p "{{root}}/data-test"
+    {{compose}} --profile test up -d --build
+    @echo ""
+    @echo "Forge test (seeded data):"
+    @echo "  UI       → http://test.localhost:9080/ui/"
+    @echo "  API      → http://test.localhost:9080/api/v1/"
+    @echo "  MCP      → http://test.localhost:9080/mcp"
+    @echo "  Traefik  → http://localhost:9081"
+
+# Production simulation: compiled build, no source
+prod:
+    {{compose}} --profile prod up -d --build
+    @echo ""
+    @echo "Forge prod:"
+    @echo "  API      → http://prod.localhost:7080/api/v1/"
+    @echo "  MCP      → http://prod.localhost:7080/mcp"
+    @echo "  Traefik  → http://localhost:7081"
+
+# ─── Backward-compatible aliases ─────────────────────────
+
+# Alias for 'just docker dev' (backward compat)
+run env="oss":
+    @if [ "{{env}}" = "prod" ]; then \
+        just -f "{{root}}/justfile" docker dev-helix; \
+    else \
+        just -f "{{root}}/justfile" docker dev; \
+    fi
+
+# ─── Shared operations ──────────────────────────────────
+
+# Build images for a specific environment
+build env="dev":
+    {{compose}} --profile {{env}} build
+
+# Stop all containers across all profiles
+down:
+    {{compose}} --profile dev --profile test --profile prod --profile helix --profile tools down
+
+# Follow container logs
+logs *args="":
+    {{compose}} logs -f {{args}}
+
+# Open a shell in a temporary container
+shell:
+    @mkdir -p "{{root}}/data-docker"
+    {{compose}} --profile tools run --rm shell
+
+# Open a shell in a running test container
+test-shell:
+    {{compose}} exec test-core bash
+
+# Wipe data for a specific environment
+reset env="dev":
+    @if [ "{{env}}" = "dev" ]; then \
+        echo "Wiping data-docker/ ..."; \
+        rm -rf "{{root}}/data-docker"; \
+        mkdir -p "{{root}}/data-docker"; \
+        echo "Run 'just docker dev' to recreate."; \
+    elif [ "{{env}}" = "test" ]; then \
+        echo "Wiping data-test/ ..."; \
+        rm -rf "{{root}}/data-test"; \
+        echo "Done."; \
+    elif [ "{{env}}" = "prod" ]; then \
+        echo "Removing forge-prod-data volume..."; \
+        docker volume rm forge_forge-prod-data 2>/dev/null || true; \
+        echo "Done."; \
+    else \
+        echo "Unknown env: {{env}}. Use dev, test, or prod."; \
+        exit 1; \
+    fi

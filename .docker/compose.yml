@@ -1,0 +1,384 @@
+# Forge Resume Builder — Docker Compose Profiles
+#
+# Three environment profiles with isolated ports, data, and hostnames:
+#
+#   Profile  Traefik        Hostname          Data
+#   ──────── ────────────── ───────────────── ──────────────
+#   dev      80 / 8080      forge.localhost   ./data-docker/
+#   test     9080 / 9081    test.localhost    ./data-test/
+#   prod     7080 / 7081    prod.localhost    forge-prod vol
+#
+# Usage (via just recipes — see .docker/justfile):
+#   docker compose --profile dev  -f .docker/compose.yml --project-directory . up -d --build
+#   docker compose --profile test -f .docker/compose.yml --project-directory . up -d --build
+#   docker compose --profile prod -f .docker/compose.yml --project-directory . up -d --build
+
+x-core-healthcheck: &core-healthcheck
+  test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/api/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 15s
+
+services:
+
+  # ═══════════════════════════════════════════════════════════
+  # DEV — hot-reload, bind mounts, forge.localhost
+  # ═══════════════════════════════════════════════════════════
+
+  traefik:
+    image: traefik:v3.4
+    container_name: forge-proxy
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    profiles: [dev]
+
+  core:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+      target: dev
+    image: forge-dev:latest
+    container_name: forge-core
+    working_dir: /app
+    command: ["bun", "run", "--filter", "@forge/core", "dev"]
+    environment:
+      FORGE_DB_PATH: /data/forge.db
+      FORGE_PORT: "3000"
+      FORGE_LOG_LEVEL: info
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.core.rule=Host(`forge.localhost`) && PathPrefix(`/api/v1`)"
+      - "traefik.http.routers.core.entrypoints=web"
+      - "traefik.http.middlewares.core-rewrite.replacepathregex.regex=^/api/v1/(.*)"
+      - "traefik.http.middlewares.core-rewrite.replacepathregex.replacement=/api/$$1"
+      - "traefik.http.routers.core.middlewares=core-rewrite"
+      - "traefik.http.services.core.loadbalancer.server.port=3000"
+    volumes:
+      - ./packages:/app/packages:rw
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - /app/packages/core/node_modules
+      - /app/packages/sdk/node_modules
+      - /app/packages/mcp/node_modules
+      - /app/packages/webui/node_modules
+      - /app/packages/cli/node_modules
+      - /app/node_modules
+      - ./data-docker:/data
+    healthcheck: *core-healthcheck
+    profiles: [dev]
+
+  mcp:
+    image: forge-dev:latest
+    container_name: forge-mcp
+    working_dir: /app
+    command: ["bun", "run", "--filter", "@forge/mcp", "dev"]
+    environment:
+      FORGE_API_URL: http://core:3000
+      FORGE_MCP_TRANSPORT: http
+      FORGE_MCP_PORT: "5174"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mcp.rule=Host(`forge.localhost`) && PathPrefix(`/mcp`)"
+      - "traefik.http.routers.mcp.entrypoints=web"
+      - "traefik.http.middlewares.mcp-strip.stripprefix.prefixes=/mcp"
+      - "traefik.http.routers.mcp.middlewares=mcp-strip"
+      - "traefik.http.services.mcp.loadbalancer.server.port=5174"
+    volumes:
+      - ./packages:/app/packages:rw
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - /app/packages/core/node_modules
+      - /app/packages/sdk/node_modules
+      - /app/packages/mcp/node_modules
+      - /app/packages/webui/node_modules
+      - /app/packages/cli/node_modules
+      - /app/node_modules
+    depends_on:
+      core:
+        condition: service_healthy
+    profiles: [dev]
+
+  mcp-inspector:
+    image: node:22-slim
+    container_name: forge-mcp-inspector
+    command:
+      - npx
+      - -y
+      - "@modelcontextprotocol/inspector"
+      - "--transport"
+      - "http"
+      - "--server-url"
+      - "http://mcp:5174/mcp"
+      - "--client-port"
+      - "6274"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mcp-dbg.rule=Host(`forge.localhost`) && PathPrefix(`/mcp-dbg`)"
+      - "traefik.http.routers.mcp-dbg.entrypoints=web"
+      - "traefik.http.middlewares.mcp-dbg-strip.stripprefix.prefixes=/mcp-dbg"
+      - "traefik.http.routers.mcp-dbg.middlewares=mcp-dbg-strip"
+      - "traefik.http.services.mcp-dbg.loadbalancer.server.port=6274"
+    depends_on:
+      mcp:
+        condition: service_started
+    profiles: [dev]
+
+  webui:
+    image: forge-dev:latest
+    container_name: forge-webui
+    working_dir: /app
+    command: ["bun", "run", "--filter", "@forge/webui", "dev", "--", "--host", "0.0.0.0"]
+    environment:
+      FORGE_API_URL: http://core:3000
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.webui.rule=Host(`forge.localhost`) && PathPrefix(`/ui`)"
+      - "traefik.http.routers.webui.entrypoints=web"
+      - "traefik.http.middlewares.webui-strip.stripprefix.prefixes=/ui"
+      - "traefik.http.routers.webui.middlewares=webui-strip"
+      - "traefik.http.services.webui.loadbalancer.server.port=5173"
+    volumes:
+      - ./packages:/app/packages:rw
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - /app/packages/core/node_modules
+      - /app/packages/sdk/node_modules
+      - /app/packages/mcp/node_modules
+      - /app/packages/webui/node_modules
+      - /app/packages/cli/node_modules
+      - /app/node_modules
+    depends_on:
+      core:
+        condition: service_healthy
+    profiles: [dev]
+
+  # ═══════════════════════════════════════════════════════════
+  # TEST — seeded data, alternate ports, test.localhost
+  # No MCP inspector (ephemeral stack, no debugging needed)
+  # ═══════════════════════════════════════════════════════════
+
+  test-traefik:
+    image: traefik:v3.4
+    container_name: test-proxy
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "9080:80"
+      - "9081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    profiles: [test]
+
+  test-core:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+      target: dev
+    image: forge-dev:latest
+    container_name: test-core
+    working_dir: /app
+    command: ["bun", "run", "--filter", "@forge/core", "dev"]
+    environment:
+      FORGE_DB_PATH: /data/forge.db
+      FORGE_PORT: "3000"
+      FORGE_LOG_LEVEL: info
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.test-core.rule=Host(`test.localhost`) && PathPrefix(`/api/v1`)"
+      - "traefik.http.routers.test-core.entrypoints=web"
+      - "traefik.http.middlewares.test-core-rewrite.replacepathregex.regex=^/api/v1/(.*)"
+      - "traefik.http.middlewares.test-core-rewrite.replacepathregex.replacement=/api/$$1"
+      - "traefik.http.routers.test-core.middlewares=test-core-rewrite"
+      - "traefik.http.services.test-core.loadbalancer.server.port=3000"
+    volumes:
+      - ./packages:/app/packages:rw
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - /app/packages/core/node_modules
+      - /app/packages/sdk/node_modules
+      - /app/packages/mcp/node_modules
+      - /app/packages/webui/node_modules
+      - /app/packages/cli/node_modules
+      - /app/node_modules
+      - ./data-test:/data
+    healthcheck: *core-healthcheck
+    profiles: [test]
+
+  test-mcp:
+    image: forge-dev:latest
+    container_name: test-mcp
+    working_dir: /app
+    command: ["bun", "run", "--filter", "@forge/mcp", "dev"]
+    environment:
+      FORGE_API_URL: http://test-core:3000
+      FORGE_MCP_TRANSPORT: http
+      FORGE_MCP_PORT: "5174"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.test-mcp.rule=Host(`test.localhost`) && PathPrefix(`/mcp`)"
+      - "traefik.http.routers.test-mcp.entrypoints=web"
+      - "traefik.http.middlewares.test-mcp-strip.stripprefix.prefixes=/mcp"
+      - "traefik.http.routers.test-mcp.middlewares=test-mcp-strip"
+      - "traefik.http.services.test-mcp.loadbalancer.server.port=5174"
+    volumes:
+      - ./packages:/app/packages:rw
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - /app/packages/core/node_modules
+      - /app/packages/sdk/node_modules
+      - /app/packages/mcp/node_modules
+      - /app/packages/webui/node_modules
+      - /app/packages/cli/node_modules
+      - /app/node_modules
+    depends_on:
+      test-core:
+        condition: service_healthy
+    profiles: [test]
+
+  test-webui:
+    image: forge-dev:latest
+    container_name: test-webui
+    working_dir: /app
+    command: ["bun", "run", "--filter", "@forge/webui", "dev", "--", "--host", "0.0.0.0"]
+    environment:
+      FORGE_API_URL: http://test-core:3000
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.test-webui.rule=Host(`test.localhost`) && PathPrefix(`/ui`)"
+      - "traefik.http.routers.test-webui.entrypoints=web"
+      - "traefik.http.middlewares.test-webui-strip.stripprefix.prefixes=/ui"
+      - "traefik.http.routers.test-webui.middlewares=test-webui-strip"
+      - "traefik.http.services.test-webui.loadbalancer.server.port=5173"
+    volumes:
+      - ./packages:/app/packages:rw
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - /app/packages/core/node_modules
+      - /app/packages/sdk/node_modules
+      - /app/packages/mcp/node_modules
+      - /app/packages/webui/node_modules
+      - /app/packages/cli/node_modules
+      - /app/node_modules
+    depends_on:
+      test-core:
+        condition: service_healthy
+    profiles: [test]
+
+  # ═══════════════════════════════════════════════════════════
+  # PROD — compiled assets, no source, prod.localhost
+  # No WebUI container (embedded in API server)
+  # No MCP inspector
+  # ═══════════════════════════════════════════════════════════
+
+  prod-traefik:
+    image: traefik:v3.4
+    container_name: prod-proxy
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "7080:80"
+      - "7081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    profiles: [prod]
+
+  prod-core:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+      target: prod
+    image: forge-prod:latest
+    container_name: prod-core
+    working_dir: /app
+    command: ["bun", "run", "packages/core/dist/index.js"]
+    environment:
+      FORGE_DB_PATH: /data/forge.db
+      FORGE_PORT: "3000"
+      FORGE_LOG_LEVEL: info
+      NODE_ENV: production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prod-core.rule=Host(`prod.localhost`) && PathPrefix(`/api/v1`)"
+      - "traefik.http.routers.prod-core.entrypoints=web"
+      - "traefik.http.middlewares.prod-core-rewrite.replacepathregex.regex=^/api/v1/(.*)"
+      - "traefik.http.middlewares.prod-core-rewrite.replacepathregex.replacement=/api/$$1"
+      - "traefik.http.routers.prod-core.middlewares=prod-core-rewrite"
+      - "traefik.http.services.prod-core.loadbalancer.server.port=3000"
+    volumes:
+      - forge-prod-data:/data
+    healthcheck: *core-healthcheck
+    profiles: [prod]
+
+  prod-mcp:
+    image: forge-prod:latest
+    container_name: prod-mcp
+    working_dir: /app
+    command: ["bun", "run", "packages/mcp/dist/index.js"]
+    environment:
+      FORGE_API_URL: http://prod-core:3000
+      FORGE_MCP_TRANSPORT: http
+      FORGE_MCP_PORT: "5174"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prod-mcp.rule=Host(`prod.localhost`) && PathPrefix(`/mcp`)"
+      - "traefik.http.routers.prod-mcp.entrypoints=web"
+      - "traefik.http.middlewares.prod-mcp-strip.stripprefix.prefixes=/mcp"
+      - "traefik.http.routers.prod-mcp.middlewares=prod-mcp-strip"
+      - "traefik.http.services.prod-mcp.loadbalancer.server.port=5174"
+    depends_on:
+      prod-core:
+        condition: service_healthy
+    profiles: [prod]
+
+  # ═══════════════════════════════════════════════════════════
+  # UTILITY SERVICES
+  # ═══════════════════════════════════════════════════════════
+
+  # One-shot helper: open a bun shell in a container with source mounted.
+  shell:
+    image: forge-dev:latest
+    container_name: forge-shell
+    working_dir: /app
+    environment:
+      FORGE_DB_PATH: /data/forge.db
+    volumes:
+      - ./packages:/app/packages:rw
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - /app/packages/core/node_modules
+      - /app/packages/sdk/node_modules
+      - /app/packages/mcp/node_modules
+      - /app/packages/webui/node_modules
+      - /app/packages/cli/node_modules
+      - /app/node_modules
+      - ./data-docker:/data
+    entrypoint: ["/bin/bash"]
+    profiles: [tools]
+
+  helixdb:
+    build:
+      context: packages/core/src/storage/adapters/helix/db
+      dockerfile: Dockerfile
+    ports:
+      - "6969:6969"
+    volumes:
+      - helix-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6969/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    profiles: [helix]
+
+volumes:
+  helix-data:
+  forge-prod-data:

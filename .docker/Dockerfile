@@ -101,8 +101,8 @@ COPY --from=build /app/packages/core/dist/ ./packages/core/dist/
 COPY --from=build /app/packages/mcp/dist/ ./packages/mcp/dist/
 COPY --from=build /app/packages/webui/build/ ./packages/webui/build/
 
-# Copy migrations (needed at startup) and package manifests
-COPY --from=build /app/packages/core/src/db/migrations/ ./packages/core/src/db/migrations/
+# Copy migrations where the compiled code expects them (import.meta.dir + 'db/migrations')
+COPY --from=build /app/packages/core/src/db/migrations/ ./packages/core/dist/db/migrations/
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/packages/core/package.json ./packages/core/package.json
 COPY --from=build /app/packages/mcp/package.json ./packages/mcp/package.json

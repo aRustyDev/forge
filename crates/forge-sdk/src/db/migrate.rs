@@ -56,6 +56,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("049_jd_parsed_fields", include_str!("../../../../packages/core/src/db/migrations/049_jd_parsed_fields.sql")),
     ("050_answer_bank", include_str!("../../../../packages/core/src/db/migrations/050_answer_bank.sql")),
     ("051_extension_infra", include_str!("../../../../packages/core/src/db/migrations/051_extension_infra.sql")),
+    ("052_skill_graph_schema", include_str!("../../../../packages/core/src/db/migrations/052_skill_graph_schema.sql")),
 ];
 
 /// Run all pending migrations against the given connection.
@@ -166,5 +167,252 @@ mod tests {
             )
             .unwrap();
         assert!(exists);
+    }
+
+    // ------------------------------------------------------------------
+    // 052_skill_graph_schema
+    // ------------------------------------------------------------------
+
+    fn fresh_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON").unwrap();
+        run_migrations(&conn).unwrap();
+        conn
+    }
+
+    fn insert_node(conn: &Connection, id: &str, name: &str) {
+        conn.execute(
+            "INSERT INTO skill_graph_nodes (id, canonical_name) VALUES (?1, ?2)",
+            rusqlite::params![id, name],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn skill_graph_tables_exist_after_migration() {
+        let conn = fresh_db();
+
+        for table in ["skill_graph_nodes", "skill_graph_edges"] {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1)",
+                    rusqlite::params![table],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert!(exists, "expected table {table} to exist");
+        }
+    }
+
+    #[test]
+    fn skill_graph_nodes_defaults_and_unique_name() {
+        let conn = fresh_db();
+
+        let node_id = "11111111-1111-4111-8111-111111111111";
+        insert_node(&conn, node_id, "Kubernetes");
+
+        let (category, aliases, source, confidence): (String, String, String, f64) = conn
+            .query_row(
+                "SELECT category, aliases, source, confidence FROM skill_graph_nodes WHERE id = ?1",
+                rusqlite::params![node_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(category, "other");
+        assert_eq!(aliases, "[]");
+        assert_eq!(source, "extracted");
+        assert!((confidence - 1.0).abs() < f64::EPSILON);
+
+        // canonical_name UNIQUE
+        let dup_id = "22222222-2222-4222-8222-222222222222";
+        let err = conn.execute(
+            "INSERT INTO skill_graph_nodes (id, canonical_name) VALUES (?1, ?2)",
+            rusqlite::params![dup_id, "Kubernetes"],
+        );
+        assert!(err.is_err(), "duplicate canonical_name must be rejected");
+    }
+
+    #[test]
+    fn skill_graph_nodes_category_fk_and_source_check() {
+        let conn = fresh_db();
+
+        // FK to skill_categories(slug) — bogus category must be rejected.
+        let err = conn.execute(
+            "INSERT INTO skill_graph_nodes (id, canonical_name, category) VALUES (?1, ?2, ?3)",
+            rusqlite::params![
+                "33333333-3333-4333-8333-333333333333",
+                "Bad Category Skill",
+                "not-a-real-category",
+            ],
+        );
+        assert!(err.is_err(), "non-existent category slug must be rejected");
+
+        // CHECK on source — invalid value must be rejected.
+        let err = conn.execute(
+            "INSERT INTO skill_graph_nodes (id, canonical_name, source) VALUES (?1, ?2, ?3)",
+            rusqlite::params![
+                "44444444-4444-4444-8444-444444444444",
+                "Bad Source Skill",
+                "imagined",
+            ],
+        );
+        assert!(err.is_err(), "invalid source enum value must be rejected");
+    }
+
+    #[test]
+    fn skill_graph_nodes_id_length_check() {
+        let conn = fresh_db();
+
+        let err = conn.execute(
+            "INSERT INTO skill_graph_nodes (id, canonical_name) VALUES (?1, ?2)",
+            rusqlite::params!["short-id", "Bad ID Skill"],
+        );
+        assert!(err.is_err(), "id length CHECK must reject short ids");
+    }
+
+    #[test]
+    fn skill_graph_edges_accepts_all_edge_types() {
+        let conn = fresh_db();
+
+        let a = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        let b = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        insert_node(&conn, a, "A");
+        insert_node(&conn, b, "B");
+
+        for edge_type in [
+            "alias-of",
+            "parent-of",
+            "child-of",
+            "prerequisite",
+            "related-to",
+            "co-occurs",
+            "platform-for",
+        ] {
+            conn.execute(
+                "INSERT INTO skill_graph_edges (source_id, target_id, edge_type) VALUES (?1, ?2, ?3)",
+                rusqlite::params![a, b, edge_type],
+            )
+            .unwrap_or_else(|e| panic!("{edge_type} should be a valid edge type: {e}"));
+        }
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM skill_graph_edges WHERE source_id = ?1 AND target_id = ?2",
+                rusqlite::params![a, b],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 7);
+    }
+
+    #[test]
+    fn skill_graph_edges_rejects_invalid_edge_type() {
+        let conn = fresh_db();
+
+        let a = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+        let b = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+        insert_node(&conn, a, "C");
+        insert_node(&conn, b, "D");
+
+        let err = conn.execute(
+            "INSERT INTO skill_graph_edges (source_id, target_id, edge_type) VALUES (?1, ?2, ?3)",
+            rusqlite::params![a, b, "not-an-edge-type"],
+        );
+        assert!(err.is_err(), "edge_type CHECK must reject unknown types");
+    }
+
+    #[test]
+    fn skill_graph_edges_rejects_self_loops() {
+        let conn = fresh_db();
+
+        let a = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+        insert_node(&conn, a, "E");
+
+        let err = conn.execute(
+            "INSERT INTO skill_graph_edges (source_id, target_id, edge_type) VALUES (?1, ?1, ?2)",
+            rusqlite::params![a, "alias-of"],
+        );
+        assert!(err.is_err(), "self-loop CHECK must reject source==target");
+    }
+
+    #[test]
+    fn skill_graph_edges_composite_pk_dedups_by_type() {
+        let conn = fresh_db();
+
+        let a = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+        let b = "99999999-9999-4999-8999-999999999999";
+        insert_node(&conn, a, "F");
+        insert_node(&conn, b, "G");
+
+        // Same (source, target) with different edge types is allowed.
+        conn.execute(
+            "INSERT INTO skill_graph_edges (source_id, target_id, edge_type) VALUES (?1, ?2, 'parent-of')",
+            rusqlite::params![a, b],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO skill_graph_edges (source_id, target_id, edge_type) VALUES (?1, ?2, 'prerequisite')",
+            rusqlite::params![a, b],
+        )
+        .unwrap();
+
+        // Same (source, target, edge_type) is rejected.
+        let err = conn.execute(
+            "INSERT INTO skill_graph_edges (source_id, target_id, edge_type) VALUES (?1, ?2, 'parent-of')",
+            rusqlite::params![a, b],
+        );
+        assert!(err.is_err(), "composite PK must reject duplicate edge");
+    }
+
+    #[test]
+    fn skill_graph_edges_cascade_on_node_delete() {
+        let conn = fresh_db();
+
+        let a = "12121212-1212-4121-8121-121212121212";
+        let b = "34343434-3434-4343-8343-343434343434";
+        insert_node(&conn, a, "Cascade A");
+        insert_node(&conn, b, "Cascade B");
+        conn.execute(
+            "INSERT INTO skill_graph_edges (source_id, target_id, edge_type) VALUES (?1, ?2, 'related-to')",
+            rusqlite::params![a, b],
+        )
+        .unwrap();
+
+        conn.execute("DELETE FROM skill_graph_nodes WHERE id = ?1", rusqlite::params![a])
+            .unwrap();
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM skill_graph_edges WHERE source_id = ?1 OR target_id = ?1",
+                rusqlite::params![a],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 0, "edges must cascade when a referenced node is deleted");
+    }
+
+    #[test]
+    fn skill_graph_traversal_indexes_present() {
+        let conn = fresh_db();
+
+        let mut names: Vec<String> = conn
+            .prepare(
+                "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='skill_graph_edges' AND name LIKE 'idx_%'",
+            )
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        names.sort();
+
+        assert_eq!(
+            names,
+            vec![
+                "idx_skill_graph_edges_source".to_string(),
+                "idx_skill_graph_edges_target".to_string(),
+                "idx_skill_graph_edges_type".to_string(),
+            ]
+        );
     }
 }

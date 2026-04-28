@@ -38,11 +38,13 @@
 
 use wasm_bindgen::prelude::*;
 
+pub mod adapter;
 pub mod database;
 pub mod error;
 pub mod migrate;
 pub mod wa_sqlite;
 
+pub use adapter::WaSqliteAdapter;
 pub use database::{Database, Statement, StepResult, Transaction};
 
 /// Format version of the WASM bundle. Bumped on any breaking change to the

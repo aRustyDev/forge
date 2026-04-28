@@ -18,19 +18,31 @@
 //!   substantial work and returns a complete result. No chatty per-field
 //!   calls across the JS↔WASM boundary.
 //!
-//! ## Current scope (forge-f0gc)
+//! ## Current scope (forge-f0gc → forge-nst6)
 //!
-//! Crate scaffold + buildable WASM artifact. The `ForgeRuntime` struct is a
-//! skeleton with `init` / `version` only; substantial APIs (extraction,
-//! alignment, sync) land in their respective sub-tasks.
+//! - Crate scaffold + buildable WASM artifact (forge-f0gc).
+//! - wa-sqlite OPFS binding + [`Database`] round-trip API (forge-nst6).
+//!
+//! [`ForgeRuntime::open_database`] returns a JS Promise that resolves to a
+//! `Database` handle backed by `OPFSAnyContextVFS` (the main-thread
+//! compatible async OPFS VFS — see forge-73hi for the AccessHandlePool /
+//! Worker upgrade trigger). Substantial higher-level APIs (extraction,
+//! alignment, sync) land in their sibling sub-tasks (forge-jsxn,
+//! forge-62kb, forge-8rzs).
 //!
 //! ## Deferred
 //!
-//! - wa-sqlite OPFS binding + proof-of-concept query — successor bead
-//! - Headless-Chrome wasm-pack test harness — successor bead
-//! - Svelte integration (lives in `forge-5x2h`)
+//! - Headless-Chrome wasm-pack test harness — forge-901c.
+//! - BrowserStore adapter that consumes [`Database`] — forge-lu5s.
+//! - Svelte integration (lives in `forge-5x2h`).
 
 use wasm_bindgen::prelude::*;
+
+pub mod database;
+pub mod error;
+pub mod wa_sqlite;
+
+pub use database::Database;
 
 /// Format version of the WASM bundle. Bumped on any breaking change to the
 /// JS-facing API. Read from JS via `ForgeRuntime.version` / `BUNDLE_VERSION`.
@@ -102,6 +114,31 @@ impl ForgeRuntime {
     #[wasm_bindgen(getter)]
     pub fn version(&self) -> String {
         BUNDLE_VERSION.to_string()
+    }
+
+    /// Open (or create) an OPFS-backed SQLite database at the given path.
+    ///
+    /// Returns a JS Promise that resolves to an opaque `Database` handle.
+    /// The path is the wa-sqlite filename — typically a bare name like
+    /// `"forge.db"`; OPFS treats it as a key in the origin's private
+    /// directory. Subsequent calls with the same path return a fresh
+    /// handle to the same persisted bytes.
+    ///
+    /// On the JS side this is the entry point for the forge-nst6
+    /// proof-of-concept harness:
+    ///
+    /// ```js
+    /// const rt = new ForgeRuntime();
+    /// const db = await rt.openDatabase('forge.db');
+    /// await db.exec('CREATE TABLE IF NOT EXISTS t (k TEXT, v INTEGER)');
+    /// await db.exec("INSERT INTO t VALUES ('answer', 42)");
+    /// const rows = await db.query('SELECT * FROM t');
+    /// ```
+    #[wasm_bindgen(js_name = openDatabase)]
+    pub async fn open_database(&self, path: String) -> Result<Database, JsValue> {
+        Database::open(&path)
+            .await
+            .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 }
 

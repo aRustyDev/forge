@@ -214,6 +214,23 @@ mod error_serialization {
         let err = ForgeError::Internal("unexpected".into());
         assert_eq!(err.code(), "INTERNAL_ERROR");
     }
+
+    #[cfg(feature = "wasm")]
+    #[test]
+    fn wasm_database_error_constructs_and_displays() {
+        let err = ForgeError::WasmDatabase("OPFS open failed: ENOENT".into());
+        assert_eq!(err.code(), "DATABASE_ERROR");
+        assert!(err.to_string().contains("OPFS open failed: ENOENT"));
+    }
+
+    #[cfg(feature = "wasm")]
+    #[test]
+    fn wasm_database_error_serializes_with_database_error_code() {
+        let err = ForgeError::WasmDatabase("connection lost".into());
+        let json = serde_json::to_value(&err).unwrap();
+        assert_eq!(json["code"], "DATABASE_ERROR");
+        assert!(json["message"].as_str().unwrap().contains("connection lost"));
+    }
 }
 
 #[cfg(test)]

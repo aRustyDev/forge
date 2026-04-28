@@ -52,9 +52,42 @@ rustup target add wasm32-unknown-unknown --toolchain stable
 cargo install wasm-pack    # only needed for wasm-pack-build
 ```
 
-**Current scope (forge-f0gc)**
+**Current scope (forge-f0gc → forge-nst6)**
 
-Crate scaffold + buildable WASM artifact. `ForgeRuntime` exposes `init`, `version`, and a sanity `add(a,b)` smoke export. wa-sqlite OPFS binding and the headless-Chrome wasm-pack test harness are deferred to successor beads — they are substantial undertakings that warrant their own scope.
+- Crate scaffold + buildable WASM artifact (forge-f0gc).
+- wa-sqlite binding + `Database` round-trip API + browser-persistent storage (forge-nst6).
+
+`ForgeRuntime` exposes `openDatabase(path)` returning a `Database` handle with `exec` / `query` / `close` methods. The headless-Chrome wasm-pack test harness is deferred to forge-901c; the BrowserStore adapter that consumes `Database` is forge-lu5s.
+
+### wa-sqlite Binding (forge-nst6)
+
+**Distribution channel: bundler-resolved npm.** `crates/forge-wasm/package.json` declares `wa-sqlite@1.0.0` as a `peerDependency`; downstream consumers (the forge-5x2h Svelte integration, the manual smoke harness, future Tauri/Dioxus consumers) install it at the same pin and let their bundler resolve the imports emitted by wasm-bindgen. CDN-loaded was rejected (CSP burden, breaks offline-first, cold-start latency); vendored was rejected (manual upgrade burden). Revisit-after-MVP-2.0 tracked in **forge-zf8i**.
+
+**SQLite VFS: `IDBBatchAtomicVFS` (IndexedDB).** wa-sqlite@1.0.0 (the only version on npm) ships `OriginPrivateFileSystemVFS` which uses `createSyncAccessHandle()` — Worker-only on Chromium/WebKit. The truly main-thread async OPFS VFS (`OPFSAnyContextVFS`) only exists on master HEAD (1.1.1), unpublished. To stay within the npm-distribution decision AND defer the Worker scaffold (forge-73hi), forge-nst6 uses IDB-backed wa-sqlite. From the user's perspective IDB persistence is functionally equivalent to OPFS (survives reload, same StorageManager quota, same "clear site data" semantics). The progressive Svelte → Tauri → Dioxus rewrite is unaffected by VFS choice — the wasm-bindgen surface above the VFS is identical. Migration to OPFS tracked in **forge-n89p**.
+
+**Asyncify-required ESM:** the binding pulls `wa-sqlite/dist/wa-sqlite-async.mjs` (the Asyncify build), required because the IDB VFS uses async I/O internally via wa-sqlite's `handleAsync` pattern. The non-async build (`wa-sqlite.mjs`) only works with sync VFSes (Worker-only OPFS variants).
+
+**Error mapping:** `forge-core` exposes a `wasm` cargo feature gating `ForgeError::WasmDatabase(String)`, paralleling the existing `rusqlite` feature. The variant shares the `DATABASE_ERROR` wire code with the native rusqlite variant — API consumers can't distinguish backends from the JSON shape.
+
+**Bundle size (wasm-pack `--target bundler`, release profile):**
+
+| Artifact | Size | Notes |
+|---|---|---|
+| `forge_wasm_bg.wasm` (forge-f0gc baseline) | ~21 KB | Scaffold only, no binding |
+| `forge_wasm_bg.wasm` (forge-nst6) | ~71 KB | +50 KB for the binding shim + Closure runtime |
+| `forge_wasm_bg.js` (forge-nst6) | ~22 KB | wasm-bindgen JS glue |
+| `wa-sqlite-async.wasm` (peer dep) | ~1.14 MB | The actual SQLite + Asyncify runtime — independent of forge-wasm's growth |
+| `wa-sqlite-async.mjs` (peer dep) + IDB VFS module | ~80 KB combined | wa-sqlite JS layer |
+
+**Net first-load cost for browser persistence:** forge-wasm (~93 KB) + wa-sqlite-async (~1.22 MB) ≈ **1.3 MB**, dominated by the SQLite WASM payload. Cacheable across sessions.
+
+**Manual proof-of-concept harness:** `crates/forge-wasm/examples/browser-smoke/` runs the open → CREATE TABLE → INSERT → SELECT → assert round-trip end-to-end via Vite. Used for manual verification until **forge-901c** ships an automated headless-Chrome harness over the same code path.
+
+**Architectural rules (added in nst6):**
+
+- The `wasm` feature on forge-core MUST stay free of dependencies — it is a `#[cfg]` switch only. Avoid letting it pull in wasm-bindgen-shaped types.
+- The wa-sqlite peer-dep version pin in `crates/forge-wasm/package.json` MUST track exactly what the bindings target. Bumping wa-sqlite without updating the Rust binding will silently break.
+- Vite (or any consumer bundler) needs `resolve.alias` entries for `wa-sqlite/dist/...` and `wa-sqlite/src/...` because wa-sqlite@1.0.0's package.json has no `exports` field — Rollup's strict subpath resolution refuses these otherwise. The browser-smoke `vite.config.js` documents the canonical alias set; forge-5x2h should reuse it.
 
 ## Server (Build-Time)
 

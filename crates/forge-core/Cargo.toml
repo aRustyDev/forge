@@ -16,6 +16,11 @@ description = "Core types, enums, and shapes for Forge — no logic, no I/O"
 # any other workspace member activates them. Opt-in eliminates that footgun.
 default = []
 rusqlite = ["dep:rusqlite"]
+# Marker feature enabled by forge-wasm. Activates the `WasmDatabase(String)`
+# variant of `ForgeError`, used by the wa-sqlite-backed browser data layer to
+# surface JS-boundary errors without dragging rusqlite into the wasm32 build.
+# No deps gated on this — it's purely a `#[cfg]` switch.
+wasm = []
 
 [dependencies]
 serde = { workspace = true }

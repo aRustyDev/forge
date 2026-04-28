@@ -47,6 +47,15 @@ pub enum ForgeError {
         source: rusqlite::Error,
     },
 
+    /// Database error sourced from the wa-sqlite JS binding in the WASM
+    /// browser runtime. Carries the JS-side message as a `String` because
+    /// `JsValue` is not portable across the JS↔Rust boundary in error types.
+    /// Shares the `DATABASE_ERROR` wire code with the native variant so API
+    /// consumers can't distinguish backends.
+    #[cfg(feature = "wasm")]
+    #[error("database error: {0}")]
+    WasmDatabase(String),
+
     /// Resource expired (HTTP 410 Gone).
     #[error("gone: {message}")]
     Gone { message: String },
@@ -66,6 +75,8 @@ impl ForgeError {
             Self::ForeignKey { .. } => "FK_VIOLATION",
             #[cfg(feature = "rusqlite")]
             Self::Database { .. } => "DATABASE_ERROR",
+            #[cfg(feature = "wasm")]
+            Self::WasmDatabase(_) => "DATABASE_ERROR",
             Self::Gone { .. } => "GONE",
             Self::Internal(_) => "INTERNAL_ERROR",
         }

@@ -13,8 +13,12 @@ use forge_core::migrations::MIGRATIONS;
 use crate::database::{Database, StepResult};
 
 /// Apply all pending migrations. Returns the count of newly-applied entries.
+///
+/// We do NOT pre-create the `_migrations` table — migration `001_initial.sql`
+/// creates it itself (without `IF NOT EXISTS`). Pre-creating would conflict.
+/// `get_applied` probes `sqlite_master` and returns an empty Vec when the
+/// table doesn't exist yet, exactly mirroring forge-sdk's rusqlite runner.
 pub async fn run_migrations(db: &Database) -> Result<usize, ForgeError> {
-    ensure_migrations_table(db).await?;
     let applied = get_applied(db).await?;
     let mut count = 0;
 
@@ -63,18 +67,26 @@ pub async fn run_migrations(db: &Database) -> Result<usize, ForgeError> {
     Ok(count)
 }
 
-/// Ensure the `_migrations` table exists. Idempotent.
-async fn ensure_migrations_table(db: &Database) -> Result<(), ForgeError> {
-    db.exec_batch_internal(
-        "CREATE TABLE IF NOT EXISTS _migrations (\
-            name TEXT PRIMARY KEY, \
-            applied_at TEXT DEFAULT (datetime('now'))\
-         )",
-    ).await
-}
-
-/// Read applied migration names from `_migrations`.
+/// Read applied migration names from `_migrations`. Returns an empty Vec
+/// when the table doesn't exist yet (i.e. nothing has run — `001_initial`
+/// will create the table on first run).
 async fn get_applied(db: &Database) -> Result<Vec<String>, ForgeError> {
+    // Probe sqlite_master rather than relying on a CREATE-if-not-exists,
+    // because `001_initial.sql` itself creates `_migrations` without
+    // `IF NOT EXISTS` and would conflict with any pre-creation.
+    let probe = db.prepare(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='_migrations')",
+    ).await?;
+    let exists = match probe.step().await? {
+        StepResult::Row => probe.column_int(0).map(|n| n != 0).unwrap_or(false),
+        StepResult::Done => false,
+    };
+    probe.finalize().await?;
+
+    if !exists {
+        return Ok(Vec::new());
+    }
+
     let stmt = db.prepare("SELECT name FROM _migrations").await?;
     let mut names = Vec::new();
     loop {

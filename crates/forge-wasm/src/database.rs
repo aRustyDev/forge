@@ -176,8 +176,11 @@ pub enum StepResult {
     Done,
 }
 
-/// Prepared-statement handle. Created via `Database::prepare`. Drop
-/// finalizes the underlying wa-sqlite statement (best-effort).
+/// Prepared-statement handle. Created via `Database::prepare`. Caller MUST
+/// call `finalize().await` explicitly — Drop cannot await the async cleanup
+/// and only logs a warning if skipped. Holds an `Rc<SqliteApi>` so the
+/// statement can outlive the Database that created it (rarely useful, but
+/// avoids fighting the borrow checker for short-lived async sequences).
 pub struct Statement {
     api: std::rc::Rc<SqliteApi>,
     stmt: JsValue,
@@ -289,10 +292,23 @@ impl Statement {
         Some(self.api.column_double(&self.stmt, idx))
     }
 
-    /// Read a BLOB column. Returns empty vec for NULL — caller can check
-    /// `column_type` if NULL/empty distinction matters.
+    /// Read a BLOB column. Returns an empty `Vec` for both NULL **and** a
+    /// genuinely empty blob — these are indistinguishable here. The
+    /// asymmetry vs. `column_text/int/double` (which return `Option<T>`) is
+    /// deliberate: every BLOB column in the in-scope migrations (`vector`
+    /// in 025_embeddings, etc.) is `NOT NULL`, so the distinction is moot.
+    /// Use `column_blob_opt` when you need to disambiguate NULL from empty.
     pub fn column_blob(&self, idx: i32) -> Vec<u8> {
         self.api.column_blob(&self.stmt, idx)
+    }
+
+    /// Read a BLOB column with explicit NULL handling. Returns `None` for
+    /// SQL NULL, `Some(Vec)` for any other value (including an empty BLOB).
+    pub fn column_blob_opt(&self, idx: i32) -> Option<Vec<u8>> {
+        if self.column_type(idx) == crate::wa_sqlite::SQLITE_NULL {
+            return None;
+        }
+        Some(self.api.column_blob(&self.stmt, idx))
     }
 
     /// Reset the statement so it can be re-bound and re-stepped.
@@ -372,6 +388,11 @@ impl Database {
     /// back on Err. The closure receives `&Database` (NOT the Transaction
     /// guard) — all SQL goes through Database methods directly, the
     /// guard is implicit.
+    ///
+    /// The explicit `'a` lifetime is required: the closure's returned
+    /// future will, in practice, borrow the `&Database` it received to
+    /// call methods on it. Without `Fut: ... + 'a` the borrow checker
+    /// rejects realistic call sites.
     pub async fn with_transaction<'a, F, Fut, T>(&'a self, f: F) -> Result<T, ForgeError>
     where
         F: FnOnce(&'a Database) -> Fut,

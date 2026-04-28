@@ -42,7 +42,7 @@ pub mod database;
 pub mod error;
 pub mod wa_sqlite;
 
-pub use database::Database;
+pub use database::{Database, Statement, StepResult, Transaction};
 
 /// Format version of the WASM bundle. Bumped on any breaking change to the
 /// JS-facing API. Read from JS via `ForgeRuntime.version` / `BUNDLE_VERSION`.

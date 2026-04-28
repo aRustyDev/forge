@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 description = "Axum HTTP API server for Forge"
 
-[lib]
-name = "forge_server"
-path = "src/lib.rs"
+# [lib]                       # forge-2qns: lib.rs untracked on main, blocks fresh checkouts. Re-enable when committed.
+# name = "forge_server"       # forge-2qns
+# path = "src/lib.rs"         # forge-2qns
 
 [[bin]]
 name = "forge-server"

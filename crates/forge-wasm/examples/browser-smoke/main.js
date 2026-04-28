@@ -112,78 +112,83 @@ runRoundTrip().catch((err) => {
 });
 
 // ── BrowserStore (forge-lu5s) harness ────────────────────────────────────
+//
+// Note: the helper here is named `bsLog` (not `log`) because the forge-nst6
+// section above uses `const log = document.getElementById('log');` as a
+// DOM reference. Reusing the identifier as a function in the same module
+// scope is a SyntaxError that breaks ALL handlers in this file.
 
 let adapter = null;
-const out = document.getElementById('browserstore-out');
-function log(msg) {
+const bsOut = document.getElementById('browserstore-out');
+function bsLog(msg) {
   const stamp = new Date().toISOString().split('T')[1].slice(0, 8);
-  out.textContent += `[${stamp}] ${msg}\n`;
-  out.scrollTop = out.scrollHeight;
+  bsOut.textContent += `[${stamp}] ${msg}\n`;
+  bsOut.scrollTop = bsOut.scrollHeight;
 }
 
 document.getElementById('btn-open').addEventListener('click', async () => {
   try {
     adapter = await WaSqliteAdapterJs.open('forge-lu5s.db');
-    log('OK: adapter opened, migrations applied');
+    bsLog('OK: adapter opened, migrations applied');
   } catch (e) {
-    log(`FAIL open: ${e}`);
+    bsLog(`FAIL open: ${e}`);
   }
 });
 
 document.getElementById('btn-create').addEventListener('click', async () => {
-  if (!adapter) return log('FAIL: open first');
+  if (!adapter) return bsLog('FAIL: open first');
   try {
     const id = await adapter.createSkill('Rust', 'language');
-    log(`OK: created skill id=${id}`);
+    bsLog(`OK: created skill id=${id}`);
   } catch (e) {
-    log(`FAIL create: ${e}`);
+    bsLog(`FAIL create: ${e}`);
   }
 });
 
 document.getElementById('btn-create-dup').addEventListener('click', async () => {
-  if (!adapter) return log('FAIL: open first');
+  if (!adapter) return bsLog('FAIL: open first');
   try {
     const id = await adapter.createSkill('Rust', 'language');
-    log(`UNEXPECTED OK: dup created id=${id} — UNIQUE not enforced?`);
+    bsLog(`UNEXPECTED OK: dup created id=${id} — UNIQUE not enforced?`);
   } catch (e) {
-    log(`OK (expected): ${e}`);
+    bsLog(`OK (expected): ${e}`);
   }
 });
 
 document.getElementById('btn-list').addEventListener('click', async () => {
-  if (!adapter) return log('FAIL: open first');
+  if (!adapter) return bsLog('FAIL: open first');
   try {
     const json = await adapter.listSkills();
     const skills = JSON.parse(json);
-    log(`OK: ${skills.length} skill(s)`);
-    skills.slice(0, 5).forEach(s => log(`  ${s.id} — ${s.name} [${s.category}]`));
+    bsLog(`OK: ${skills.length} skill(s)`);
+    skills.slice(0, 5).forEach(s => bsLog(`  ${s.id} — ${s.name} [${s.category}]`));
   } catch (e) {
-    log(`FAIL list: ${e}`);
+    bsLog(`FAIL list: ${e}`);
   }
 });
 
 document.getElementById('btn-delete-first').addEventListener('click', async () => {
-  if (!adapter) return log('FAIL: open first');
+  if (!adapter) return bsLog('FAIL: open first');
   try {
     const json = await adapter.listSkills();
     const skills = JSON.parse(json);
-    if (skills.length === 0) return log('FAIL: no skills to delete');
+    if (skills.length === 0) return bsLog('FAIL: no skills to delete');
     const target = skills[0];
     const rows = await adapter.deleteSkill(target.id);
-    log(`OK: deleted ${target.name} (rows=${rows})`);
+    bsLog(`OK: deleted ${target.name} (rows=${rows})`);
   } catch (e) {
-    log(`FAIL delete: ${e}`);
+    bsLog(`FAIL delete: ${e}`);
   }
 });
 
 document.getElementById('btn-list-categories').addEventListener('click', async () => {
-  if (!adapter) return log('FAIL: open first');
+  if (!adapter) return bsLog('FAIL: open first');
   try {
     const json = await adapter.listCategories();
     const cats = JSON.parse(json);
-    log(`OK: ${cats.length} categor(y/ies)`);
-    cats.slice(0, 5).forEach(([slug, label]) => log(`  ${slug} — ${label}`));
+    bsLog(`OK: ${cats.length} categor(y/ies)`);
+    cats.slice(0, 5).forEach(([slug, label]) => bsLog(`  ${slug} — ${label}`));
   } catch (e) {
-    log(`FAIL categories: ${e}`);
+    bsLog(`FAIL categories: ${e}`);
   }
 });

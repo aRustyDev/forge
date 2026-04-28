@@ -117,6 +117,85 @@ extern "C" {
     /// `close(db) -> Promise<resultCode>`
     #[wasm_bindgen(method, catch)]
     pub async fn close(this: &SqliteApi, db: &JsValue) -> Result<JsValue, JsValue>;
+
+    /// `prepare_v2(db, sql) -> Promise<{stmt, sql}>` — `stmt` is the
+    /// prepared-statement handle (opaque); `sql` is the unconsumed
+    /// remainder of the input string. Returns `null`/`undefined` for
+    /// `stmt` when the input was whitespace/comments only.
+    #[wasm_bindgen(method, catch, js_name = "prepare_v2")]
+    pub async fn prepare_v2(
+        this: &SqliteApi,
+        db: &JsValue,
+        sql: &str,
+    ) -> Result<JsValue, JsValue>;
+
+    /// `step(stmt) -> Promise<resultCode>` — `SQLITE_ROW` (100) when a
+    /// row is available, `SQLITE_DONE` (101) when iteration is complete.
+    #[wasm_bindgen(method, catch)]
+    pub async fn step(this: &SqliteApi, stmt: &JsValue) -> Result<JsValue, JsValue>;
+
+    /// `reset(stmt) -> Promise<resultCode>` — rewinds the statement so
+    /// `bind_*` + `step` can run again with new parameters.
+    #[wasm_bindgen(method, catch)]
+    pub async fn reset(this: &SqliteApi, stmt: &JsValue) -> Result<JsValue, JsValue>;
+
+    /// `finalize(stmt) -> Promise<resultCode>` — destroys the prepared
+    /// statement, releasing its memory. Idempotent in our wrapper.
+    #[wasm_bindgen(method, catch)]
+    pub async fn finalize(this: &SqliteApi, stmt: &JsValue) -> Result<JsValue, JsValue>;
+
+    /// `bind_text(stmt, idx, value) -> resultCode`. `idx` is 1-based.
+    #[wasm_bindgen(method, catch)]
+    pub fn bind_text(this: &SqliteApi, stmt: &JsValue, idx: i32, value: &str) -> Result<JsValue, JsValue>;
+
+    /// `bind_int64(stmt, idx, value) -> resultCode`. wa-sqlite accepts
+    /// JS Number; we widen i64 → f64 at the boundary, accepting precision
+    /// loss for ids beyond 2^53 (forge UUIDs are strings, so this is moot
+    /// in practice).
+    #[wasm_bindgen(method, catch, js_name = "bind_int64")]
+    pub fn bind_int64(this: &SqliteApi, stmt: &JsValue, idx: i32, value: f64) -> Result<JsValue, JsValue>;
+
+    /// `bind_double(stmt, idx, value) -> resultCode`.
+    #[wasm_bindgen(method, catch)]
+    pub fn bind_double(this: &SqliteApi, stmt: &JsValue, idx: i32, value: f64) -> Result<JsValue, JsValue>;
+
+    /// `bind_blob(stmt, idx, value) -> resultCode`. wa-sqlite expects a
+    /// Uint8Array on the JS side; wasm-bindgen turns `&[u8]` into one.
+    #[wasm_bindgen(method, catch)]
+    pub fn bind_blob(this: &SqliteApi, stmt: &JsValue, idx: i32, value: &[u8]) -> Result<JsValue, JsValue>;
+
+    /// `bind_null(stmt, idx) -> resultCode`.
+    #[wasm_bindgen(method, catch)]
+    pub fn bind_null(this: &SqliteApi, stmt: &JsValue, idx: i32) -> Result<JsValue, JsValue>;
+
+    /// `column_count(stmt) -> i32`.
+    #[wasm_bindgen(method, js_name = "column_count")]
+    pub fn column_count(this: &SqliteApi, stmt: &JsValue) -> i32;
+
+    /// `column_type(stmt, idx) -> i32`. Returns SQLite type codes:
+    /// 1=INTEGER, 2=FLOAT, 3=TEXT, 4=BLOB, 5=NULL.
+    #[wasm_bindgen(method, js_name = "column_type")]
+    pub fn column_type(this: &SqliteApi, stmt: &JsValue, idx: i32) -> i32;
+
+    /// `column_text(stmt, idx) -> String`. Returns "" for NULL — caller
+    /// must check column_type first to disambiguate.
+    #[wasm_bindgen(method, js_name = "column_text")]
+    pub fn column_text(this: &SqliteApi, stmt: &JsValue, idx: i32) -> String;
+
+    /// `column_int(stmt, idx) -> i32`. wa-sqlite has separate `column_int`
+    /// and `column_int64`; for forge's needs (counts, small ints) `int`
+    /// suffices. If you need full i64 range, switch to `column_int64`.
+    #[wasm_bindgen(method, js_name = "column_int")]
+    pub fn column_int(this: &SqliteApi, stmt: &JsValue, idx: i32) -> i32;
+
+    /// `column_double(stmt, idx) -> f64`.
+    #[wasm_bindgen(method, js_name = "column_double")]
+    pub fn column_double(this: &SqliteApi, stmt: &JsValue, idx: i32) -> f64;
+
+    /// `column_blob(stmt, idx) -> Uint8Array`. wasm-bindgen converts
+    /// the JS Uint8Array into `Vec<u8>` on the Rust side.
+    #[wasm_bindgen(method, js_name = "column_blob")]
+    pub fn column_blob(this: &SqliteApi, stmt: &JsValue, idx: i32) -> Vec<u8>;
 }
 
 // ── IDBBatchAtomicVFS ────────────────────────────────────────────────────
@@ -158,3 +237,14 @@ pub const SQLITE_ROW: i32 = 100;
 
 /// Statement finished — no more rows.
 pub const SQLITE_DONE: i32 = 101;
+
+/// SQLite column type — INTEGER.
+pub const SQLITE_INTEGER: i32 = 1;
+/// SQLite column type — FLOAT.
+pub const SQLITE_FLOAT: i32 = 2;
+/// SQLite column type — TEXT.
+pub const SQLITE_TEXT: i32 = 3;
+/// SQLite column type — BLOB.
+pub const SQLITE_BLOB: i32 = 4;
+/// SQLite column type — NULL.
+pub const SQLITE_NULL: i32 = 5;

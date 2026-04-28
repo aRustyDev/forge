@@ -1,0 +1,39 @@
+[package]
+name = "forge-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "Forge browser-side data layer (Rust → WASM). Survives Svelte → Tauri → Dioxus migrations."
+
+# `cdylib` produces the .wasm artifact that wasm-pack post-processes into JS bindings.
+# `rlib` keeps the crate usable from native test harnesses and from future
+# Tauri / Dioxus consumers that link against it natively.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# `default-features = false` drops the rusqlite-bound `Database` variant of
+# ForgeError so forge-core compiles to wasm32-unknown-unknown without trying
+# to bundle a C SQLite library. wa-sqlite (the browser-side SQLite, accessed
+# via JS bindings) replaces rusqlite at runtime; see forge-f0gc successor for
+# the binding work.
+forge-core = { workspace = true, default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+# WASM/JS interop
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+console_error_panic_hook = "0.1"
+
+[dependencies.web-sys]
+version = "0.3"
+features = [
+  "console",
+  # OPFS / wa-sqlite features will be added by the binding successor task.
+]
+
+# Native test harness — wasm-bindgen-test is layered on for in-browser tests
+# in the test-harness successor task.
+[dev-dependencies]
+wasm-bindgen-test = "0.3"

@@ -14,7 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 forge-sdk = { workspace = true }
-forge-core = { workspace = true }
+forge-core = { workspace = true, features = ["rusqlite"] }
 forge-ai = { workspace = true }
 chrono = { workspace = true }
 axum = { workspace = true }

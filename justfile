@@ -7,9 +7,9 @@ export FORGE_DB_PATH := absolute_path(env("FORGE_DB_PATH", "./data/forge.db"))
 
 # ─── Modules ──────────────────────────────────────────────
 
-# mod docker ".docker/justfile"   # TODO: add when Docker infra is set up
-# mod test "packages/justfile"     # TODO: add when test justfile exists
-# mod data "data/justfile"         # TODO: add when data justfile exists
+mod docker ".docker/justfile"
+mod test "packages/justfile"
+mod data "data/justfile"
 
 # ─── Local development ───────────────────────────────────
 
@@ -87,6 +87,43 @@ telemetry-ingest:
 telemetry-stop:
     pkill -f mitmdump || true
     @echo "Telemetry proxy stopped."
+
+# ─── forge-wasm (Rust → WebAssembly) ────────────────────
+#
+# These recipes build the forge-wasm crate for the wasm32-unknown-unknown
+# target. They use the rustup-managed `stable` toolchain explicitly because
+# the project's default Rust (Homebrew) lacks the wasm32 sysroot. Install
+# requirements:
+#
+#   rustup install stable
+#   rustup target add wasm32-unknown-unknown --toolchain stable
+#   cargo install wasm-pack         # only needed for `wasm-pack-build`
+#
+# Build forge-wasm to wasm32. Use this in CI to catch WASM-only breaks at
+# build time rather than at deploy time. forge-server MUST NOT depend on
+# forge-wasm (passive guard: forge-wasm is omitted from workspace.dependencies).
+wasm-build:
+    @echo "Building forge-wasm for wasm32-unknown-unknown..."
+    RUSTC=$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc \
+      $HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo \
+      build -p forge-wasm --target wasm32-unknown-unknown
+
+# Verify forge-wasm's wasm32 dep tree stays free of native-only crates
+# (rusqlite, libsqlite3-sys, openssl-sys, etc.). Use this as a CI gate to
+# catch accidental imports of native deps from the WASM crate.
+wasm-deps-check:
+    @echo "Checking forge-wasm wasm32 deps for native-only crates..."
+    @if RUSTC=$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc \
+        $HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo \
+        tree -p forge-wasm --target wasm32-unknown-unknown -i rusqlite >/dev/null 2>&1; \
+      then echo "FAIL: rusqlite found in forge-wasm wasm32 deps"; exit 1; \
+      else echo "OK: rusqlite is excluded from forge-wasm wasm32 deps"; fi
+
+# Produce a loadable .wasm + JS glue via wasm-pack. Output goes to
+# crates/forge-wasm/pkg/. Requires `cargo install wasm-pack`.
+wasm-pack-build target="bundler":
+    @echo "Running wasm-pack build (target: {{target}})..."
+    cd crates/forge-wasm && wasm-pack build --target {{target}}
 
 # ─── Extension packaging ────────────────────────────────
 

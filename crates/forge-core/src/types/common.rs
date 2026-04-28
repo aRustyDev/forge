@@ -37,7 +37,10 @@ pub enum ForgeError {
     #[error("foreign key violation: {message}")]
     ForeignKey { message: String },
 
-    /// Underlying database error (rusqlite).
+    /// Underlying database error (rusqlite). Only present when the `rusqlite`
+    /// feature is enabled (default for native targets; disabled for wasm32
+    /// builds via `default-features = false` in dependents like forge-wasm).
+    #[cfg(feature = "rusqlite")]
     #[error("database error: {source}")]
     Database {
         #[from]
@@ -61,6 +64,7 @@ impl ForgeError {
             Self::Validation { .. } => "VALIDATION_ERROR",
             Self::Conflict { .. } => "CONFLICT",
             Self::ForeignKey { .. } => "FK_VIOLATION",
+            #[cfg(feature = "rusqlite")]
             Self::Database { .. } => "DATABASE_ERROR",
             Self::Gone { .. } => "GONE",
             Self::Internal(_) => "INTERNAL_ERROR",

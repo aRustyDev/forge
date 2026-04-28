@@ -4,11 +4,24 @@ version = "0.1.0"
 edition = "2021"
 description = "Core types, enums, and shapes for Forge — no logic, no I/O"
 
+[features]
+# Empty defaults: every consumer must explicitly opt into the features it
+# needs. Native consumers (forge-sdk, forge-server, forge-cli, forge-mcp)
+# add `features = ["rusqlite"]` to their forge-core dep. forge-wasm enables
+# nothing so the crate compiles to wasm32-unknown-unknown without bundling
+# a C SQLite library.
+#
+# Why opt-in rather than opt-out: cargo's feature unification can pull
+# default-on features back into a `default-features = false` consumer when
+# any other workspace member activates them. Opt-in eliminates that footgun.
+default = []
+rusqlite = ["dep:rusqlite"]
+
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }
-rusqlite = { workspace = true }
+rusqlite = { workspace = true, optional = true }
 uuid = { workspace = true }
 strum = { workspace = true }

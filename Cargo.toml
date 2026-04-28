@@ -7,10 +7,16 @@ members = [
     "crates/forge-server",
     "crates/forge-mcp",
     "crates/forge-cli",
+    "crates/forge-wasm",
 ]
+# `forge-wasm` is intentionally NOT added to `[workspace.dependencies]` below.
+# That passive guard prevents any other crate from accidentally adding
+# `forge-wasm = { workspace = true }` — picking it up requires an explicit
+# path dependency that stands out in code review. Per the architecture, only
+# browser-targeted code (and forge-wasm's own tests) consume this crate.
 
 [workspace.dependencies]
-forge-core = { path = "crates/forge-core" }
+forge-core = { path = "crates/forge-core", default-features = false }  # consumers opt into features (e.g. "rusqlite") explicitly
 forge-sdk = { path = "crates/forge-sdk" }
 forge-ai = { path = "crates/forge-ai" }
 serde = { version = "1", features = ["derive"] }
@@ -18,7 +24,7 @@ serde_json = "1"
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 anyhow = "1"
-uuid = { version = "1", features = ["v4"] }
+uuid = { version = "1", features = ["v4", "js"] }  # `js` is a no-op on native; required for v4 on wasm32-unknown-unknown
 rusqlite = { version = "0.32", features = ["bundled"] }
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"

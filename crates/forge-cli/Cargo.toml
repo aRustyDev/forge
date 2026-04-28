@@ -10,7 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 forge-sdk = { workspace = true }
-forge-core = { workspace = true }
+forge-core = { workspace = true, features = ["rusqlite"] }
 clap = { workspace = true }
 tokio = { workspace = true }
 figment = { workspace = true }

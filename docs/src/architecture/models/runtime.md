@@ -18,6 +18,44 @@ BUILD TIME (server, LLM, batch)          RUNTIME (browser, CPU, realtime)
 └─────────────────────────────┘          └──────────────────────────────┘
 ```
 
+## Crate: `forge-wasm`
+
+The browser-side data layer is the `forge-wasm` crate (forge-f0gc). It compiles to `wasm32-unknown-unknown` and consumes [`forge-core`](#) types via wasm-bindgen. Built once and consumed by Svelte today, Tauri at R2, and Dioxus at R4 — the data layer doesn't change when the UI does.
+
+**Layout**
+
+```
+crates/forge-wasm/
+├── Cargo.toml          # cdylib + rlib, depends on forge-core (default-features = false)
+└── src/lib.rs          # ForgeRuntime skeleton + wasm-bindgen exports
+```
+
+**Architectural rules**
+
+- `forge-server` MUST NOT depend on `forge-wasm`. Enforced passively by omitting the crate from `[workspace.dependencies]` in the root `Cargo.toml` — adding it would have to be an explicit `path = "../forge-wasm"` declaration, which stands out in PR review.
+- `forge-core` exposes its rusqlite-bound `ForgeError::Database` variant only when its `rusqlite` feature is on. Native consumers (forge-sdk, forge-server, forge-cli, forge-mcp) opt in via `features = ["rusqlite"]`. `forge-wasm` opts out, so the C SQLite library never reaches the WASM build.
+- The wasm-bindgen API surface is **coarse-grained**: each export does substantial work and returns a complete result. No chatty per-field calls across the JS↔WASM boundary.
+
+**Build commands**
+
+```
+just wasm-build         # cargo build for wasm32-unknown-unknown
+just wasm-deps-check    # CI gate — fails if rusqlite leaks into wasm32 deps
+just wasm-pack-build    # produces .wasm + JS glue via wasm-pack (target=bundler by default)
+```
+
+The wasm32 builds use the rustup-managed `stable` toolchain explicitly (the project's default Homebrew rustc lacks the wasm32 sysroot). One-time setup per machine:
+
+```
+rustup install stable
+rustup target add wasm32-unknown-unknown --toolchain stable
+cargo install wasm-pack    # only needed for wasm-pack-build
+```
+
+**Current scope (forge-f0gc)**
+
+Crate scaffold + buildable WASM artifact. `ForgeRuntime` exposes `init`, `version`, and a sanity `add(a,b)` smoke export. wa-sqlite OPFS binding and the headless-Chrome wasm-pack test harness are deferred to successor beads — they are substantial undertakings that warrant their own scope.
+
 ## Server (Build-Time)
 
 - Full graph in SQLite/HelixDB

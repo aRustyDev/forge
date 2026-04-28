@@ -5,7 +5,7 @@ edition = "2021"
 description = "Repositories, services, and IR compiler for Forge"
 
 [dependencies]
-forge-core = { workspace = true }
+forge-core = { workspace = true, features = ["rusqlite"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 rusqlite = { workspace = true }

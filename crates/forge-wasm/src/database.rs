@@ -173,9 +173,13 @@ pub enum StepResult {
 /// and only logs a warning if skipped. Holds an `Rc<SqliteApi>` so the
 /// statement can outlive the Database that created it (rarely useful, but
 /// avoids fighting the borrow checker for short-lived async sequences).
+///
+/// `str_handle` is the wa-sqlite-allocated string handle for the SQL
+/// source; `finalize` releases both `stmt` and `str_handle`.
 pub struct Statement {
     api: std::rc::Rc<SqliteApi>,
     stmt: JsValue,
+    str_handle: JsValue,
     finalized: bool,
 }
 
@@ -184,17 +188,48 @@ impl Database {
     /// `sql` contains multiple semicolon-separated statements, only the
     /// first is prepared and the remainder is silently discarded. Use
     /// `exec_batch` for migrations / DDL scripts.
+    ///
+    /// wa-sqlite's `prepare_v2` takes a numeric pointer into its WASM heap,
+    /// not a JS string. We allocate via `str_new` (returns a string handle),
+    /// resolve to a pointer via `str_value`, and pair the handle with the
+    /// returned Statement so `finalize` can release both.
     pub async fn prepare(&self, sql: &str) -> Result<Statement, ForgeError> {
-        let result = self.api.prepare_v2(&self.db_handle, sql).await.map_jsvalue_err()?;
-        // wa-sqlite returns `{stmt: handle, sql: remainder}`. Pluck `stmt`.
-        let stmt = js_sys::Reflect::get(&result, &JsValue::from_str("stmt"))
-            .map_jsvalue_err()?;
-        if stmt.is_null() || stmt.is_undefined() {
+        let str_handle = self.api.str_new(&self.db_handle, sql);
+        let sql_ptr = self.api.str_value(&str_handle);
+        let result = match self.api.prepare_v2(&self.db_handle, &sql_ptr).await {
+            Ok(v) => v,
+            Err(e) => {
+                // Free the string buffer on prep failure to avoid leaking it.
+                self.api.str_finish(&str_handle);
+                return Err(crate::error::js_value_into_forge_error(e));
+            }
+        };
+        if result.is_null() || result.is_undefined() {
+            // No SQL to prepare (e.g. whitespace/comments only). Free + error.
+            self.api.str_finish(&str_handle);
             return Err(ForgeError::WasmDatabase(
                 format!("prepare_v2 returned no statement for SQL: {sql}"),
             ));
         }
-        Ok(Statement { api: std::rc::Rc::clone(&self.api), stmt, finalized: false })
+        let stmt = match js_sys::Reflect::get(&result, &JsValue::from_str("stmt")) {
+            Ok(v) => v,
+            Err(e) => {
+                self.api.str_finish(&str_handle);
+                return Err(crate::error::js_value_into_forge_error(e));
+            }
+        };
+        if stmt.is_null() || stmt.is_undefined() {
+            self.api.str_finish(&str_handle);
+            return Err(ForgeError::WasmDatabase(
+                format!("prepare_v2 returned no statement for SQL: {sql}"),
+            ));
+        }
+        Ok(Statement {
+            api: std::rc::Rc::clone(&self.api),
+            stmt,
+            str_handle,
+            finalized: false,
+        })
     }
 }
 
@@ -309,11 +344,16 @@ impl Statement {
         Ok(())
     }
 
-    /// Finalize the underlying statement. Idempotent. Called by Drop.
+    /// Finalize the underlying statement and release the SQL string buffer.
+    /// Idempotent.
     pub async fn finalize(mut self) -> Result<(), ForgeError> {
         if !self.finalized {
-            self.api.finalize(&self.stmt).await.map_jsvalue_err()?;
+            // Best-effort: even if sqlite3_finalize errors, still free the
+            // string buffer so we don't leak it.
+            let stmt_result = self.api.finalize(&self.stmt).await;
+            self.api.str_finish(&self.str_handle);
             self.finalized = true;
+            stmt_result.map_jsvalue_err()?;
         }
         Ok(())
     }
@@ -322,9 +362,14 @@ impl Statement {
 impl Drop for Statement {
     fn drop(&mut self) {
         if !self.finalized {
+            // str_finish is synchronous so we can free the SQL buffer here
+            // without breaking Drop's signature. The actual sqlite3_finalize
+            // is async-only and gets skipped — log so the leak is visible.
+            self.api.str_finish(&self.str_handle);
             web_sys::console::warn_1(&JsValue::from_str(
                 "forge-wasm: Statement dropped without explicit finalize() — \
-                 prefer s.finalize().await for deterministic cleanup",
+                 SQL buffer freed, but the underlying sqlite3 statement was \
+                 NOT finalized (Drop can't await). Prefer s.finalize().await.",
             ));
         }
     }

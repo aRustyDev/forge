@@ -118,16 +118,36 @@ extern "C" {
     #[wasm_bindgen(method, catch)]
     pub async fn close(this: &SqliteApi, db: &JsValue) -> Result<JsValue, JsValue>;
 
-    /// `prepare_v2(db, sql) -> Promise<{stmt, sql}>` — `stmt` is the
-    /// prepared-statement handle (opaque); `sql` is the unconsumed
-    /// remainder of the input string. Returns `null`/`undefined` for
-    /// `stmt` when the input was whitespace/comments only.
+    /// `prepare_v2(db, sqlPtr) -> Promise<{stmt, sql} | null>` — `stmt` is
+    /// the prepared-statement handle (opaque); `sql` is the unconsumed
+    /// remainder POINTER (not a JS string). The whole call returns `null`
+    /// when there's no SQL left to prepare.
+    ///
+    /// IMPORTANT: `sqlPtr` is a numeric C-pointer into wa-sqlite's heap.
+    /// Allocate it via `str_new` + `str_value`. Passing a JS string here
+    /// silently coerces to NaN/0, sqlite3 errors out, and `sqlite3_errmsg`
+    /// returns "not an error" because no real op set the error string.
     #[wasm_bindgen(method, catch, js_name = "prepare_v2")]
     pub async fn prepare_v2(
         this: &SqliteApi,
         db: &JsValue,
-        sql: &str,
+        sql_ptr: &JsValue,
     ) -> Result<JsValue, JsValue>;
+
+    /// `str_new(db, sql) -> str_handle (number)`. Allocates SQLite memory
+    /// for the SQL string and returns an opaque integer handle managed by
+    /// wa-sqlite's internal `strings` map. Pair with `str_finish`.
+    #[wasm_bindgen(method, js_name = "str_new")]
+    pub fn str_new(this: &SqliteApi, db: &JsValue, sql: &str) -> JsValue;
+
+    /// `str_value(str_handle) -> sqlPointer (number)`. Returns the C-pointer
+    /// to the allocated SQL bytes, suitable for passing to `prepare_v2`.
+    #[wasm_bindgen(method, js_name = "str_value")]
+    pub fn str_value(this: &SqliteApi, str_handle: &JsValue) -> JsValue;
+
+    /// `str_finish(str_handle)`. Frees the allocated SQL memory.
+    #[wasm_bindgen(method, js_name = "str_finish")]
+    pub fn str_finish(this: &SqliteApi, str_handle: &JsValue);
 
     /// `step(stmt) -> Promise<resultCode>` — `SQLITE_ROW` (100) when a
     /// row is available, `SQLITE_DONE` (101) when iteration is complete.

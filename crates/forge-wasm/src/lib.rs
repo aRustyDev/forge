@@ -42,10 +42,12 @@ pub mod adapter;
 pub mod database;
 pub mod error;
 pub mod migrate;
+pub mod stores;
 pub mod wa_sqlite;
 
 pub use adapter::WaSqliteAdapter;
 pub use database::{Database, Statement, StepResult, Transaction};
+pub use stores::SkillStore;
 
 /// Format version of the WASM bundle. Bumped on any breaking change to the
 /// JS-facing API. Read from JS via `ForgeRuntime.version` / `BUNDLE_VERSION`.

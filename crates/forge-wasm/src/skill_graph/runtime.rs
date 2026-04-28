@@ -725,6 +725,96 @@ mod tests {
         assert!(none.is_empty(), "empty edge_types filter must return no edges");
     }
 
+    /// Validate the bead's three load/search latency budgets against a
+    /// realistic-shape snapshot. AC assertions only fire in release mode —
+    /// debug-mode HNSW search at 10k×384 spends most of its time in the
+    /// (pre-optimizer) cosine inner product. Run with
+    /// `cargo test -p forge-wasm --lib perf_budgets --release` for the gate;
+    /// the debug run still exercises correctness without enforcing budgets.
+    ///
+    /// Reference numbers (host release, M-series Mac, native build):
+    /// load ≈ 28 ms, HNSW top-10 ≈ 1 ms, autocomplete ≈ <1 ms. WASM-release
+    /// typically lands within 2-3× of native release for tight numerics, so
+    /// these numbers leave wide headroom against the 500ms / 50ms / 50ms
+    /// acceptance criteria.
+    #[test]
+    fn perf_budgets_at_10k_nodes() {
+        use std::time::Instant;
+        const N: usize = 10_000;
+        const DIM: u32 = 384;
+
+        let nodes: Vec<SnapshotNode> = (0..N)
+            .map(|i| SnapshotNode {
+                id: format!("{:036}", i),
+                canonical_name: format!("Skill {i}"),
+                category: "tool".to_string(),
+                aliases: vec![format!("alias{i}-a"), format!("alias{i}-b")],
+                source: NodeSource::Seed,
+                confidence: 1.0,
+            })
+            .collect();
+        // Sparse edges (~3 per node) so petgraph build is realistic.
+        let edges: Vec<SnapshotEdge> = (0..3 * N)
+            .map(|i| snap_edge(
+                &format!("{:036}", i % N),
+                &format!("{:036}", (i * 7 + 1) % N),
+                EdgeType::CoOccurs,
+            ))
+            .collect();
+        // Synthetic embeddings: each node gets a unit vector with ~one
+        // non-zero coordinate, so search returns predictable results without
+        // degenerating into ties.
+        let embeddings: Vec<Vec<f32>> = (0..N)
+            .map(|i| {
+                let mut v = vec![0.0_f32; DIM as usize];
+                v[i % DIM as usize] = 1.0;
+                v
+            })
+            .collect();
+        let bytes = snapshot_bytes_with_embeddings(nodes, edges, embeddings, DIM);
+
+        let t0 = Instant::now();
+        let runtime = SkillGraphRuntime::from_snapshot(&bytes).expect("load");
+        let load_ms = t0.elapsed().as_millis();
+        #[cfg(not(debug_assertions))]
+        assert!(
+            load_ms < 500,
+            "AC: load < 500ms; observed {load_ms}ms"
+        );
+
+        // HNSW search.
+        let mut q = vec![0.0_f32; DIM as usize];
+        q[42] = 1.0;
+        let t1 = Instant::now();
+        let hits = runtime.search_by_embedding(&q, 10);
+        let hnsw_ms = t1.elapsed().as_millis();
+        assert!(
+            !hits.is_empty(),
+            "expected a non-empty top-k from search_by_embedding"
+        );
+        #[cfg(not(debug_assertions))]
+        assert!(
+            hnsw_ms < 50,
+            "AC: HNSW search < 50ms at 10k; observed {hnsw_ms}ms"
+        );
+
+        // Autocomplete.
+        let t2 = Instant::now();
+        let auto = runtime.search_skills("Skill 7", 10);
+        let auto_ms = t2.elapsed().as_millis();
+        assert!(!auto.is_empty(), "expected autocomplete hits for 'Skill 7'");
+        #[cfg(not(debug_assertions))]
+        assert!(
+            auto_ms < 50,
+            "AC: autocomplete < 50ms; observed {auto_ms}ms"
+        );
+
+        // Echo numbers — picked up in the session-end memory.
+        eprintln!(
+            "[forge-afyg perf] load={load_ms}ms search={hnsw_ms}ms autocomplete={auto_ms}ms"
+        );
+    }
+
     #[test]
     fn search_skills_matches_canonical_name_and_aliases_case_insensitive() {
         let nodes = vec![

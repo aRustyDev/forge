@@ -31,7 +31,7 @@ use petgraph::graph::{DiGraph, NodeIndex as PgIndex};
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 
-use super::hnsw::NodeIndex;
+use super::hnsw::{HnswIndex, NodeIndex};
 
 /// Per-edge metadata stored on each petgraph edge. Mirrors the subset of
 /// [`forge_core::types::skill_graph::SnapshotEdge`] needed for trait return
@@ -72,6 +72,10 @@ pub struct SkillGraphRuntime {
     /// allocates its own indices; this lets us round-trip from string id →
     /// our index → petgraph's index for traversal entry points.
     pg_index: Vec<PgIndex>,
+    /// Vector-search index built eagerly from the snapshot's embedding
+    /// payload. `None` when the snapshot omits embeddings — see the
+    /// prototype rustdoc on [`HnswIndex`] for the backing impl caveats.
+    hnsw: Option<HnswIndex>,
 }
 
 impl SkillGraphRuntime {
@@ -122,6 +126,12 @@ impl SkillGraphRuntime {
             );
         }
 
+        let hnsw = build_hnsw_from_snapshot(
+            &nodes,
+            snapshot.header.metadata.embedding_dim,
+            &snapshot.embeddings,
+        )?;
+
         Ok(Self {
             nodes,
             by_canonical_name,
@@ -129,7 +139,61 @@ impl SkillGraphRuntime {
             by_id,
             graph,
             pg_index,
+            hnsw,
         })
+    }
+
+    /// Vector search over the snapshot's embedding payload, returning up to
+    /// `k` nearest neighbors by cosine similarity together with their score.
+    ///
+    /// Returns an empty list when the snapshot was loaded without embeddings
+    /// (the `embedding_dim` header field was `None`) — the prototype does
+    /// not synthesize embeddings on demand.
+    /// Substring autocomplete over canonical names and aliases. Case-
+    /// insensitive. Returns up to `top_k` matches in deterministic order
+    /// (canonical-name matches first, then alias matches; ties broken by
+    /// snapshot index).
+    ///
+    /// Prototype quality: a plain substring scan over every node. At the
+    /// SaaS-prototype scale (≤100k nodes) this is well under the 50ms
+    /// autocomplete budget — see crate-level rustdoc on [`HnswIndex`] for
+    /// why we accept O(N) for now.
+    pub fn search_skills(&self, query: &str, top_k: usize) -> Vec<SkillNode> {
+        if top_k == 0 || query.is_empty() {
+            return Vec::new();
+        }
+        let needle = query.to_lowercase();
+        let mut canonical_hits = Vec::new();
+        let mut alias_hits = Vec::new();
+        for (i, node) in self.nodes.iter().enumerate() {
+            if node.canonical_name.to_lowercase().contains(&needle) {
+                canonical_hits.push(i);
+                continue;
+            }
+            if node.aliases.iter().any(|a| a.to_lowercase().contains(&needle)) {
+                alias_hits.push(i);
+            }
+        }
+        canonical_hits
+            .into_iter()
+            .chain(alias_hits)
+            .take(top_k)
+            .map(|i| snapshot_node_to_skill_node(&self.nodes[i]))
+            .collect()
+    }
+
+    pub fn search_by_embedding(
+        &self,
+        query: &[f32],
+        k: usize,
+    ) -> Vec<(SkillNode, f32)> {
+        let Some(idx) = self.hnsw.as_ref() else {
+            return Vec::new();
+        };
+        idx.search(query, k)
+            .into_iter()
+            .map(|(i, score)| (snapshot_node_to_skill_node(&self.nodes[i]), score))
+            .collect()
     }
 
     /// Map a snapshot string id to its internal [`NodeIndex`], or
@@ -346,6 +410,50 @@ impl SkillGraphTraversal for SkillGraphRuntime {
         let _ = self.lookup_id(skill_id)?;
         Ok(Vec::new())
     }
+}
+
+/// Build the [`HnswIndex`] from the snapshot's raw embedding payload, or
+/// return `Ok(None)` when the snapshot omits embeddings.
+///
+/// The payload is `nodes.len() * dim * 4` native-endian f32 bytes, ordered
+/// to match `header.nodes`. Validation of the byte length against
+/// `embedding_byte_length` happens in [`SkillGraphSnapshot::decode`]; here
+/// we just slice and decode.
+fn build_hnsw_from_snapshot(
+    nodes: &[SnapshotNode],
+    embedding_dim: Option<u32>,
+    embeddings: &[u8],
+) -> Result<Option<HnswIndex>, ForgeError> {
+    let Some(dim_u32) = embedding_dim else {
+        return Ok(None);
+    };
+    let dim = dim_u32 as usize;
+    if dim == 0 || embeddings.is_empty() {
+        return Ok(None);
+    }
+    let bytes_per_node = dim * 4;
+    let expected_bytes = nodes.len() * bytes_per_node;
+    if embeddings.len() != expected_bytes {
+        return Err(ForgeError::Internal(format!(
+            "embedding payload length mismatch: got {} bytes, expected {} for {} nodes × {} dim × 4",
+            embeddings.len(),
+            expected_bytes,
+            nodes.len(),
+            dim,
+        )));
+    }
+    let mut decoded: Vec<(NodeIndex, Vec<f32>)> = Vec::with_capacity(nodes.len());
+    for i in 0..nodes.len() {
+        let start = i * bytes_per_node;
+        let mut floats = Vec::with_capacity(dim);
+        for chunk in embeddings[start..start + bytes_per_node].chunks_exact(4) {
+            floats.push(f32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
+        }
+        decoded.push((i, floats));
+    }
+    let refs: Vec<(NodeIndex, &[f32])> =
+        decoded.iter().map(|(i, v)| (*i, v.as_slice())).collect();
+    Ok(Some(HnswIndex::build(&refs, dim)?))
 }
 
 /// Construct a [`SkillNode`] from the compact [`SnapshotNode`] projection,
@@ -615,6 +723,102 @@ mod tests {
         // Empty filter → no results (explicit).
         let none = runtime.find_related("a", &[]).unwrap();
         assert!(none.is_empty(), "empty edge_types filter must return no edges");
+    }
+
+    #[test]
+    fn search_skills_matches_canonical_name_and_aliases_case_insensitive() {
+        let nodes = vec![
+            snap_node("a", "Rust", &["rustlang"]),
+            snap_node("b", "Python", &["py"]),
+            snap_node("c", "Programming", &[]),
+        ];
+        let runtime = SkillGraphRuntime::from_snapshot(&snapshot_bytes_from(nodes, Vec::new()))
+            .unwrap();
+
+        // Canonical-name substring (case-insensitive).
+        let r1 = runtime.search_skills("rust", 5);
+        assert!(r1.iter().any(|n| n.id == "a"), "expected to find 'Rust' for query 'rust'");
+
+        // Alias substring.
+        let r2 = runtime.search_skills("py", 5);
+        assert!(r2.iter().any(|n| n.id == "b"), "expected to find 'Python' via alias 'py'");
+
+        // Top-k cap.
+        let r3 = runtime.search_skills("p", 1);
+        assert!(r3.len() <= 1, "top_k = 1 must cap results");
+
+        // No match.
+        let r4 = runtime.search_skills("haskell", 5);
+        assert!(r4.is_empty());
+    }
+
+    fn snapshot_bytes_with_embeddings(
+        nodes: Vec<SnapshotNode>,
+        edges: Vec<SnapshotEdge>,
+        embeddings_per_node: Vec<Vec<f32>>,
+        dim: u32,
+    ) -> Vec<u8> {
+        use forge_core::types::skill_graph::{SnapshotHeader, SnapshotMetadata};
+        assert_eq!(nodes.len(), embeddings_per_node.len());
+        let mut emb_bytes: Vec<u8> = Vec::with_capacity(nodes.len() * dim as usize * 4);
+        for v in &embeddings_per_node {
+            assert_eq!(v.len(), dim as usize);
+            for f in v {
+                emb_bytes.extend_from_slice(&f.to_ne_bytes());
+            }
+        }
+        let header = SnapshotHeader {
+            metadata: SnapshotMetadata {
+                snapshot_id: "test-emb".to_string(),
+                created_at: "2026-04-28T00:00:00Z".to_string(),
+                skill_count: nodes.len() as u32,
+                edge_count: edges.len() as u32,
+                embedding_model: Some("test-model@v1".to_string()),
+                embedding_dim: Some(dim),
+            },
+            nodes,
+            edges,
+            market_stats: Vec::new(),
+            embedding_byte_length: emb_bytes.len() as u64,
+            hnsw_index_byte_length: 0,
+        };
+        SkillGraphSnapshot {
+            header,
+            embeddings: emb_bytes,
+            hnsw_index: Vec::new(),
+        }
+        .encode()
+        .expect("encode")
+    }
+
+    #[test]
+    fn from_snapshot_with_embeddings_supports_vector_search() {
+        let nodes = vec![
+            snap_node("a", "Rust", &[]),
+            snap_node("b", "Go", &[]),
+            snap_node("c", "Python", &[]),
+        ];
+        // 2-D embeddings, deliberately distinguishable.
+        let embeddings = vec![
+            vec![1.0_f32, 0.0],
+            vec![0.0_f32, 1.0],
+            vec![0.7_f32, 0.7],
+        ];
+        let bytes = snapshot_bytes_with_embeddings(nodes, Vec::new(), embeddings, 2);
+        let runtime = SkillGraphRuntime::from_snapshot(&bytes).expect("load");
+
+        let hits = runtime.search_by_embedding(&[1.0_f32, 0.05], 2);
+        assert_eq!(hits.len(), 2, "should return top 2");
+        assert_eq!(hits[0].0.id, "a", "nearest is a — query hugs (1,0)");
+        assert!(hits[0].1 > 0.99);
+    }
+
+    #[test]
+    fn search_by_embedding_is_empty_when_snapshot_has_none() {
+        let bytes = sample_snapshot_bytes();
+        let runtime = SkillGraphRuntime::from_snapshot(&bytes).unwrap();
+        // Structural-only snapshot — no embeddings to search.
+        assert!(runtime.search_by_embedding(&[0.0_f32; 2], 5).is_empty());
     }
 
     #[test]

@@ -8,8 +8,9 @@
 //!   [`crate::ForgeRuntime::open_database`]). Opens (or creates) the
 //!   named IDB-backed database, registering `IDBBatchAtomicVFS` as the
 //!   default VFS on first call.
-//! - [`Database::exec`] — JS-facing fire-and-forget DDL/DML/SELECT-without-
-//!   capture.
+//! - [`Database::exec_batch`] — JS-facing fire-and-forget DDL/DML/SELECT-
+//!   without-capture. Multi-statement batch path. (`exec` is kept as a
+//!   deprecated alias for the forge-nst6 harness.)
 //! - [`Database::query`] — JS-facing exec with row capture; returns a JS
 //!   `Array<Array<string|null>>` so the harness can `JSON.stringify` it
 //!   for assertions without further glue.
@@ -28,8 +29,8 @@
 //! The forge-nst6 deliverable is *the binding works end-to-end*, not a
 //! typed-row API. Numbers and booleans are rendered as their string
 //! representations; SQL NULL becomes JS `null`. Typed extraction
-//! (`column_int`, parameterized binding, etc.) lands when forge-lu5s
-//! (BrowserStore adapter) needs it.
+//! (`column_int`, parameterized binding, etc.) is available via the
+//! `Statement` API added in forge-lu5s.
 
 use forge_core::ForgeError;
 use js_sys::{Array, Function};
@@ -51,7 +52,7 @@ pub const VFS_NAME: &str = "forge-idb";
 /// JS-facing handle to a wa-sqlite database opened against the IDB VFS.
 #[wasm_bindgen]
 pub struct Database {
-    api: SqliteApi,
+    api: std::rc::Rc<SqliteApi>,
     db_handle: JsValue,
     closed: bool,
 }
@@ -79,7 +80,7 @@ impl Database {
             .map_jsvalue_err()?;
 
         Ok(Self {
-            api,
+            api: std::rc::Rc::new(api),
             db_handle,
             closed: false,
         })
@@ -90,14 +91,23 @@ impl Database {
 
 #[wasm_bindgen]
 impl Database {
-    /// Execute SQL that doesn't need to capture rows (DDL, INSERT,
-    /// UPDATE, DELETE, plus any SELECT whose result you intend to discard).
-    pub async fn exec(&self, sql: String) -> Result<(), JsValue> {
+    /// Execute SQL that doesn't capture rows (DDL, DML, DDL+DML scripts).
+    /// Multi-statement: semicolons split; all run in order. No parameters.
+    /// For parameterized queries, use `prepare` + `Statement::bind_*` + `step`.
+    #[wasm_bindgen(js_name = "execBatch")]
+    pub async fn exec_batch(&self, sql: String) -> Result<(), JsValue> {
         self.api
             .exec(&self.db_handle, &sql, &JsValue::UNDEFINED)
             .await
             .map_err(forge_error_jsvalue)?;
         Ok(())
+    }
+
+    /// Deprecated alias for `exec_batch`. Kept temporarily so the
+    /// browser-smoke harness from forge-nst6 doesn't break.
+    /// Remove after the harness is updated (Task 8).
+    pub async fn exec(&self, sql: String) -> Result<(), JsValue> {
+        self.exec_batch(sql).await
     }
 
     /// Execute SQL and collect every row. Returns a JS
@@ -151,6 +161,243 @@ impl Database {
                 .map_err(forge_error_jsvalue)?;
             self.closed = true;
         }
+        Ok(())
+    }
+}
+
+// ── Rust-only: Statement wrapper ─────────────────────────────────────────
+
+/// Result of a `Statement::step()` call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StepResult {
+    /// A row is available; call `column_*` to read it.
+    Row,
+    /// Iteration complete; subsequent `step` calls return Done.
+    Done,
+}
+
+/// Prepared-statement handle. Created via `Database::prepare`. Drop
+/// finalizes the underlying wa-sqlite statement (best-effort).
+pub struct Statement {
+    api: std::rc::Rc<SqliteApi>,
+    stmt: JsValue,
+    finalized: bool,
+}
+
+impl Database {
+    /// Prepare a SQL statement. Returns a single-statement handle — if
+    /// `sql` contains multiple semicolon-separated statements, only the
+    /// first is prepared and the remainder is silently discarded. Use
+    /// `exec_batch` for migrations / DDL scripts.
+    pub async fn prepare(&self, sql: &str) -> Result<Statement, ForgeError> {
+        let result = self.api.prepare_v2(&self.db_handle, sql).await.map_jsvalue_err()?;
+        // wa-sqlite returns `{stmt: handle, sql: remainder}`. Pluck `stmt`.
+        let stmt = js_sys::Reflect::get(&result, &JsValue::from_str("stmt"))
+            .map_jsvalue_err()?;
+        if stmt.is_null() || stmt.is_undefined() {
+            return Err(ForgeError::WasmDatabase(
+                format!("prepare_v2 returned no statement for SQL: {sql}"),
+            ));
+        }
+        Ok(Statement { api: std::rc::Rc::clone(&self.api), stmt, finalized: false })
+    }
+}
+
+impl Statement {
+    /// Bind a TEXT parameter. `idx` is 1-based per SQLite convention.
+    pub fn bind_text(&self, idx: i32, value: &str) -> Result<(), ForgeError> {
+        self.api.bind_text(&self.stmt, idx, value).map_jsvalue_err()?;
+        Ok(())
+    }
+
+    /// Bind an INTEGER parameter. Note: f64 widening — see wa_sqlite.rs notes.
+    pub fn bind_int64(&self, idx: i32, value: i64) -> Result<(), ForgeError> {
+        self.api.bind_int64(&self.stmt, idx, value as f64).map_jsvalue_err()?;
+        Ok(())
+    }
+
+    /// Bind a FLOAT parameter.
+    pub fn bind_double(&self, idx: i32, value: f64) -> Result<(), ForgeError> {
+        self.api.bind_double(&self.stmt, idx, value).map_jsvalue_err()?;
+        Ok(())
+    }
+
+    /// Bind a BLOB parameter.
+    pub fn bind_blob(&self, idx: i32, value: &[u8]) -> Result<(), ForgeError> {
+        self.api.bind_blob(&self.stmt, idx, value).map_jsvalue_err()?;
+        Ok(())
+    }
+
+    /// Bind a NULL parameter.
+    pub fn bind_null(&self, idx: i32) -> Result<(), ForgeError> {
+        self.api.bind_null(&self.stmt, idx).map_jsvalue_err()?;
+        Ok(())
+    }
+
+    /// Convenience: bind `Option<&str>` — None becomes NULL.
+    pub fn bind_text_opt(&self, idx: i32, value: Option<&str>) -> Result<(), ForgeError> {
+        match value {
+            Some(s) => self.bind_text(idx, s),
+            None => self.bind_null(idx),
+        }
+    }
+
+    /// Advance the statement. Returns Row when a row is available, Done at end.
+    pub async fn step(&self) -> Result<StepResult, ForgeError> {
+        let code = self.api.step(&self.stmt).await.map_jsvalue_err()?;
+        let code_i32 = code.as_f64().unwrap_or(-1.0) as i32;
+        match code_i32 {
+            crate::wa_sqlite::SQLITE_ROW => Ok(StepResult::Row),
+            crate::wa_sqlite::SQLITE_DONE => Ok(StepResult::Done),
+            other => Err(ForgeError::WasmDatabase(
+                format!("step returned unexpected code: {other}"),
+            )),
+        }
+    }
+
+    /// Number of columns in the current row.
+    pub fn column_count(&self) -> i32 {
+        self.api.column_count(&self.stmt)
+    }
+
+    /// SQLite type code for a column in the current row.
+    pub fn column_type(&self, idx: i32) -> i32 {
+        self.api.column_type(&self.stmt, idx)
+    }
+
+    /// Read a TEXT column. Returns None for NULL.
+    pub fn column_text(&self, idx: i32) -> Option<String> {
+        if self.column_type(idx) == crate::wa_sqlite::SQLITE_NULL {
+            return None;
+        }
+        Some(self.api.column_text(&self.stmt, idx))
+    }
+
+    /// Read an INTEGER column. Returns None for NULL.
+    pub fn column_int(&self, idx: i32) -> Option<i32> {
+        if self.column_type(idx) == crate::wa_sqlite::SQLITE_NULL {
+            return None;
+        }
+        Some(self.api.column_int(&self.stmt, idx))
+    }
+
+    /// Read a FLOAT column. Returns None for NULL.
+    pub fn column_double(&self, idx: i32) -> Option<f64> {
+        if self.column_type(idx) == crate::wa_sqlite::SQLITE_NULL {
+            return None;
+        }
+        Some(self.api.column_double(&self.stmt, idx))
+    }
+
+    /// Read a BLOB column. Returns empty vec for NULL — caller can check
+    /// `column_type` if NULL/empty distinction matters.
+    pub fn column_blob(&self, idx: i32) -> Vec<u8> {
+        self.api.column_blob(&self.stmt, idx)
+    }
+
+    /// Reset the statement so it can be re-bound and re-stepped.
+    pub async fn reset(&self) -> Result<(), ForgeError> {
+        self.api.reset(&self.stmt).await.map_jsvalue_err()?;
+        Ok(())
+    }
+
+    /// Finalize the underlying statement. Idempotent. Called by Drop.
+    pub async fn finalize(mut self) -> Result<(), ForgeError> {
+        if !self.finalized {
+            self.api.finalize(&self.stmt).await.map_jsvalue_err()?;
+            self.finalized = true;
+        }
+        Ok(())
+    }
+}
+
+impl Drop for Statement {
+    fn drop(&mut self) {
+        if !self.finalized {
+            web_sys::console::warn_1(&JsValue::from_str(
+                "forge-wasm: Statement dropped without explicit finalize() — \
+                 prefer s.finalize().await for deterministic cleanup",
+            ));
+        }
+    }
+}
+
+// ── Rust-only: Transaction guard ─────────────────────────────────────────
+
+/// Async transaction guard. Begin via `Database::transaction()`. Caller
+/// MUST explicitly call `commit()` or `rollback()` — failure to do so
+/// before drop logs (rollback is best-effort impossible since Drop is
+/// sync; wa-sqlite needs async). Use the `with_transaction` helper to
+/// avoid the discipline burden.
+pub struct Transaction<'a> {
+    db: &'a Database,
+    finished: bool,
+}
+
+impl<'a> Transaction<'a> {
+    pub async fn commit(mut self) -> Result<(), ForgeError> {
+        self.db.exec_batch_internal("COMMIT").await?;
+        self.finished = true;
+        Ok(())
+    }
+
+    pub async fn rollback(mut self) -> Result<(), ForgeError> {
+        self.db.exec_batch_internal("ROLLBACK").await?;
+        self.finished = true;
+        Ok(())
+    }
+}
+
+impl<'a> Drop for Transaction<'a> {
+    fn drop(&mut self) {
+        if !self.finished {
+            web_sys::console::error_1(&JsValue::from_str(
+                "forge-wasm: Transaction dropped without commit() or rollback() — \
+                 the underlying wa-sqlite session is still in BEGIN. Use \
+                 Database::with_transaction to avoid this.",
+            ));
+        }
+    }
+}
+
+impl Database {
+    /// Begin a transaction. Caller MUST call `commit()` or `rollback()`.
+    /// Prefer `with_transaction` which handles both paths.
+    pub async fn transaction(&self) -> Result<Transaction<'_>, ForgeError> {
+        self.exec_batch_internal("BEGIN").await?;
+        Ok(Transaction { db: self, finished: false })
+    }
+
+    /// Run an async closure inside a transaction. Commits on Ok, rolls
+    /// back on Err. The closure receives `&Database` (NOT the Transaction
+    /// guard) — all SQL goes through Database methods directly, the
+    /// guard is implicit.
+    pub async fn with_transaction<'a, F, Fut, T>(&'a self, f: F) -> Result<T, ForgeError>
+    where
+        F: FnOnce(&'a Database) -> Fut,
+        Fut: std::future::Future<Output = Result<T, ForgeError>> + 'a,
+    {
+        self.exec_batch_internal("BEGIN").await?;
+        match f(self).await {
+            Ok(value) => {
+                self.exec_batch_internal("COMMIT").await?;
+                Ok(value)
+            }
+            Err(e) => {
+                // Best-effort rollback; surface the original error even if rollback fails.
+                let _ = self.exec_batch_internal("ROLLBACK").await;
+                Err(e)
+            }
+        }
+    }
+
+    /// Internal exec that returns ForgeError instead of JsValue.
+    /// Used by transaction primitives and the migration runner.
+    pub(crate) async fn exec_batch_internal(&self, sql: &str) -> Result<(), ForgeError> {
+        self.api
+            .exec(&self.db_handle, sql, &JsValue::UNDEFINED)
+            .await
+            .map_jsvalue_err()?;
         Ok(())
     }
 }

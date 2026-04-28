@@ -4,6 +4,11 @@
 //! `packages/core/src/db/migrations/*.sql`), with no DB-runtime dependency.
 //! Native consumers (forge-sdk) apply via rusqlite; WASM consumers
 //! (forge-wasm) apply via wa-sqlite.
+//!
+//! forge-core hosts the slice because it is the only crate already depended
+//! on by both forge-sdk and forge-wasm with no feature-gated C library and
+//! no runtime I/O. forge-wasm cannot depend on forge-sdk (rusqlite is a
+//! hard dep there), so a shared parent was required.
 
 /// Embedded SQL migrations in filename-sorted order.
 /// Source: `packages/core/src/db/migrations/*.sql`.
@@ -67,7 +72,11 @@ mod tests {
 
     #[test]
     fn migrations_slice_is_populated_and_named() {
-        assert!(MIGRATIONS.len() >= 51, "expected at least 51 migrations, got {}", MIGRATIONS.len());
+        // Pin the count exactly. Sequence numbers 017 and 030 are intentionally
+        // skipped (those migrations were never created). When new migrations
+        // are added, bump this number deliberately — a test that just bounded
+        // `>= 51` would silently accept duplicates or accidental gaps.
+        assert_eq!(MIGRATIONS.len(), 51, "expected exactly 51 migrations, got {}", MIGRATIONS.len());
 
         // Every entry must have a non-empty name and non-empty SQL body.
         for (name, sql) in MIGRATIONS {

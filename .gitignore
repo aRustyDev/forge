@@ -52,7 +52,16 @@ Thumbs.db
 # Local overrides
 *.local.md
 *.local.json
+*.local.yml
 CLAUDE.local.md
+
+# Scratch dirs / files (any depth, by convention)
+.scratch/
+.scratch.md
+
+# Serena tool cache + local data (project.yml IS tracked; project.local.yml ignored above)
+.claude/serena/cache/
+.claude/serena/memories/
 
 # Tool results (large JSON files)
 .claude/projects/*/tool-results/
@@ -97,3 +106,4 @@ packages/webui/test-results/
 packages/webui/.svelte-kit/
 packages/webui/build/
 telemetry/
+infra/

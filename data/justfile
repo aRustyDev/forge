@@ -1,0 +1,39 @@
+# Data module — database migrations, HQL codegen, and cross-backend operations
+
+root := justfile_directory() / ".."
+
+# Run SQLite migrations
+migrate:
+    bun run --filter '@forge/core' migrate
+
+# Dump SQLite database for backup
+dump:
+    sqlite3 "${FORGE_DB_PATH:-{{root}}/data/forge.db}" .dump > "{{root}}/data/forge-dump-$(date +%Y%m%d).sql"
+
+# Open SQLite shell
+shell:
+    sqlite3 "${FORGE_DB_PATH:-{{root}}/data/forge.db}"
+
+# Generate HQL queries from entity map
+gen:
+    bun run "{{root}}/packages/core/src/storage/adapters/helix/codegen.ts"
+
+# Compile HQL src/*.hx → dist/*.hx
+build:
+    bun run "{{root}}/packages/core/src/storage/adapters/helix/build.ts" compile
+
+# Extract HQL dist/*.hx → src/*.hx (reverse)
+extract:
+    bun run "{{root}}/packages/core/src/storage/adapters/helix/build.ts" extract
+
+# Migrate data from SQLite to HelixDB
+migrate-to-helix:
+    FORGE_STORAGE=helix bun run "{{root}}/packages/core/src/storage/migration/migrate.ts" sqlite-to-helix
+
+# Migrate data from HelixDB back to SQLite
+migrate-from-helix:
+    FORGE_STORAGE=helix bun run "{{root}}/packages/core/src/storage/migration/migrate.ts" helix-to-sqlite
+
+# Verify integrity across both backends
+verify:
+    FORGE_STORAGE=helix bun run "{{root}}/packages/core/src/storage/migration/verify.ts"

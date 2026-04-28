@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "forge-mcp": {
+      "type": "http",
+      "url": "http://localhost:5174/mcp"
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest",
+        "--category-extensions"
+      ]
+    }
+  }
+}

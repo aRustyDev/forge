@@ -1,0 +1,20 @@
+# Beads Configuration (Forge)
+# All settings can also be set via env vars (BD_* prefix) or CLI flags.
+# Docs: https://gastownhall.github.io/beads/reference/configuration
+
+actor = "aRustyDev"
+
+[sync]
+remote = "git+ssh://git@github.com/aRustyDev/forge.git"
+
+# [dolt]
+# mode = "server"
+# host = "127.0.0.1"
+# port = 13306
+# shared-server = true
+
+# [id]
+# prefix = "forge"
+# hash_length = 4
+
+# project_id = ""

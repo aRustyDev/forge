@@ -6,6 +6,7 @@
 //!
 //! TS source: `packages/core/src/types/index.ts`
 
+pub mod migrations;
 pub mod types;
 pub mod util;
 

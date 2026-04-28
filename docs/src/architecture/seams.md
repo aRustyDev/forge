@@ -118,6 +118,13 @@ JD extraction ≠ bullet extraction ≠ cert extraction ≠ free text extraction
 
 **Contract:** Browser never assumes its snapshot is current. All mutations go through the server. Snapshot staleness is acceptable (eventually consistent).
 
+**Implementation (forge-lu5s, 2026-04-28):**
+- `crates/forge-wasm/src/adapter.rs` — `WaSqliteAdapter::open(filename)` opens an IDB-backed wa-sqlite database and runs all 51 Forge migrations (`forge_core::migrations::MIGRATIONS`, lifted from forge-sdk during this bead).
+- `crates/forge-wasm/src/database.rs` — typed `Statement` API (prepare / bind_* / step / column_* / reset / finalize) plus a `Transaction` guard with `with_transaction(closure)` helper. exec_batch is the canonical multi-statement path; the forge-nst6 PoC's `query` is preserved for harness inspection.
+- `crates/forge-wasm/src/stores/skill.rs` — first vertical-slice store (create / get / list / update / delete / list_categories). Junction-table methods (`get_with_domains`, `link_domain`) deferred to a successor bead.
+- VFS: `IDBBatchAtomicVFS` (NOT OPFS) — wa-sqlite@1.0.0 npm constraint, see forge-n89p for the OPFS migration trigger.
+- Spec: `.claude/plans/forge-resume-builder/refs/specs/2026-04-28-browserstore-adapter-vertical-slice.md`. Plan: same path with `-plan.md` suffix.
+
 ## Seam 7: Browser DB ↔ SaaS Sync
 
 **Direction:** Bidirectional (CRDT merge)

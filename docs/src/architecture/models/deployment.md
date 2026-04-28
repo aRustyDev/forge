@@ -11,7 +11,7 @@
 ```
 ALL USERS (OSS baseline):
   Browser WASM app (CDN-hosted)
-  + wa-sqlite/OPFS (local private data)
+  + wa-sqlite/OPFS (local private data — see implementation note below)
   + Global skill graph snapshot from CDN (public, free)
   + Embedding model (WASM/WebGPU)
   + Self-hostable Hono API (optional, for power users)
@@ -126,6 +126,8 @@ The global skill graph reaches the browser through a CDN-hosted snapshot file. T
 The `snapshot_id` doubles as the IndexedDB cache key. Format-version mismatches (`SNAPSHOT_FORMAT_VERSION` bumps) trigger a full re-fetch — the decoder rejects unknown versions before touching the rest of the payload.
 
 ## Storage Mapping
+
+> **Implementation note (forge-lu5s, 2026-04-28):** the "Browser (wa-sqlite)" column below describes the design target. The actual MVP-2.0 implementation uses **IDB-backed wa-sqlite** (`IDBBatchAtomicVFS`), not OPFS. wa-sqlite@1.0.0 (the only npm-published version) ships an OPFS VFS that requires Worker context; the main-thread async OPFS VFS exists only on master HEAD. The wasm-bindgen surface is VFS-agnostic — a future swap to OPFS is local to two Rust files (`wa_sqlite.rs` + `database.rs`). Migration tracked by **forge-n89p**. See `crates/forge-wasm/src/database.rs` and the BrowserStore spec at `.claude/plans/forge-resume-builder/refs/specs/2026-04-28-browserstore-adapter-vertical-slice.md`.
 
 ### What lives where
 

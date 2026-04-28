@@ -67,7 +67,7 @@ cargo install wasm-pack    # only needed for wasm-pack-build
 
 **Asyncify-required ESM:** the binding pulls `wa-sqlite/dist/wa-sqlite-async.mjs` (the Asyncify build), required because the IDB VFS uses async I/O internally via wa-sqlite's `handleAsync` pattern. The non-async build (`wa-sqlite.mjs`) only works with sync VFSes (Worker-only OPFS variants).
 
-**Error mapping:** `forge-core` exposes a `wasm` cargo feature gating `ForgeError::WasmDatabase(String)`, paralleling the existing `rusqlite` feature. The variant shares the `DATABASE_ERROR` wire code with the native rusqlite variant — API consumers can't distinguish backends from the JSON shape.
+**Error mapping:** `forge-core` exposes `ForgeError::WasmDatabase(String)` as an always-present variant (no feature gate). It shares the `DATABASE_ERROR` wire code with the rusqlite-gated `Database` variant, so API consumers can't distinguish backends from the JSON shape. Always-present rather than feature-gated because cargo workspace resolver v2 unifies forge-core's features per-target — once forge-wasm's rlib is part of a workspace build, the variant must be reachable in native consumers' exhaustive matches anyway. Cheaper to keep it always-on than to coordinate a feature-passthrough chain through every consumer crate.
 
 **Bundle size (wasm-pack `--target bundler`, release profile):**
 
@@ -85,7 +85,7 @@ cargo install wasm-pack    # only needed for wasm-pack-build
 
 **Architectural rules (added in nst6):**
 
-- The `wasm` feature on forge-core MUST stay free of dependencies — it is a `#[cfg]` switch only. Avoid letting it pull in wasm-bindgen-shaped types.
+- `ForgeError::WasmDatabase(String)` is always-present on forge-core (no feature gate). All consumers that exhaustively match on `ForgeError` must handle this arm. Native consumers route it to the same status code as the rusqlite-gated `Database` variant.
 - The wa-sqlite peer-dep version pin in `crates/forge-wasm/package.json` MUST track exactly what the bindings target. Bumping wa-sqlite without updating the Rust binding will silently break.
 - Vite (or any consumer bundler) needs `resolve.alias` entries for `wa-sqlite/dist/...` and `wa-sqlite/src/...` because wa-sqlite@1.0.0's package.json has no `exports` field — Rollup's strict subpath resolution refuses these otherwise. The browser-smoke `vite.config.js` documents the canonical alias set; forge-5x2h should reuse it.
 

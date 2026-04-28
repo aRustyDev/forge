@@ -13,11 +13,11 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # `default-features = false` drops the rusqlite-bound `Database` variant of
 # ForgeError so forge-core compiles to wasm32-unknown-unknown without trying
-# to bundle a C SQLite library. The `wasm` feature activates the
-# `WasmDatabase(String)` variant of ForgeError used to surface wa-sqlite
-# JS-boundary errors with the same `DATABASE_ERROR` wire code as the native
-# rusqlite variant.
-forge-core = { workspace = true, default-features = false, features = ["wasm"] }
+# to bundle a C SQLite library. The `WasmDatabase(String)` variant used to
+# surface wa-sqlite JS-boundary errors is always-present in forge-core
+# (no feature gate) so consumers don't need a passthrough feature to
+# handle it in exhaustive matches.
+forge-core = { workspace = true, default-features = false }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

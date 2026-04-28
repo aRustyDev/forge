@@ -215,7 +215,6 @@ mod error_serialization {
         assert_eq!(err.code(), "INTERNAL_ERROR");
     }
 
-    #[cfg(feature = "wasm")]
     #[test]
     fn wasm_database_error_constructs_and_displays() {
         let err = ForgeError::WasmDatabase("OPFS open failed: ENOENT".into());
@@ -223,7 +222,6 @@ mod error_serialization {
         assert!(err.to_string().contains("OPFS open failed: ENOENT"));
     }
 
-    #[cfg(feature = "wasm")]
     #[test]
     fn wasm_database_error_serializes_with_database_error_code() {
         let err = ForgeError::WasmDatabase("connection lost".into());

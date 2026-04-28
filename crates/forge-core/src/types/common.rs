@@ -52,7 +52,13 @@ pub enum ForgeError {
     /// `JsValue` is not portable across the JS↔Rust boundary in error types.
     /// Shares the `DATABASE_ERROR` wire code with the native variant so API
     /// consumers can't distinguish backends.
-    #[cfg(feature = "wasm")]
+    ///
+    /// Always-present (no feature gate). Native consumers will never
+    /// construct this variant — but they would otherwise need a feature
+    /// passthrough to handle it in exhaustive matches once cargo workspace
+    /// feature unification activates `forge-core/wasm` via forge-wasm.
+    /// Cheaper to keep the variant always available than coordinate
+    /// per-consumer cfg gating.
     #[error("database error: {0}")]
     WasmDatabase(String),
 
@@ -75,7 +81,6 @@ impl ForgeError {
             Self::ForeignKey { .. } => "FK_VIOLATION",
             #[cfg(feature = "rusqlite")]
             Self::Database { .. } => "DATABASE_ERROR",
-            #[cfg(feature = "wasm")]
             Self::WasmDatabase(_) => "DATABASE_ERROR",
             Self::Gone { .. } => "GONE",
             Self::Internal(_) => "INTERNAL_ERROR",

@@ -4,6 +4,7 @@
 data/*.db
 data/*.db-*
 data/*.backup*
+data/*.bak
 
 # Isolated Docker dev database (docker-compose mounts ./data-docker:/data)
 data-docker/

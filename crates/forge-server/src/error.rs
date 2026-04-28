@@ -34,6 +34,12 @@ impl IntoResponse for ApiError {
             ForgeError::Conflict { .. } => StatusCode::CONFLICT,
             ForgeError::ForeignKey { .. } => StatusCode::BAD_REQUEST,
             ForgeError::Database { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            // Mirrors the rusqlite-gated `Database` arm. Activated only
+            // when `cargo build --workspace` unifies forge-wasm's `wasm`
+            // feature into forge-core's compilation here. Same status as
+            // Database since both surface a SQLite-level fault.
+            #[cfg(feature = "wasm")]
+            ForgeError::WasmDatabase(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ForgeError::Gone { .. } => StatusCode::GONE,
             ForgeError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };

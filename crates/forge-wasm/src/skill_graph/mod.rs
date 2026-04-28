@@ -21,3 +21,6 @@
 //! [`SkillGraphSnapshot`]: forge_core::types::skill_graph::SkillGraphSnapshot
 
 mod hnsw;
+mod runtime;
+
+pub use runtime::SkillGraphRuntime;

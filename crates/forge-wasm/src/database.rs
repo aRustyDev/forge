@@ -9,8 +9,7 @@
 //!   named IDB-backed database, registering `IDBBatchAtomicVFS` as the
 //!   default VFS on first call.
 //! - [`Database::exec_batch`] — JS-facing fire-and-forget DDL/DML/SELECT-
-//!   without-capture. Multi-statement batch path. (`exec` is kept as a
-//!   deprecated alias for the forge-nst6 harness.)
+//!   without-capture. Multi-statement batch path.
 //! - [`Database::query`] — JS-facing exec with row capture; returns a JS
 //!   `Array<Array<string|null>>` so the harness can `JSON.stringify` it
 //!   for assertions without further glue.
@@ -101,13 +100,6 @@ impl Database {
             .await
             .map_err(forge_error_jsvalue)?;
         Ok(())
-    }
-
-    /// Deprecated alias for `exec_batch`. Kept temporarily so the
-    /// browser-smoke harness from forge-nst6 doesn't break.
-    /// Remove after the harness is updated (Task 8).
-    pub async fn exec(&self, sql: String) -> Result<(), JsValue> {
-        self.exec_batch(sql).await
     }
 
     /// Execute SQL and collect every row. Returns a JS

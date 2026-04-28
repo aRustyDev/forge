@@ -45,7 +45,7 @@ pub mod migrate;
 pub mod stores;
 pub mod wa_sqlite;
 
-pub use adapter::WaSqliteAdapter;
+pub use adapter::{WaSqliteAdapter, WaSqliteAdapterJs};
 pub use database::{Database, Statement, StepResult, Transaction};
 pub use stores::SkillStore;
 

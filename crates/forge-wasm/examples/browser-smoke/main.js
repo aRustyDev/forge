@@ -15,7 +15,7 @@
 //      reload, then run again. The second run's SELECT should return
 //      the rows from both runs.
 
-import { ForgeRuntime } from 'forge-wasm';
+import { ForgeRuntime, WaSqliteAdapterJs } from 'forge-wasm';
 
 const log = document.getElementById('log');
 const rowsEl = document.getElementById('rows');
@@ -50,12 +50,12 @@ async function runRoundTrip() {
   }
 
   try {
-    await db.exec('CREATE TABLE IF NOT EXISTS smoke (k TEXT PRIMARY KEY, v INTEGER)');
+    await db.execBatch('CREATE TABLE IF NOT EXISTS smoke (k TEXT PRIMARY KEY, v INTEGER)');
     emit('CREATE TABLE smoke ok', 'ok');
 
     const stamp = new Date().toISOString();
     const value = Math.floor(Math.random() * 100000);
-    await db.exec(
+    await db.execBatch(
       `INSERT OR REPLACE INTO smoke (k, v) VALUES ('${stamp}', ${value})`
     );
     emit(`INSERT smoke('${stamp}', ${value}) ok`, 'ok');
@@ -109,4 +109,81 @@ runBtn.addEventListener('click', () => {
 // "Run round-trip" button is for re-runs without reloading.
 runRoundTrip().catch((err) => {
   emit(`unhandled: ${err}`, 'err');
+});
+
+// ── BrowserStore (forge-lu5s) harness ────────────────────────────────────
+
+let adapter = null;
+const out = document.getElementById('browserstore-out');
+function log(msg) {
+  const stamp = new Date().toISOString().split('T')[1].slice(0, 8);
+  out.textContent += `[${stamp}] ${msg}\n`;
+  out.scrollTop = out.scrollHeight;
+}
+
+document.getElementById('btn-open').addEventListener('click', async () => {
+  try {
+    adapter = await WaSqliteAdapterJs.open('forge-lu5s.db');
+    log('OK: adapter opened, migrations applied');
+  } catch (e) {
+    log(`FAIL open: ${e}`);
+  }
+});
+
+document.getElementById('btn-create').addEventListener('click', async () => {
+  if (!adapter) return log('FAIL: open first');
+  try {
+    const id = await adapter.createSkill('Rust', 'language');
+    log(`OK: created skill id=${id}`);
+  } catch (e) {
+    log(`FAIL create: ${e}`);
+  }
+});
+
+document.getElementById('btn-create-dup').addEventListener('click', async () => {
+  if (!adapter) return log('FAIL: open first');
+  try {
+    const id = await adapter.createSkill('Rust', 'language');
+    log(`UNEXPECTED OK: dup created id=${id} — UNIQUE not enforced?`);
+  } catch (e) {
+    log(`OK (expected): ${e}`);
+  }
+});
+
+document.getElementById('btn-list').addEventListener('click', async () => {
+  if (!adapter) return log('FAIL: open first');
+  try {
+    const json = await adapter.listSkills();
+    const skills = JSON.parse(json);
+    log(`OK: ${skills.length} skill(s)`);
+    skills.slice(0, 5).forEach(s => log(`  ${s.id} — ${s.name} [${s.category}]`));
+  } catch (e) {
+    log(`FAIL list: ${e}`);
+  }
+});
+
+document.getElementById('btn-delete-first').addEventListener('click', async () => {
+  if (!adapter) return log('FAIL: open first');
+  try {
+    const json = await adapter.listSkills();
+    const skills = JSON.parse(json);
+    if (skills.length === 0) return log('FAIL: no skills to delete');
+    const target = skills[0];
+    const rows = await adapter.deleteSkill(target.id);
+    log(`OK: deleted ${target.name} (rows=${rows})`);
+  } catch (e) {
+    log(`FAIL delete: ${e}`);
+  }
+});
+
+document.getElementById('btn-list-categories').addEventListener('click', async () => {
+  if (!adapter) return log('FAIL: open first');
+  try {
+    const json = await adapter.listCategories();
+    const cats = JSON.parse(json);
+    log(`OK: ${cats.length} categor(y/ies)`);
+    cats.slice(0, 5).forEach(([slug, label]) => log(`  ${slug} — ${label}`));
+  } catch (e) {
+    log(`FAIL categories: ${e}`);
+  }
 });

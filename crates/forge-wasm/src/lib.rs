@@ -40,6 +40,7 @@ use wasm_bindgen::prelude::*;
 
 pub mod database;
 pub mod error;
+pub mod migrate;
 pub mod wa_sqlite;
 
 pub use database::{Database, Statement, StepResult, Transaction};

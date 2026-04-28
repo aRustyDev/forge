@@ -3,7 +3,76 @@
 > Type: Persistent, curated
 > Epic: forge-ucc2 (Skill Graph Data Model & Storage)
 > Schema: implemented in migration `052_skill_graph_schema.sql` (forge-7rd7)
-> Status: Schema landed; migration of legacy skills (forge-e2js), traversal API (forge-8xjh), and snapshot format (forge-ubxb) in progress.
+> Initial population: implemented in migration `053_skill_graph_initial_population.sql` (forge-e2js)
+> Traversal API: `SkillGraphTraversal` trait in `forge-core`, `SqlSkillGraphStore` in `forge-sdk` (forge-8xjh)
+> Snapshot format: `SkillGraphSnapshot` + container layout in `forge-core`, `build_structural_snapshot` builder in `forge-sdk` (forge-ubxb)
+> Status: Schema, initial population, SQL traversal, and structural snapshot landed. HNSW + market-stats payload sections deferred to forge-afyg / forge-c4i5.
+
+## Initial Population
+
+Migration 053 mirrors the legacy `skills` table into `skill_graph_nodes` and seeds an initial hierarchy:
+
+- **Mirror nodes** — one `skill_graph_node` per row in `skills`, reusing the legacy UUID as `id` and recording it in `legacy_skill_id`. Junction tables (`bullet_skills`, `certification_skills`, `source_skills`, `summary_skills`, `perspective_skills`, `resume_skills`, `job_description_skills`, `skill_domains`) JOIN cleanly to either `skills` or `skill_graph_nodes` on the same UUID — no FK churn during the dual-schema period.
+- **Category root nodes** — one synthetic `skill_graph_node` per `skill_categories` row, identified by `description = 'category-root:<slug>'` and tagged `category = 'concept'`. They anchor the initial hierarchy without polluting `skill_categories` itself.
+- **`parent-of` edges** — emitted from each category root to every skill belonging to that category. `weight = 1.0`, `confidence = 1.0`. Only `parent-of` is materialized; `find_parents` queries by `target_id` rather than mirroring with `child-of` rows. The `child-of` vocabulary remains valid for user-curated assertions where a node is conceptually a child of multiple anchors with different semantics.
+
+The migration is idempotent (existence guards on `legacy_skill_id` and `description`), additive (no rows in `skills` or junction tables are modified), and deterministic.
+
+`alias-of` edges are NOT seeded by this migration — the legacy `skills` schema has no alias data. The extraction pipeline (forge-czgq) will populate alias-of edges as duplicates are discovered.
+
+## Traversal API
+
+The `SkillGraphTraversal` trait (defined in `forge-core::types::skill_graph`) is the single contract every backend honors. The SQL implementation (`SqlSkillGraphStore` in `forge-sdk::db::stores::skill_graph`) backs the server today; the WASM implementation (forge-afyg, in-memory `petgraph` over a snapshot) will back the browser. See [seams.md → Seam 1](../seams.md#seam-1-skill-graph--extraction-pipeline) for the full trait signature and direction conventions.
+
+Backend notes for the SQL implementation:
+- Recursive CTEs power `n_hop_neighbors`; both incoming and outgoing edges are walked. Edge-type filtering is parameterized via `json_each(?)` over a JSON array of allowed type strings — no string interpolation, so the call site is injection-safe.
+- `find_by_name` first does an exact match on `canonical_name`, then falls back to scanning `aliases` with `EXISTS (SELECT 1 FROM json_each(...))`. Both queries hit indexed columns or use the JSON1 extension that ships with SQLite.
+- `co_occurrence_stats(id, Some(window))` parses each edge's `temporal_data` array using `json_extract` and returns only edges with an entry for the requested window. `co_occurrence_stats(id, None)` returns the headline `weight` column on the edge, which conventionally tracks the most recent window.
+
+## Snapshot Format
+
+Distribution format for the global skill graph. Built server-side, uploaded to a CDN, fetched by the browser, cached in IndexedDB, and loaded into the forge-wasm runtime.
+
+The container layout deliberately keeps the heavy binary payload (embeddings, HNSW index) out of the JSON header — encoding `Vec<u8>` as a JSON number array would explode the wire size 4×.
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│ MAGIC          (4 bytes)  ASCII "FSGS"                             │
+│ FORMAT_VERSION (4 bytes)  big-endian u32 (current: 1)              │
+│ HEADER_LEN     (4 bytes)  big-endian u32                           │
+│ HEADER         (HEADER_LEN bytes)  UTF-8 JSON — SnapshotHeader     │
+│ EMBEDDINGS     (header.embedding_byte_length bytes)                │
+│ HNSW_INDEX     (header.hnsw_index_byte_length bytes)               │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+The JSON header carries metadata, the node array, the edge adjacency list, and a market-stats slot:
+
+```rust
+SnapshotHeader {
+    metadata: SnapshotMetadata {
+        snapshot_id: String, created_at: String,
+        skill_count: u32, edge_count: u32,
+        embedding_model: Option<String>,    // None when no embeddings present
+        embedding_dim: Option<u32>,
+    },
+    nodes: Vec<SnapshotNode>,                // id, canonical_name, category, aliases, source, confidence
+    edges: Vec<SnapshotEdge>,                // source_id, target_id, edge_type, weight, confidence, temporal_data
+    market_stats: Vec<MarketStat>,           // populated by forge-c4i5; empty in MVP
+    embedding_byte_length: u64,
+    hnsw_index_byte_length: u64,
+}
+```
+
+Embeddings are stored as a contiguous packed array of native-endian f32 bytes, parallel to `nodes` (block `i` is `embeddings[i*dim*4 .. (i+1)*dim*4]`). The MVP requires either ALL or NONE of the nodes carry embeddings.
+
+HNSW_INDEX is opaque to forge-core; the runtime that consumes it (forge-afyg, usearch-rs / hnswlib-rs) chooses the on-disk format. Empty until the HNSW builder lands.
+
+**Compatibility:** every reader MUST refuse versions it doesn't know. Bumping `SNAPSHOT_FORMAT_VERSION` is required for any breaking change to the header schema or container layout.
+
+**Size budget:** the bead's acceptance criterion calls for under 25 MB at 10k nodes. Verified by `snapshot_at_10k_nodes_fits_under_25mb` in forge-core (10k nodes × 384-dim f32 embeddings + ~30k edges fits well under the budget without compression). HNSW + market stats will need to be folded in once they exist; the size test should be updated accordingly when those slots are populated.
+
+**ETag-based version checking** is HTTP plumbing rather than a property of this format — it lives at the CDN deployment layer (forge-4a01). Clients use the snapshot's `metadata.snapshot_id` as the cache key.
 
 ## Purpose
 

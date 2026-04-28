@@ -57,6 +57,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("050_answer_bank", include_str!("../../../../packages/core/src/db/migrations/050_answer_bank.sql")),
     ("051_extension_infra", include_str!("../../../../packages/core/src/db/migrations/051_extension_infra.sql")),
     ("052_skill_graph_schema", include_str!("../../../../packages/core/src/db/migrations/052_skill_graph_schema.sql")),
+    ("053_skill_graph_initial_population", include_str!("../../../../packages/core/src/db/migrations/053_skill_graph_initial_population.sql")),
 ];
 
 /// Run all pending migrations against the given connection.
@@ -389,6 +390,287 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count, 0, "edges must cascade when a referenced node is deleted");
+    }
+
+    // ------------------------------------------------------------------
+    // 053_skill_graph_initial_population
+    // ------------------------------------------------------------------
+
+    /// Insert a legacy skill row and return its id.
+    fn insert_legacy_skill(conn: &Connection, id: &str, name: &str, category: &str) {
+        conn.execute(
+            "INSERT INTO skills (id, name, category) VALUES (?1, ?2, ?3)",
+            rusqlite::params![id, name, category],
+        )
+        .unwrap();
+    }
+
+    /// Set up a database that has migrations 1..=052 applied but NOT 053,
+    /// then insert legacy skills + a representative bullet/junction so we can
+    /// verify the population migration in isolation.
+    fn db_through_052_with_legacy_skills() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON").unwrap();
+
+        // Apply every migration up to and INCLUDING 052, but stop before 053.
+        for &(name, sql) in MIGRATIONS {
+            let needs_fk_off = sql.contains("PRAGMA foreign_keys = OFF");
+            if needs_fk_off {
+                conn.execute_batch("PRAGMA foreign_keys = OFF").unwrap();
+            }
+            conn.execute_batch("BEGIN").unwrap();
+            conn.execute_batch(sql).unwrap();
+            conn.execute(
+                "INSERT OR IGNORE INTO _migrations (name) VALUES (?1)",
+                rusqlite::params![name],
+            )
+            .unwrap();
+            conn.execute_batch("COMMIT").unwrap();
+            if needs_fk_off {
+                conn.execute_batch("PRAGMA foreign_keys = ON").unwrap();
+            }
+            if name == "052_skill_graph_schema" {
+                break;
+            }
+        }
+
+        insert_legacy_skill(&conn, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01", "Python", "language");
+        insert_legacy_skill(&conn, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa02", "Rust",   "language");
+        insert_legacy_skill(&conn, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa03", "Docker", "tool");
+
+        conn
+    }
+
+    /// Apply only the 053 migration to a connection that's already at 052.
+    fn apply_053(conn: &Connection) {
+        let sql = MIGRATIONS
+            .iter()
+            .find(|(n, _)| *n == "053_skill_graph_initial_population")
+            .map(|(_, s)| *s)
+            .unwrap();
+        conn.execute_batch("BEGIN").unwrap();
+        conn.execute_batch(sql).unwrap();
+        conn.execute(
+            "INSERT OR IGNORE INTO _migrations (name) VALUES ('053_skill_graph_initial_population')",
+            [],
+        )
+        .unwrap();
+        conn.execute_batch("COMMIT").unwrap();
+    }
+
+    #[test]
+    fn population_mirrors_each_legacy_skill_as_a_node() {
+        let conn = db_through_052_with_legacy_skills();
+        apply_053(&conn);
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM skill_graph_nodes WHERE legacy_skill_id IS NOT NULL",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 3, "every legacy skill should produce one mirror node");
+
+        // legacy_skill_id should equal id for migrated rows so junctions JOIN cleanly.
+        let mismatched: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM skill_graph_nodes WHERE legacy_skill_id IS NOT NULL AND legacy_skill_id <> id",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(mismatched, 0, "migrated nodes must reuse the legacy skill UUID");
+
+        // Source and category propagate.
+        let (name, category, source): (String, String, String) = conn
+            .query_row(
+                "SELECT canonical_name, category, source FROM skill_graph_nodes WHERE legacy_skill_id = ?1",
+                rusqlite::params!["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01"],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(name, "Python");
+        assert_eq!(category, "language");
+        assert_eq!(source, "seed");
+    }
+
+    #[test]
+    fn population_creates_one_root_per_category() {
+        let conn = db_through_052_with_legacy_skills();
+
+        let category_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM skill_categories", [], |r| r.get(0))
+            .unwrap();
+        assert!(category_count > 0, "skill_categories should be seeded by 044");
+
+        apply_053(&conn);
+
+        let root_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM skill_graph_nodes WHERE description LIKE 'category-root:%'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(root_count, category_count, "one root node per category");
+
+        // Roots must have category = 'concept' and no legacy_skill_id.
+        let bad_roots: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM skill_graph_nodes \
+                 WHERE description LIKE 'category-root:%' \
+                   AND (category <> 'concept' OR legacy_skill_id IS NOT NULL)",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(bad_roots, 0, "category roots must be concept-tagged with no legacy id");
+    }
+
+    #[test]
+    fn population_emits_parent_of_edges_from_category_roots_to_skills() {
+        let conn = db_through_052_with_legacy_skills();
+        apply_053(&conn);
+
+        // Each migrated skill should have exactly one incoming parent-of edge
+        // (from its category root).
+        let orphan_skills: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM skill_graph_nodes n \
+                 WHERE n.legacy_skill_id IS NOT NULL \
+                   AND NOT EXISTS ( \
+                     SELECT 1 FROM skill_graph_edges e \
+                     WHERE e.target_id = n.id AND e.edge_type = 'parent-of' \
+                   )",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(orphan_skills, 0, "every migrated skill must have a parent-of edge from its category root");
+
+        // The parent of "Python" should be the "Languages" root.
+        let parent_name: String = conn
+            .query_row(
+                "SELECT root.canonical_name \
+                 FROM skill_graph_edges e \
+                 JOIN skill_graph_nodes node ON node.id = e.target_id \
+                 JOIN skill_graph_nodes root ON root.id = e.source_id \
+                 WHERE node.legacy_skill_id = ?1 AND e.edge_type = 'parent-of'",
+                rusqlite::params!["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01"],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(parent_name, "Languages");
+    }
+
+    #[test]
+    fn population_is_idempotent() {
+        let conn = db_through_052_with_legacy_skills();
+        apply_053(&conn);
+
+        let first_node_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM skill_graph_nodes", [], |r| r.get(0))
+            .unwrap();
+        let first_edge_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM skill_graph_edges", [], |r| r.get(0))
+            .unwrap();
+
+        // Re-run the population SQL (without re-recording in _migrations).
+        let sql = MIGRATIONS
+            .iter()
+            .find(|(n, _)| *n == "053_skill_graph_initial_population")
+            .map(|(_, s)| *s)
+            .unwrap();
+        conn.execute_batch(sql).unwrap();
+
+        let second_node_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM skill_graph_nodes", [], |r| r.get(0))
+            .unwrap();
+        let second_edge_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM skill_graph_edges", [], |r| r.get(0))
+            .unwrap();
+
+        assert_eq!(first_node_count, second_node_count, "node insert must be idempotent");
+        assert_eq!(first_edge_count, second_edge_count, "edge insert must be idempotent");
+    }
+
+    #[test]
+    fn legacy_junction_tables_still_resolve_after_population() {
+        // Build a DB through 052, insert a skill + a bullet that references it,
+        // run 053, then verify the junction still resolves both forward (legacy)
+        // and via the new graph node (which shares the same UUID).
+        let conn = db_through_052_with_legacy_skills();
+
+        // Insert a minimal source + bullet so we can reference Python in source_skills.
+        conn.execute(
+            "INSERT INTO sources (id, source_type, title, description) VALUES (?1, 'general', 'Test source', 'Test desc')",
+            rusqlite::params!["bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01"],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO source_skills (source_id, skill_id) VALUES (?1, ?2)",
+            rusqlite::params![
+                "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01",
+                "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa01",
+            ],
+        )
+        .unwrap();
+
+        apply_053(&conn);
+
+        // Forward: source_skills → skills still works.
+        let legacy_name: String = conn
+            .query_row(
+                "SELECT s.name FROM source_skills ss JOIN skills s ON s.id = ss.skill_id \
+                 WHERE ss.source_id = ?1",
+                rusqlite::params!["bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01"],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(legacy_name, "Python");
+
+        // New: source_skills.skill_id JOINs the new graph node directly because
+        // the migrated node reuses the legacy UUID.
+        let graph_name: String = conn
+            .query_row(
+                "SELECT n.canonical_name FROM source_skills ss \
+                 JOIN skill_graph_nodes n ON n.id = ss.skill_id \
+                 WHERE ss.source_id = ?1",
+                rusqlite::params!["bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01"],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(graph_name, "Python");
+    }
+
+    #[test]
+    fn population_runs_cleanly_on_fresh_full_migration_chain() {
+        // The standard run_migrations path on a brand-new DB must apply 053
+        // without error even though `skills` is empty (no rows to mirror).
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON").unwrap();
+        run_migrations(&conn).unwrap();
+
+        // Category roots are still created (skill_categories is seeded by 044).
+        let root_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM skill_graph_nodes WHERE description LIKE 'category-root:%'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(root_count > 0, "category roots should be created even on fresh DB");
+
+        // No mirror nodes exist because there are no legacy skills.
+        let mirror_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM skill_graph_nodes WHERE legacy_skill_id IS NOT NULL",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(mirror_count, 0);
     }
 
     #[test]

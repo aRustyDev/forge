@@ -1,0 +1,132 @@
+<!-- migrated from: dev/modules.md -->
+- webui
+	- drag-n-drop
+	- code (md/latex)
+- server
+- search
+- job-board
+- storage
+- cli
+- tui
+- daemon
+- web
+	- scraper
+	- crawler
+	- browser (playwright)
+- export
+	- PDF
+	- DOCX
+	- Google Docs
+	- LaTeX
+	- Markdown (GFMD)
+	- JSON
+	- HTML
+
+
+## Data Schemas
+
+- Organizations
+- Individuals
+- Personas
+- Roles
+- Job-Description
+	- Role
+		- Summary
+		- Responsibilities
+		- Requirements
+		- Preferences
+		- Bonuses
+		- Disqualifier's
+		- Posture (Remote|Hybrid|On-Site|Mobile)
+		- Status (Full-Time|Part-Time|Contract|Intern)
+		- Travel
+		- Impact
+	- Compensation
+		- Base
+			- Low
+			- High
+		- Equity
+		- Bonuses
+		- Commissions
+		- Stock Purchase Plan
+		- Retirement
+			- Kinds
+			- Matching
+		- Unit (Year|Month|BiWeekly|Weekly|Hourly)
+		- Currency (Dollar|Euro|etc)
+		- PTO
+	- About
+		- Team
+		- Org
+		- Mission
+		- Privacy
+		- Accommodations
+		- Diversity
+		- Equity
+		- Inclusion
+		- Health
+			- Medical
+			- Vision
+			- Dental
+			- Mental
+			- Wellness
+			- Fitness
+		- Insurance
+			- Life
+			- Income Protection
+		- Family Planning
+			- Fertility Benefits
+			- Parental Leave
+		- Sick Leave
+		- Support
+			- Commuter Benefits
+			- Home Office Stipends
+			- Relocation Support
+			- Meal / Snacks
+		- Education
+- Experience
+	- Professional
+	- Projects
+	- Speaking
+	- Volunteering
+- Publications
+	- Blogs
+	- White papers
+	- Audio / Video
+		- Spotify
+		- YouTube
+		- SoundCloud
+	- Tutorials
+	- Social
+		- LinkedIn
+		- Twitter
+		- Mastodon
+		- 
+- Education
+	- Structured (ie College, Certs)
+		- Traditional
+		- Courses
+		- Workshops
+	- Un-structured (ie MOOCs, Tutorials, etc)
+	- Self-Directed (ie Research)
+	- Licenses
+- Recommendations
+- Verifications
+- Scores
+	- Tests
+- Languages
+- Associations
+- Interests
+	- Causes
+	- Hobbies
+	- Topics
+- About
+- Header
+- Contact
+	- URL
+	- Email
+	- Github
+	- LinkedIn
+	- Blog
+	- Phone
+	- Location

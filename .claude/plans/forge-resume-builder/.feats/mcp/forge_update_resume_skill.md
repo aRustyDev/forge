@@ -1,0 +1,2 @@
+- Should allow swapping bullet order within a subheading w/o Remove+ReAdd
+-

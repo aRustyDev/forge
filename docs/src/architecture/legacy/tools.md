@@ -1,0 +1,48 @@
+<!-- migrated from: dev/tools.md -->
+- UI
+- DataStore
+- Analytics Engine
+- Scraper/Crawler
+- Configuration Engine
+- Embedder
+- AI-BloodHound (Detect AI Written content)
+	- Work at the **sentence**, **paragraph**, and **document** levels
+	- Detections (Boolean or Signal generating)
+		- Semantic
+			- Logical Inconsistencies between two texts
+			- Sentence Structure
+			- Sentence Transition
+			- Tautology
+				- saying the same thing twice
+				- Ex: ‘We must come together to unite’
+			- Anecdote detection
+			- Information Depth Scoring
+			- Complexity
+			- Paraphrase Detection
+		- Sentimental
+			- Emotion Detection
+			- Word 'Generic-ness' Scoring
+		- Meta
+			- Sentence Length
+	- Analytics (Needs Signal)
+		- Anomalous
+			- Paraphase
+				- including literal translations of turns of phrases that don’t make sense
+			- Phrases
+		- Repetition (too many occurances)
+			- Sentence Structure
+			- Sentence Transition
+			- Phrases
+			- Words
+		- Uniformity (low entropy)
+			- Tone
+		- Predictability
+			- Lack of Burstiness (Sentence lengths & Complexity)
+		- Consistency (no change in direction)
+			- Style
+			- Tone
+			- Tense
+		- Un-Categorized
+			- perplexity
+			- Personality (Is this a composition of the others?)
+			- human voice (Is this a composition of the others?)

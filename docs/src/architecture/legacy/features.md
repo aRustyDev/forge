@@ -1,0 +1,25 @@
+<!-- migrated from: dev/features.md -->
+- Auto-math
+	- Tax-Rate -> after tax range
+- Auto-detect salary range
+- Spiders
+- Scraping
+- Schema'd Data Storage
+	- Vectors
+	- Graphs
+	- Relational
+	- Document
+- Cover Letter Planner
+- Job Application Tracker
+	- Status
+	- Endpoint
+	- Contacts
+	- Comments
+	- Documents (Resume, CoverLetter, CV, etc)
+	- Prep Work (Interview Questions, Take Homes, Coding Practice, Contributions, Publications, etc)
+- Experience Map
+	- Add Jobs/Projects/Workshops/etc
+	- Link related items
+	- Describe different tasks and responsibilities at each
+	- Support generating alternative rewordings with different perspectives
+- 

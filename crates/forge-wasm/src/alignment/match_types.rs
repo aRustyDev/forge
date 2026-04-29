@@ -71,6 +71,90 @@ pub fn alias_match(
     Ok(None)
 }
 
+/// Child match: JD asks broad, resume has specific.
+pub fn child_match(
+    jd_skill_id: &str,
+    resume_skill_ids: &HashSet<String>,
+    graph: &dyn SkillGraphTraversal,
+    weights: &MatchWeights,
+) -> Result<Option<MatchHit>, ForgeError> {
+    let children = graph.find_children(jd_skill_id)?;
+    for c in children {
+        if resume_skill_ids.contains(&c.id) {
+            return Ok(Some(MatchHit {
+                match_type: MatchType::Child,
+                resume_skill_id: c.id,
+                raw_score: weights.child,
+            }));
+        }
+    }
+    Ok(None)
+}
+
+/// Parent match: JD asks specific, resume has broad.
+pub fn parent_match(
+    jd_skill_id: &str,
+    resume_skill_ids: &HashSet<String>,
+    graph: &dyn SkillGraphTraversal,
+    weights: &MatchWeights,
+) -> Result<Option<MatchHit>, ForgeError> {
+    let parents = graph.find_parents(jd_skill_id)?;
+    for p in parents {
+        if resume_skill_ids.contains(&p.id) {
+            return Ok(Some(MatchHit {
+                match_type: MatchType::Parent,
+                resume_skill_id: p.id,
+                raw_score: weights.parent,
+            }));
+        }
+    }
+    Ok(None)
+}
+
+/// Sibling match: resume has a related-to alternative.
+pub fn sibling_match(
+    jd_skill_id: &str,
+    resume_skill_ids: &HashSet<String>,
+    graph: &dyn SkillGraphTraversal,
+    weights: &MatchWeights,
+) -> Result<Option<MatchHit>, ForgeError> {
+    use forge_core::types::skill_graph::EdgeType;
+    let siblings = graph.find_related(jd_skill_id, &[EdgeType::RelatedTo])?;
+    for s in siblings {
+        if resume_skill_ids.contains(&s.skill.id) {
+            return Ok(Some(MatchHit {
+                match_type: MatchType::Sibling,
+                resume_skill_id: s.skill.id,
+                raw_score: weights.sibling,
+            }));
+        }
+    }
+    Ok(None)
+}
+
+/// Cert match: resume has a certification that validates this JD skill.
+/// `validated_skill_ids` is pre-resolved upstream from cert→skill junction
+/// tables (no `EdgeType::Validates` exists in the graph today).
+pub fn cert_match(
+    jd_skill_id: &str,
+    validated_skill_ids: &HashSet<String>,
+    weights: &MatchWeights,
+) -> Option<MatchHit> {
+    if validated_skill_ids.contains(jd_skill_id) {
+        Some(MatchHit {
+            match_type: MatchType::Cert,
+            // The cert validates the requirement directly — no separate
+            // resume-side skill node. The resume_skill_id is the JD skill
+            // itself; provenance carries the actual cert via a separate
+            // path (engine.rs reads the cert from ResumeAlignmentInput).
+            resume_skill_id: jd_skill_id.to_string(),
+            raw_score: weights.cert,
+        })
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,5 +223,81 @@ mod tests {
         assert!(alias_match("kubernetes", &resume, &runtime, &weights)
             .unwrap()
             .is_none());
+    }
+
+    #[test]
+    fn child_match_fires_when_resume_has_specific() {
+        let runtime = fixture_runtime();
+        let resume = resume(&["k3s"]);
+        let weights = MatchWeights::default();
+        let hit = child_match("kubernetes", &resume, &runtime, &weights)
+            .unwrap()
+            .unwrap();
+        assert_eq!(hit.match_type, MatchType::Child);
+        assert_eq!(hit.resume_skill_id, "k3s");
+        assert_eq!(hit.raw_score, 0.9);
+    }
+
+    #[test]
+    fn child_match_misses_when_resume_lacks_specific() {
+        let runtime = fixture_runtime();
+        let resume = resume(&["python"]);
+        let weights = MatchWeights::default();
+        assert!(child_match("kubernetes", &resume, &runtime, &weights)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn parent_match_fires_when_resume_has_broad() {
+        let runtime = fixture_runtime();
+        let resume = resume(&["container-orch"]);
+        let weights = MatchWeights::default();
+        let hit = parent_match("kubernetes", &resume, &runtime, &weights)
+            .unwrap()
+            .unwrap();
+        assert_eq!(hit.match_type, MatchType::Parent);
+        assert_eq!(hit.resume_skill_id, "container-orch");
+        assert_eq!(hit.raw_score, 0.5);
+    }
+
+    #[test]
+    fn sibling_match_fires_when_resume_has_related() {
+        let runtime = fixture_runtime();
+        let resume = resume(&["pulumi"]);
+        let weights = MatchWeights::default();
+        let hit = sibling_match("terraform", &resume, &runtime, &weights)
+            .unwrap()
+            .unwrap();
+        assert_eq!(hit.match_type, MatchType::Sibling);
+        assert_eq!(hit.resume_skill_id, "pulumi");
+        assert_eq!(hit.raw_score, 0.4);
+    }
+
+    #[test]
+    fn sibling_match_misses_when_no_related_in_resume() {
+        let runtime = fixture_runtime();
+        let resume = resume(&["python"]);
+        let weights = MatchWeights::default();
+        assert!(sibling_match("terraform", &resume, &runtime, &weights)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn cert_match_fires_when_resume_cert_validates_skill() {
+        let validated: HashSet<String> = vec!["kubernetes".into()].into_iter().collect();
+        let weights = MatchWeights::default();
+        let hit = cert_match("kubernetes", &validated, &weights).unwrap();
+        assert_eq!(hit.match_type, MatchType::Cert);
+        assert_eq!(hit.resume_skill_id, "kubernetes");
+        assert_eq!(hit.raw_score, 0.95);
+    }
+
+    #[test]
+    fn cert_match_misses_when_resume_has_no_validating_cert() {
+        let validated: HashSet<String> = HashSet::new();
+        let weights = MatchWeights::default();
+        assert!(cert_match("kubernetes", &validated, &weights).is_none());
     }
 }

@@ -40,7 +40,7 @@ pub fn tiny_graph() -> SkillGraphSnapshot {
         // AliasOf edges link two canonical nodes (both must be real graph nodes).
         edge("kubernetes", "k8s", EdgeType::AliasOf),
         edge("container-orch", "kubernetes", EdgeType::ParentOf),
-        edge("kubernetes", "k3s", EdgeType::ChildOf),
+        edge("k3s", "kubernetes", EdgeType::ChildOf),
         edge("kubernetes", "docker-swarm", EdgeType::RelatedTo),
         edge("terraform", "pulumi", EdgeType::RelatedTo),
     ];

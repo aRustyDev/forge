@@ -132,6 +132,61 @@ impl EmbeddingNearestNeighbor for MockEmbeddingNN {
     }
 }
 
+/// Build a synthetic snapshot with `node_count` nodes named `skill-0`,
+/// `skill-1`, … and a sparse set of edges so the graph is non-trivial:
+///
+/// - Every 10 nodes form a parent chain (skill-0 → skill-10 → skill-20 …
+///   via `ParentOf` outgoing from the lower-indexed node).
+/// - Adjacent nodes within each chain group are siblings (`RelatedTo`).
+///
+/// Used by the alignment perf regression test.
+pub fn build_large_graph_bytes(node_count: usize) -> Vec<u8> {
+    let nodes: Vec<SnapshotNode> = (0..node_count)
+        .map(|i| SnapshotNode {
+            id: format!("skill-{i}"),
+            canonical_name: format!("Skill {i}"),
+            category: "general".into(),
+            aliases: vec![],
+            source: NodeSource::Curated,
+            confidence: 1.0,
+        })
+        .collect();
+    let mut edges: Vec<SnapshotEdge> = Vec::new();
+    for i in 0..node_count {
+        // ParentOf chain along multiples of 10.
+        if i % 10 == 0 && i + 10 < node_count {
+            edges.push(SnapshotEdge {
+                source_id: format!("skill-{i}"),
+                target_id: format!("skill-{}", i + 10),
+                edge_type: EdgeType::ParentOf,
+                weight: 1.0,
+                confidence: 1.0,
+                temporal_data: None,
+            });
+        }
+        // RelatedTo sibling between consecutive nodes within a chain group.
+        if i + 1 < node_count && (i + 1) % 10 != 0 {
+            edges.push(SnapshotEdge {
+                source_id: format!("skill-{i}"),
+                target_id: format!("skill-{}", i + 1),
+                edge_type: EdgeType::RelatedTo,
+                weight: 0.5,
+                confidence: 1.0,
+                temporal_data: None,
+            });
+        }
+    }
+    SkillGraphSnapshot::structural_only(
+        "perf-test-snapshot".to_string(),
+        "2026-04-28T00:00:00Z".to_string(),
+        nodes,
+        edges,
+        Vec::new(),
+    )
+    .encode()
+    .expect("large graph must encode")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

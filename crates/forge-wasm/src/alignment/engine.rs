@@ -404,4 +404,52 @@ mod tests {
         assert_eq!(entry.top_match_type, MatchType::Cert);
         assert!((entry.raw_score - 0.95).abs() < 1e-6);
     }
+
+    #[test]
+    #[cfg(not(debug_assertions))]
+    fn perf_budget_typical_resume_vs_jd() {
+        use crate::alignment::test_fixtures::build_large_graph_bytes;
+        use std::time::Instant;
+
+        let bytes = build_large_graph_bytes(1000);
+        let runtime = SkillGraphRuntime::from_snapshot(&bytes).expect("build runtime");
+        let nn = MockEmbeddingNN::empty();
+        let engine = AlignmentEngine::new(&runtime, &nn);
+
+        // 100-skill resume — half overlap with JD, half not.
+        let resume = ResumeAlignmentInput {
+            resume_id: "r-perf".into(),
+            skills: (0..100)
+                .map(|i| ResumeSkillRef {
+                    skill_id: format!("skill-{i}"),
+                    level: Some(SkillLevel::Mid),
+                    evidence: vec![],
+                })
+                .collect(),
+            validated_skill_ids: vec![],
+        };
+
+        // 50-skill JD — first 50 overlap with resume (direct hits guaranteed).
+        let jd = JdAlignmentInput {
+            jd_id: "jd-perf".into(),
+            skills: (0..50)
+                .map(|i| JdSkillRef {
+                    skill_id: format!("skill-{i}"),
+                    required_level: Some(SkillLevel::Senior),
+                    embedding: None,
+                })
+                .collect(),
+        };
+
+        let start = Instant::now();
+        let result = engine.align(&resume, &jd).expect("align must succeed");
+        let elapsed = start.elapsed();
+
+        assert_eq!(result.per_skill_scores.len(), 50);
+        assert!(
+            elapsed.as_millis() < 100,
+            "alignment must complete in <100ms; got {}ms",
+            elapsed.as_millis()
+        );
+    }
 }

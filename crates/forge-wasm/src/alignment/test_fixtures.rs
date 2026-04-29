@@ -16,27 +16,29 @@ use super::embedding_nn::EmbeddingNearestNeighbor;
 /// Build a tiny synthetic snapshot covering every traversal needed by the
 /// match-type tests. Nodes:
 ///
-/// - "kubernetes" — has alias "k8s", parent "container-orch" (via parent-of
-///   edge from container-orch → kubernetes), child "k3s" (via child-of from
-///   kubernetes → k3s), sibling "docker-swarm" (via related-to).
+/// - "kubernetes" — parent "container-orch" (via parent-of edge from
+///   container-orch → kubernetes), child "k3s" (via child-of from
+///   kubernetes → k3s), sibling "docker-swarm" (via related-to),
+///   alias "k8s" (via AliasOf edge).
 /// - "container-orch" — parent of "kubernetes" via ParentOf.
 /// - "k3s" — child of "kubernetes" via ChildOf.
 /// - "docker-swarm" — related-to "kubernetes".
+/// - "k8s" — alias of "kubernetes" via AliasOf edge (a separate canonical node).
 /// - "terraform" — related-to "pulumi".
 /// - "pulumi" — for sibling tests with terraform.
 pub fn tiny_graph() -> SkillGraphSnapshot {
     let nodes = vec![
-        snapshot_node("kubernetes", "Kubernetes", &["k8s"]),
+        snapshot_node("kubernetes", "Kubernetes", &[]),
         snapshot_node("container-orch", "Container Orchestration", &[]),
         snapshot_node("k3s", "K3s", &[]),
         snapshot_node("docker-swarm", "Docker Swarm", &[]),
+        snapshot_node("k8s", "K8s", &[]),
         snapshot_node("terraform", "Terraform", &[]),
         snapshot_node("pulumi", "Pulumi", &[]),
     ];
     let edges = vec![
-        // NOTE: AliasOf edges link two canonical nodes (e.g. legacy→canonical).
-        // The "k8s" alias on the kubernetes node is encoded in aliases[], not
-        // as an AliasOf edge (which would require k8s to be a standalone node).
+        // AliasOf edges link two canonical nodes (both must be real graph nodes).
+        edge("kubernetes", "k8s", EdgeType::AliasOf),
         edge("container-orch", "kubernetes", EdgeType::ParentOf),
         edge("kubernetes", "k3s", EdgeType::ChildOf),
         edge("kubernetes", "docker-swarm", EdgeType::RelatedTo),
@@ -135,10 +137,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tiny_graph_has_six_nodes_and_five_edges() {
+    fn tiny_graph_has_seven_nodes_and_five_edges() {
         let snap = tiny_graph();
-        assert_eq!(snap.header.nodes.len(), 6);
-        assert_eq!(snap.header.edges.len(), 4);
+        assert_eq!(snap.header.nodes.len(), 7);
+        assert_eq!(snap.header.edges.len(), 5);
     }
 
     #[test]
@@ -154,7 +156,7 @@ mod tests {
         let kube = find_node_by_id(&snap, "kubernetes").expect("kubernetes must exist");
         assert_eq!(kube.id, "kubernetes");
         assert_eq!(kube.canonical_name, "Kubernetes");
-        assert_eq!(kube.aliases, vec!["k8s".to_string()]);
+        assert!(kube.aliases.is_empty());
         assert!(kube.description.is_none());
         assert!(kube.embedding.is_none());
     }

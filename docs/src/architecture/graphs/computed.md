@@ -13,18 +13,24 @@ Resume ↔ JD matching via skill overlap. Forms when you connect JD requirements
 - **OSS:** Computed results stored in browser wa-sqlite (persisted across sessions, lost on browser data clear)
 - **SaaS:** Synced to D1 for multi-device access and historical tracking
 
-```sql
-alignment_results (
-  id TEXT PRIMARY KEY,
-  resume_id TEXT,
-  jd_id TEXT,
-  computed_at TIMESTAMP,
-  overall_score REAL,
-  gap_report JSON,
-  strength_report JSON,
-  coverage_report JSON
-)
+As shipped in migration 054 (forge-62kb, 2026-04-28). Gap/strength/coverage reports are nested inside `result_json`; surface columns are summary projections for fast list scans.
 
+```sql
+CREATE TABLE alignment_results (
+  id TEXT PRIMARY KEY,
+  resume_id TEXT NOT NULL,
+  jd_id TEXT NOT NULL,
+  computed_at INTEGER NOT NULL,        -- unix milliseconds
+  overall_score REAL NOT NULL,
+  gap_count INTEGER NOT NULL,
+  result_json TEXT NOT NULL            -- full AlignmentResult serialized
+) STRICT;
+
+CREATE INDEX idx_alignment_results_resume_jd
+  ON alignment_results(resume_id, jd_id, computed_at DESC);
+```
+
+```sql
 career_target_snapshots (
   id TEXT PRIMARY KEY,
   snapshot_at TIMESTAMP,

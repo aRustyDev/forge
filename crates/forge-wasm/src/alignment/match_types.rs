@@ -13,6 +13,7 @@ use forge_core::ForgeError;
 use serde::{Deserialize, Serialize};
 
 use super::config::MatchWeights;
+use super::embedding_nn::EmbeddingNearestNeighbor;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum MatchType {
@@ -153,6 +154,60 @@ pub fn cert_match(
     } else {
         None
     }
+}
+
+/// Embedding proximity match. `query_embedding` is the JD skill's embedding
+/// (caller supplies it). Returns the highest-scoring hit ∈ resume above
+/// `min_similarity`. Cosine similarity range is roughly [-1.0, 1.0]; values
+/// closer to 1.0 mean more similar.
+pub fn embedding_match(
+    query_embedding: &[f32],
+    resume_skill_ids: &HashSet<String>,
+    nn: &dyn EmbeddingNearestNeighbor,
+    weights: &MatchWeights,
+    min_similarity: f64,
+    top_k: usize,
+) -> Result<Option<MatchHit>, ForgeError> {
+    let hits = nn.search_by_embedding(query_embedding, top_k)?;
+    for (node, sim) in hits {
+        if (sim as f64) < min_similarity {
+            continue;
+        }
+        if resume_skill_ids.contains(&node.id) {
+            return Ok(Some(MatchHit {
+                match_type: MatchType::Embedding,
+                resume_skill_id: node.id,
+                raw_score: weights.embedding_max * (sim as f64),
+            }));
+        }
+    }
+    Ok(None)
+}
+
+/// Co-occurrence match. Returns Ok(None) when stats are empty (forge-c4i5
+/// hasn't shipped) OR when the JD skill is unknown to the graph (returns
+/// NotFound from the trait). Never panics.
+pub fn co_occurrence_match(
+    jd_skill_id: &str,
+    resume_skill_ids: &HashSet<String>,
+    graph: &dyn SkillGraphTraversal,
+    weights: &MatchWeights,
+) -> Result<Option<MatchHit>, ForgeError> {
+    let stats = match graph.co_occurrence_stats(jd_skill_id, None) {
+        Ok(s) => s,
+        Err(ForgeError::NotFound { .. }) => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    for entry in stats {
+        if resume_skill_ids.contains(&entry.skill.id) {
+            return Ok(Some(MatchHit {
+                match_type: MatchType::CoOccurrence,
+                resume_skill_id: entry.skill.id,
+                raw_score: weights.co_occurrence * entry.weight,
+            }));
+        }
+    }
+    Ok(None)
 }
 
 #[cfg(test)]
@@ -299,5 +354,76 @@ mod tests {
         let validated: HashSet<String> = HashSet::new();
         let weights = MatchWeights::default();
         assert!(cert_match("kubernetes", &validated, &weights).is_none());
+    }
+
+    // ---- Embedding ----
+
+    #[test]
+    fn embedding_match_fires_when_resume_skill_is_top_canned_hit() {
+        use crate::alignment::test_fixtures::{find_node_by_id, tiny_graph, MockEmbeddingNN};
+        let snap = tiny_graph();
+        let kube = find_node_by_id(&snap, "kubernetes").unwrap();
+        let mock = MockEmbeddingNN::with(vec![(kube, 0.85)]);
+        let resume = resume(&["kubernetes"]);
+        let weights = MatchWeights::default();
+        let hit = embedding_match(&[0.0; 384], &resume, &mock, &weights, 0.7, 20)
+            .unwrap()
+            .unwrap();
+        assert_eq!(hit.match_type, MatchType::Embedding);
+        assert_eq!(hit.resume_skill_id, "kubernetes");
+        assert!((hit.raw_score - 0.85).abs() < 1e-6);
+    }
+
+    #[test]
+    fn embedding_match_misses_when_similarity_below_threshold() {
+        use crate::alignment::test_fixtures::{find_node_by_id, tiny_graph, MockEmbeddingNN};
+        let snap = tiny_graph();
+        let kube = find_node_by_id(&snap, "kubernetes").unwrap();
+        let mock = MockEmbeddingNN::with(vec![(kube, 0.5)]); // below 0.7 threshold
+        let resume = resume(&["kubernetes"]);
+        let weights = MatchWeights::default();
+        assert!(embedding_match(&[0.0; 384], &resume, &mock, &weights, 0.7, 20)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn embedding_match_misses_when_top_hit_not_in_resume() {
+        use crate::alignment::test_fixtures::{find_node_by_id, tiny_graph, MockEmbeddingNN};
+        let snap = tiny_graph();
+        let kube = find_node_by_id(&snap, "kubernetes").unwrap();
+        let mock = MockEmbeddingNN::with(vec![(kube, 0.9)]);
+        let resume = resume(&["python"]); // resume doesn't contain kubernetes
+        let weights = MatchWeights::default();
+        assert!(embedding_match(&[0.0; 384], &resume, &mock, &weights, 0.7, 20)
+            .unwrap()
+            .is_none());
+    }
+
+    // ---- Co-occurrence ----
+
+    #[test]
+    fn co_occurrence_match_returns_none_when_runtime_returns_empty_stats() {
+        let runtime = fixture_runtime();
+        let resume = resume(&["pulumi"]);
+        let weights = MatchWeights::default();
+        let hit = co_occurrence_match("kubernetes", &resume, &runtime, &weights).unwrap();
+        assert!(
+            hit.is_none(),
+            "co-occurrence must return None when stats are empty (c4i5 not yet shipped)"
+        );
+    }
+
+    #[test]
+    fn co_occurrence_match_returns_none_when_skill_unknown_to_graph() {
+        let runtime = fixture_runtime();
+        let resume = resume(&["kubernetes"]);
+        let weights = MatchWeights::default();
+        let result = co_occurrence_match("does-not-exist", &resume, &runtime, &weights);
+        assert!(
+            matches!(result, Ok(None)),
+            "co-occurrence on unknown skill must yield Ok(None), got {:?}",
+            result
+        );
     }
 }

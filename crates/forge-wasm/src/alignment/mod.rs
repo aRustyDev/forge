@@ -27,9 +27,7 @@ pub mod wasm_bindings;
 // Task 12: uncomment when ready
 // pub use engine::AlignmentEngine;
 
-// Task 3: uncomment full level exports when ready
-pub use level::SkillLevel;
-// pub use level::{compute_level_multiplier, LevelMultipliers, SkillLevel};
+pub use level::{compute_level_multiplier, LevelMultipliers, SkillLevel};
 
 pub use match_types::MatchType;
 

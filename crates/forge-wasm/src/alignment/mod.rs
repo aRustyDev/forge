@@ -22,8 +22,7 @@ pub use config::{AlignmentConfig, MatchWeights};
 
 pub use embedding_nn::EmbeddingNearestNeighbor;
 
-// Task 12: uncomment when ready
-// pub use engine::AlignmentEngine;
+pub use engine::AlignmentEngine;
 
 pub use level::{compute_level_multiplier, LevelMultipliers, SkillLevel};
 

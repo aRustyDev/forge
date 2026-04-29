@@ -38,5 +38,10 @@ features = [
 
 # Native test harness — wasm-bindgen-test is layered on for in-browser tests
 # in the test-harness successor task.
+# rusqlite is only used on native targets (behind #[cfg(not(target_arch = "wasm32"))]).
+# Listing it here avoids it being pulled into the wasm32 build.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rusqlite = { workspace = true }
+
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

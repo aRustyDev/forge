@@ -34,7 +34,9 @@ pub fn tiny_graph() -> SkillGraphSnapshot {
         snapshot_node("pulumi", "Pulumi", &[]),
     ];
     let edges = vec![
-        edge("kubernetes", "k8s", EdgeType::AliasOf),
+        // NOTE: AliasOf edges link two canonical nodes (e.g. legacy→canonical).
+        // The "k8s" alias on the kubernetes node is encoded in aliases[], not
+        // as an AliasOf edge (which would require k8s to be a standalone node).
         edge("container-orch", "kubernetes", EdgeType::ParentOf),
         edge("kubernetes", "k3s", EdgeType::ChildOf),
         edge("kubernetes", "docker-swarm", EdgeType::RelatedTo),
@@ -136,7 +138,7 @@ mod tests {
     fn tiny_graph_has_six_nodes_and_five_edges() {
         let snap = tiny_graph();
         assert_eq!(snap.header.nodes.len(), 6);
-        assert_eq!(snap.header.edges.len(), 5);
+        assert_eq!(snap.header.edges.len(), 4);
     }
 
     #[test]

@@ -20,8 +20,7 @@ pub mod wasm_bindings;
 
 pub use config::{AlignmentConfig, MatchWeights};
 
-// Task 6: uncomment when ready
-// pub use embedding_nn::EmbeddingNearestNeighbor;
+pub use embedding_nn::EmbeddingNearestNeighbor;
 
 // Task 12: uncomment when ready
 // pub use engine::AlignmentEngine;

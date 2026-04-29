@@ -18,8 +18,7 @@ pub mod test_fixtures;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm_bindings;
 
-// Task 4: uncomment when ready
-// pub use config::{AlignmentConfig, MatchWeights};
+pub use config::{AlignmentConfig, MatchWeights};
 
 // Task 6: uncomment when ready
 // pub use embedding_nn::EmbeddingNearestNeighbor;

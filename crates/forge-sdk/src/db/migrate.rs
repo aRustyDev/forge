@@ -58,6 +58,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("051_extension_infra", include_str!("../../../../packages/core/src/db/migrations/051_extension_infra.sql")),
     ("052_skill_graph_schema", include_str!("../../../../packages/core/src/db/migrations/052_skill_graph_schema.sql")),
     ("053_skill_graph_initial_population", include_str!("../../../../packages/core/src/db/migrations/053_skill_graph_initial_population.sql")),
+    ("054_alignment_results", include_str!("../../../../packages/core/src/db/migrations/054_alignment_results.sql")),
 ];
 
 /// Run all pending migrations against the given connection.
@@ -696,5 +697,27 @@ mod tests {
                 "idx_skill_graph_edges_type".to_string(),
             ]
         );
+    }
+
+    // ------------------------------------------------------------------
+    // 054_alignment_results
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn migration_054_is_registered_with_alignment_results_ddl() {
+        let entry = MIGRATIONS
+            .iter()
+            .find(|(name, _)| name.starts_with("054_"))
+            .expect("expected migration 054 to be registered");
+        let (name, sql) = entry;
+        assert_eq!(*name, "054_alignment_results");
+        assert!(sql.contains("CREATE TABLE alignment_results"), "DDL must create alignment_results");
+        assert!(sql.contains("STRICT"), "table must be STRICT");
+        assert!(sql.contains("idx_alignment_results_resume_jd"), "index must exist");
+    }
+
+    #[test]
+    fn migration_count_is_52() {
+        assert_eq!(MIGRATIONS.len(), 52, "expected 52 migrations after adding 054_alignment_results");
     }
 }

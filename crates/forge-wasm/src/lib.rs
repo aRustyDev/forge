@@ -38,6 +38,7 @@
 
 use wasm_bindgen::prelude::*;
 
+pub mod alignment;
 pub mod database;
 pub mod error;
 pub mod skill_graph;

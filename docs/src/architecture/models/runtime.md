@@ -126,7 +126,7 @@ cargo install wasm-pack    # only needed for wasm-pack-build
 |-----------|------|--------|
 | Embeddings (10k × 384 × 4 bytes, raw bytes) | ~15MB | Format slot ready (forge-ubxb), payload deferred to forge-afyg |
 | Graph structure (JSON header: nodes + typed edges + market stats) | ~3MB | Implemented (forge-ubxb) |
-| HNSW index (pre-built, opaque blob) | ~5MB | Format slot ready, payload deferred to forge-afyg |
+| HNSW index (pre-built, opaque blob) | 0 bytes (MVP) | Format slot stays empty — forge-afyg builds the index at load time, keeping the snapshot library-agnostic during the HNSW lib evaluation |
 | **Total budget** | **<25MB** | Verified at 10k synthetic nodes with simulated embeddings |
 
 Acceptable for initial download, cached in IndexedDB thereafter. Compression (gzip/brotli) at the CDN layer would further reduce wire size; not part of the format itself.
@@ -144,15 +144,15 @@ Decision: include in one snapshot (larger, self-contained, full offline) vs sepa
 
 | Operation | Target | Notes |
 |-----------|--------|-------|
-| Snapshot load from IndexedDB | < 500ms | Deserialization + in-memory structure build |
+| Snapshot load from IndexedDB | < 500ms | Deserialization + in-memory structure build. forge-afyg measured ~28ms at 10k×384 (native release); WASM-release expected within 2-3×. |
 | Snapshot download from CDN | network-dependent | ~20MB, cached after first download |
 | Embedding model init (first load) | 2-5s | WASM compilation, one-time per session |
 | Single text embedding | ~50ms | After model init |
-| HNSW search (top-k at 10k) | < 50ms | Pre-built index |
+| HNSW search (top-k at 10k) | < 50ms | forge-afyg measured ~1ms native release with linear-scan prototype; will only get faster when a real HNSW lib lands. |
 | Full JD extraction | < 500ms | All 4 extractors + RRF fusion |
 | Alignment scoring (resume vs JD) | < 100ms | Graph traversal + scoring |
-| Skill autocomplete (per keystroke) | < 50ms | Embed + HNSW + fuzzy |
-| Memory footprint | < 150MB | Model (~80MB) + snapshot (~20MB) + runtime overhead |
+| Skill autocomplete (per keystroke) | < 50ms | forge-afyg measured <1ms native release for substring autocomplete (string-only — embedding step adds the ~50ms model latency above). |
+| Memory footprint (skill graph runtime, 10k×384) | ~17MB | Embeddings 15MB + petgraph + lookup maps. Independent of the embedding model's ~80MB. |
 
 ## Performance Optimizations
 

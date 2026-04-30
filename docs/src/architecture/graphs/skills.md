@@ -66,13 +66,54 @@ SnapshotHeader {
 
 Embeddings are stored as a contiguous packed array of native-endian f32 bytes, parallel to `nodes` (block `i` is `embeddings[i*dim*4 .. (i+1)*dim*4]`). The MVP requires either ALL or NONE of the nodes carry embeddings.
 
-HNSW_INDEX is opaque to forge-core; the runtime that consumes it (forge-afyg, usearch-rs / hnswlib-rs) chooses the on-disk format. Empty until the HNSW builder lands.
+HNSW_INDEX is opaque to forge-core; the runtime that consumes it (forge-afyg, hnsw_rs / instant-distance / usearch — under research) chooses the on-disk format. Empty in MVP snapshots — the prototype runtime BUILDS the index at load time from the raw embedding payload (see "Runtime loading" below), so the snapshot stays library-agnostic.
 
 **Compatibility:** every reader MUST refuse versions it doesn't know. Bumping `SNAPSHOT_FORMAT_VERSION` is required for any breaking change to the header schema or container layout.
 
 **Size budget:** the bead's acceptance criterion calls for under 25 MB at 10k nodes. Verified by `snapshot_at_10k_nodes_fits_under_25mb` in forge-core (10k nodes × 384-dim f32 embeddings + ~30k edges fits well under the budget without compression). HNSW + market stats will need to be folded in once they exist; the size test should be updated accordingly when those slots are populated.
 
 **ETag-based version checking** is HTTP plumbing rather than a property of this format — it lives at the CDN deployment layer (forge-4a01). Clients use the snapshot's `metadata.snapshot_id` as the cache key.
+
+## Runtime loading (forge-afyg)
+
+The WASM-side `SkillGraphRuntime` (in `crates/forge-wasm/src/skill_graph/runtime.rs`) consumes the snapshot eagerly at construction:
+
+```
+SkillGraphRuntime::from_snapshot(bytes: &[u8]) -> Result<Self, ForgeError>
+```
+
+After this returns, the runtime owns:
+
+1. `Vec<SnapshotNode>` indexed by internal `NodeIndex` (= position in `header.nodes`).
+2. Three `HashMap`s for O(1) entry-point lookups: `canonical_name → idx`, `alias → idx`, `id → idx`.
+3. A `petgraph::DiGraph<NodeIndex, EdgeData>` where edges carry `(edge_type, weight, confidence)` so trait methods (`find_related`, `n_hop_neighbors`) can return full `RelatedSkill` / `EdgeRow` rows without re-reading the snapshot.
+4. An `Option<HnswIndex>` built from the embedding payload at load time; `None` for structural-only snapshots.
+
+The trait methods follow the same direction conventions as the SQL impl. `co_occurrence_stats` is a prototype seam — it returns empty for known skill ids until forge-c4i5 populates the snapshot's `market_stats` slot.
+
+### HNSW backing impl — prototype
+
+The current `HnswIndex` is a brute-force linear-scan stub (cosine similarity over L2-normalized vectors). It's hidden behind a private module seam (`crates/forge-wasm/src/skill_graph/hnsw.rs`). When the long-term library evaluation completes (hnsw_rs vs instant-distance vs usearch), swapping the impl is a single-file change with no API or downstream churn. The seam exists explicitly because both `hnsw_rs` and `instant-distance` currently require workspace-level `getrandom` rustflags surgery to build for `wasm32-unknown-unknown` — out of scope for the SaaS prototype.
+
+### Measured performance (10k nodes × 384 dim, native release)
+
+| Operation | AC budget | Observed |
+|-----------|-----------|----------|
+| `from_snapshot` (load + petgraph + HNSW build) | < 500 ms | ~28 ms |
+| `search_by_embedding` top-10 | < 50 ms | ~1 ms |
+| `search_skills` autocomplete | < 50 ms | < 1 ms |
+
+WASM-release typically lands within 2-3× of native release for tight numerics; all three budgets carry comfortable headroom. See `perf_budgets_at_10k_nodes` in `runtime.rs` for the regression test.
+
+### JS API surface
+
+A `wasm_bindgen`-decorated wrapper (`SkillGraphRuntimeJs`) exposes:
+
+- `SkillGraphRuntime.fromSnapshot(Uint8Array)` — async constructor.
+- `runtime.searchSkills(query, top_k)` — substring autocomplete.
+- `runtime.searchByEmbedding(query: Float32Array, top_k)` — vector search for callers that already hold an embedding (forge-jsxn).
+
+Results are JSON-encoded strings to keep the WASM↔JS boundary simple. forge-5x2h owns the polished JS API; this is the minimum forge-afyg owes downstream consumers.
 
 ## Purpose
 
